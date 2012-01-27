@@ -1,0 +1,13 @@
+\.pyc$
+\.swp$
+\.orig$
+\.diff$
+^\.\#
+^\#
+^etags$
+^.ropeproject/
+^\.project$
+^\.pydevproject$
+^\.settings/
+.autosave$
+^\.search/
