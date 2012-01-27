@@ -1,5 +1,6 @@
 # -*- coding: gb2312 -*-
 # $Id: sql.py 47 2010-06-25 09:12:29Z scutwukai $
+# Forked from http://code.google.com/p/py-smart-sql-constructor/
 
 import copy
 
@@ -7,8 +8,6 @@ import copy
 class Error(Exception):
     pass
 
-
-##################################################################
 
 class MetaTable(type):
     def __getattr__(cls, key):
@@ -36,6 +35,13 @@ class Table(object):
 
     def __add__(self, obj):
         return TableSet(self).__add__(obj)
+
+    def __getattr__(self, name):
+        if self._alias:
+            a = self._alias
+        else:
+            a = self._name
+        return getattr(Field, u"{0}__{1}".format(a, name))
 
     @property
     def sql(self):
@@ -698,11 +704,22 @@ class UnionQuerySet(object):
 
         return " ".join(sql), params
 
+T, F, E, QS = Table, Field, Expr, QuerySet
 
+try:
+    from django.db.models import Model
+
+    @property
+    def ss(self):
+        return getattr(
+            Table,
+            self._meta.db_name
+        )
+    Model.ss = ss
+except:
+    pass
 
 if __name__ == "__main__":
-
-    T, F, E, QS = Table, Field, Expr, QuerySet
 
     print
     print "*******************************************"
