@@ -28,7 +28,6 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Topic :: Software Development :: Internationalization',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     url = "https://bitbucket.org/evotech/%s" % app_name,
