@@ -6,3 +6,5 @@ Contains 2 separated SQLBuilders:
 2. Extracted slightly SQLBuilder from SQLObject ORM http://sqlobject.org/ to be used without the rest of the library (not modified).
 
 sqlbuilder.py license is BSD, rest files (from SQLObject) - LGPL.
+
+See also http://ivan.allindustry.net/blog/2011/02/13/django-plyusy-i-minusy/ (Russian)
