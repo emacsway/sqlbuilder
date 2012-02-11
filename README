@@ -7,7 +7,11 @@ Contains 2 separated SQLBuilders:
 
 sqlbuilder.py license is BSD, rest files (from SQLObject) - LGPL.
 
-See also http://ivan.allindustry.net/blog/2011/02/13/django-plyusy-i-minusy/ (Russian)
+See also:
+
+  * http://ivan.allindustry.net/blog/2011/02/13/django-plyusy-i-minusy/ (Russian)
+  * http://ivan.allindustry.net/blog/2012/02/11/django-improved-sqlbuilder/ (Russian)
+  * http://ivan.allindustry.net/en/blog/2012/02/11/django-improved-sqlbuilder/ (English)
 
 Short manual for smartsql.py:
 
