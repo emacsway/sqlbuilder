@@ -5,12 +5,23 @@
 import copy
 
 
+class classproperty(object):
+    """Class property decorator"""
+    def __init__(self, getter):
+        self.getter = getter
+
+    def __get__(self, instance, owner):
+        return self.getter(owner)
+
+
 class Error(Exception):
     pass
 
 
 class MetaTable(type):
     def __getattr__(cls, key):
+        if key[0] == '_':
+            raise AttributeError
         temp = key.split("__")
         name = temp[0]
         alias = None
@@ -112,6 +123,8 @@ class TableSet(object):
 
 class MetaField(type):
     def __getattr__(cls, key):
+        if key[0] == '_':
+            raise AttributeError
         temp = key.split("__")
         name = temp[0]
         prefix = None
@@ -709,12 +722,14 @@ T, F, E, QS = Table, Field, Expr, QuerySet
 try:
     from django.db.models import Model
 
-    @property
-    def ss(self):
+
+    @classproperty
+    def ss(cls):
         return getattr(
             Table,
-            self._meta.db_name
+            cls._meta.db_table
         )
+
     Model.ss = ss
 except:
     pass
