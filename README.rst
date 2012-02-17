@@ -1,5 +1,6 @@
+===========
 SQLBuilder
-==========
+===========
 
 Contains 2 separated SQLBuilders:
 
