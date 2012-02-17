@@ -1,6 +1,5 @@
-# -*- restructuredtext -*-
-
 SQLBuilder
+==========
 
 Contains 2 separated SQLBuilders:
 
@@ -63,6 +62,7 @@ usage eg:
     QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
 
 My improvement:
+----------------
 
 .. sourcecode:: python
 
@@ -84,6 +84,7 @@ is equal to:
     t = (t1 * t2).on(t1.item_type == t2.type)
 
 Django integration.
+--------------------
 
 For Django model
 
