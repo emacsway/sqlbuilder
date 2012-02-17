@@ -30,7 +30,7 @@ condition operator: "&" stand for "AND", "|" stand for "OR"
 
 usage eg:
 
-.. highlight:: python
+::: python
 
     QS(T.base + T.grade + T.lottery).on(
         (F.base__type == F.grade__item_type) & (F.base__type == 1),
