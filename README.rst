@@ -30,6 +30,8 @@ condition operator: "&" stand for "AND", "|" stand for "OR"
 
 usage eg:
 
+::
+
     QS(T.base + T.grade + T.lottery).on(
         (F.base__type == F.grade__item_type) & (F.base__type == 1),
         F.base__type == F.lottery__item_type
@@ -63,14 +65,20 @@ usage eg:
 My improvement:
 ----------------
 
+::
+
     T.grade.item_type is equal to F.grade__item_type
 
 So,
+
+::
 
     t = T.grade
     t = (t * T.base).on(F.grade__item_type == F.base__type)
 
 is equal to:
+
+::
 
     t1 = T.grade
     t2 = T.base
@@ -95,10 +103,14 @@ So,
     t = T.grade
     t = (t * T.base).on(F.grade__item_type == F.base__type)
 
-is equal to::
+is equal to:
+
+::
 
     t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
 
 How to execute?
+
+::
 
     rows = Grade.objects.raw(*QS(t).select("*"))
