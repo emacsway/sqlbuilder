@@ -17,7 +17,8 @@ See also:
   * http://ivan.allindustry.net/blog/2012/02/11/django-improved-sqlbuilder/ (Russian)
   * http://ivan.allindustry.net/en/blog/2012/02/11/django-improved-sqlbuilder/ (English)
 
-Short manual for smartsql.py:
+Short manual for sqlbuilder.smartsql
+-------------------------------------
 
 table: "T.base" stand for "base", "T.base__a" stand for "base AS a"
 
@@ -29,7 +30,7 @@ condition operator: "&" stand for "AND", "|" stand for "OR"
 
 usage eg:
 
-.. sourcecode:: python
+.. highlight:: python
 
     QS(T.base + T.grade + T.lottery).on(
         (F.base__type == F.grade__item_type) & (F.base__type == 1),
