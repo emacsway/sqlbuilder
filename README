@@ -1,0 +1,116 @@
+-*- restructuredtext -*-
+
+SQLBuilder
+
+Contains 2 separated SQLBuilders:
+
+1. Fork from py-smart-sql-constructor http://code.google.com/p/py-smart-sql-constructor/ (modified).
+2. Extracted slightly SQLBuilder from SQLObject ORM http://sqlobject.org/ to be used without the rest of the library (not modified).
+
+LICENSE:
+
+1. sqlbuilder/sqlobject/* license is LGPL (extracted from SQLObject).
+2. sqlbuilder/smartsql/* and rest files - license is BSD.
+
+See also:
+
+  * http://ivan.allindustry.net/blog/2011/02/13/django-plyusy-i-minusy/ (Russian)
+  * http://ivan.allindustry.net/blog/2012/02/11/django-improved-sqlbuilder/ (Russian)
+  * http://ivan.allindustry.net/en/blog/2012/02/11/django-improved-sqlbuilder/ (English)
+
+Short manual for smartsql.py:
+
+table: "T.base" stand for "base", "T.base__a" stand for "base AS a"
+
+field: "F.id" stand for "id", "F.base__id" stand for "base.id"
+
+table operator: "*" stand for "JOIN", "+" stand for "LEFT JOIN"
+
+condition operator: "&" stand for "AND", "|" stand for "OR"
+
+usage eg:
+
+.. sourcecode:: python
+
+    QS(T.base + T.grade + T.lottery).on(
+        (F.base__type == F.grade__item_type) & (F.base__type == 1),
+        F.base__type == F.lottery__item_type
+    ).where(
+        (F.name == "name") & (F.status == 0) | (F.name == None)
+    ).select(F.type, F.grade__grade, F.lottery__grade)
+
+    # step by step
+
+    t = T.grade
+    QS(t).select(F.name)
+
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
+    QS(t).select(F.grade__name, F.base__img)
+
+    t = (t + T.lottery).on(F.base__type == F.lottery__item_type)
+    QS(t).select(F.grade__name, F.base__img, F.lottery__price)
+
+    w = (F.base__type == 1)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+
+    w = w & (F.grade__status == 0)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+
+    w = w | (F.lottery__item_type == None)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+
+    w = w & (F.base__status == 1)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+
+My improvement:
+
+.. sourcecode:: python
+
+    T.grade.item_type is equal to F.grade__item_type
+
+So,
+
+.. sourcecode:: python
+
+    t = T.grade
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
+
+is equal to:
+
+.. sourcecode:: python
+
+    t1 = T.grade
+    t2 = T.base
+    t = (t1 * t2).on(t1.item_type == t2.type)
+
+Django integration.
+
+For Django model
+
+.. sourcecode:: python
+
+    class Grade(django.db.models.Model):
+        ...
+        class Meta:
+            db_table = "grade"
+
+    T.grade is equal Grade.ss
+
+So,
+
+.. sourcecode:: python
+
+    t = T.grade
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
+
+is equal to:
+
+.. sourcecode:: python
+
+    t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
+
+How to execute?
+
+.. sourcecode:: python
+
+    rows = Grade.objects.raw(*QS(t).select("*"))
