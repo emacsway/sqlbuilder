@@ -95,7 +95,7 @@ For Django model
         class Meta:
             db_table = "grade"
 
-    T.grade is equal Grade.ss
+T.grade is equal Grade.ss
 
 So,
 
