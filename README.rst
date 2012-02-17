@@ -89,6 +89,8 @@ Django integration.
 
 For Django model
 
+::
+
     class Grade(django.db.models.Model):
         ...
         class Meta:
