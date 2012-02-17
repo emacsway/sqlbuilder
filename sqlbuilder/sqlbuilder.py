@@ -851,11 +851,11 @@ def _IN(item, list):
     return SQLOp("IN", item, list)
 
 def IN(item, list):
-    from sresults import SelectResults # Import here to avoid circular import
-    if isinstance(list, SelectResults):
-        query = list.queryForSelect()
-        query.ops['items'] = [list.sourceClass.q.id]
-        list = query
+    #from sresults import SelectResults # Import here to avoid circular import
+    #if isinstance(list, SelectResults):
+    #    query = list.queryForSelect()
+    #    query.ops['items'] = [list.sourceClass.q.id]
+    #    list = query
     if isinstance(list, Select):
         return INSubquery(item, list)
     else:
@@ -1347,4 +1347,5 @@ if __name__ == "__main__":
     for expr in tests.split('\n'):
         if not expr.strip(): continue
         if expr.startswith('>>> '):
-            expr = expr[4:]
+            expr = expr[4:];
+            print sqlrepr(eval(expr), 'postgres')
