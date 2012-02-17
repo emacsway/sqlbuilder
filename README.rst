@@ -28,71 +28,87 @@ condition operator: "&" stand for "AND", "|" stand for "OR"
 
 usage eg:
 
-QS(T.base + T.grade + T.lottery).on(
-    (F.base__type == F.grade__item_type) & (F.base__type == 1),
-    F.base__type == F.lottery__item_type
-).where(
-    (F.name == "name") & (F.status == 0) | (F.name == None)
-).select(F.type, F.grade__grade, F.lottery__grade)
+.. sourcecode:: python
 
-step by step
+    QS(T.base + T.grade + T.lottery).on(
+        (F.base__type == F.grade__item_type) & (F.base__type == 1),
+        F.base__type == F.lottery__item_type
+    ).where(
+        (F.name == "name") & (F.status == 0) | (F.name == None)
+    ).select(F.type, F.grade__grade, F.lottery__grade)
 
-t = T.grade
-QS(t).select(F.name)
+    # step by step
 
-t = (t * T.base).on(F.grade__item_type == F.base__type)
-QS(t).select(F.grade__name, F.base__img)
+    t = T.grade
+    QS(t).select(F.name)
 
-t = (t + T.lottery).on(F.base__type == F.lottery__item_type)
-QS(t).select(F.grade__name, F.base__img, F.lottery__price)
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
+    QS(t).select(F.grade__name, F.base__img)
 
-w = (F.base__type == 1)
-QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    t = (t + T.lottery).on(F.base__type == F.lottery__item_type)
+    QS(t).select(F.grade__name, F.base__img, F.lottery__price)
 
-w = w & (F.grade__status == 0)
-QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = (F.base__type == 1)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
 
-w = w | (F.lottery__item_type == None)
-QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = w & (F.grade__status == 0)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
 
-w = w & (F.base__status == 1)
-QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = w | (F.lottery__item_type == None)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+
+    w = w & (F.base__status == 1)
+    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
 
 My improvement:
 
-T.grade.item_type is equal to F.grade__item_type
+.. sourcecode:: python
+
+    T.grade.item_type is equal to F.grade__item_type
 
 So,
 
-t = T.grade
-t = (t * T.base).on(F.grade__item_type == F.base__type)
+.. sourcecode:: python
+
+    t = T.grade
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
 
 is equal to:
 
-t1 = T.grade
-t2 = T.base
-t = (t1 * t2).on(t1.item_type == t2.type)
+.. sourcecode:: python
+
+    t1 = T.grade
+    t2 = T.base
+    t = (t1 * t2).on(t1.item_type == t2.type)
 
 Django integration.
 
 For Django model
 
-class Grade(django.db.models.Model):
-    ...
-    class Meta:
-        db_table = "grade"
+.. sourcecode:: python
 
-T.grade is equal Grade.ss
+    class Grade(django.db.models.Model):
+        ...
+        class Meta:
+            db_table = "grade"
+
+    T.grade is equal Grade.ss
 
 So,
 
-t = T.grade
-t = (t * T.base).on(F.grade__item_type == F.base__type)
+.. sourcecode:: python
+
+    t = T.grade
+    t = (t * T.base).on(F.grade__item_type == F.base__type)
 
 is equal to:
 
-t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
+.. sourcecode:: python
+
+    t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
 
 How to execute?
 
-rows = Grade.objects.raw(*QS(t).select("*"))
+.. sourcecode:: python
+
+    rows = Grade.objects.raw(*QS(t).select("*"))
