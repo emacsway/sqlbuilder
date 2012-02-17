@@ -90,6 +90,8 @@ For Django model
 
 So,
 
+::
+
     t = T.grade
     t = (t * T.base).on(F.grade__item_type == F.base__type)
 
