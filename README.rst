@@ -4,7 +4,7 @@ SQLBuilder
 Contains 2 separated SQLBuilders:
 
 1. Fork from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_ (modified).
-2. Extracted slightly SQLBuilder from `SQLObject <http://sqlobject.org/>`_ ORM to be used without the rest of the library (not modified).
+2. Extracted slightly SQLBuilder from `SQLObject <http://sqlobject.org/>`_ ORM to be used without the rest of the library (almost not modified).
 
 LICENSE:
 
