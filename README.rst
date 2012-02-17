@@ -67,8 +67,6 @@ My improvement:
 
 So,
 
-.. sourcecode:: python
-
     t = T.grade
     t = (t * T.base).on(F.grade__item_type == F.base__type)
 
@@ -95,7 +93,7 @@ So,
     t = T.grade
     t = (t * T.base).on(F.grade__item_type == F.base__type)
 
-is equal to:
+is equal to::
 
     t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
 
