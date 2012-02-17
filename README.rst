@@ -65,9 +65,7 @@ usage eg:
 My improvement:
 ----------------
 
-::
-
-    T.grade.item_type is equal to F.grade__item_type
+T.grade.item_type is equal to F.grade__item_type
 
 So,
 
