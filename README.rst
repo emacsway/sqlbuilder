@@ -92,7 +92,7 @@ For Django model
 ::
 
     class Grade(django.db.models.Model):
-        ...
+        # ...
         class Meta:
             db_table = "grade"
 
