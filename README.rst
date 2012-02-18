@@ -130,7 +130,7 @@ Example of usage sqlbuilder.sqlobject in Django:
 ::
 
     from sqlbuilder.sqlobject import Select, LIKE, sqlrepr
-    from sqlbuilder.models import SQLALCHEMY_DIALECT
+    from sqlbuilder.models import SQLOBJECT_DIALECT
     
     s = Select([Address.so.name, Address.so.state], where=LIKE(Address.so.name, "%ian%"))
     rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
