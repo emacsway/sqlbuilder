@@ -5,7 +5,7 @@ SQLBuilder
 Contains 2 separated SQLBuilders:
 
 1. Fork from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_ (modified).
-2. Extracted slightly SQLBuilder from `SQLObject <http://sqlobject.org/>`_ ORM to be used without the rest of the library (almost non-modified).
+2. Extracted slightly `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ ORM to be used without the rest of the library (almost non-modified).
 
 LICENSE:
 
@@ -89,7 +89,7 @@ Django integration.
 Simple add "sqlbuilder" to your INSTALLED_APPS.
 
 
-Integration to Django sqlbuilder.smartsql
+Integration sqlbuilder.smartsql to Django
 ------------------------------------------
 
 For Django model
@@ -122,8 +122,25 @@ How to execute?
 
     rows = Grade.objects.raw(*QS(t).select("*"))
 
-Integration to Django sqlalchemy.sql
+Integration sqlbuilder.sqlobject to Django
+-------------------------------------------
+
+Example of usage sqlbuilder.sqlobject in Django:
+
+::
+
+    from sqlbuilder.sqlobject import Select, LIKE, sqlrepr
+    from sqlbuilder.models import SQLALCHEMY_DIALECT
+    
+    s = Select([Address.so.name, Address.so.state], where=LIKE(Address.so.name, "%ian%"))
+    rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
+
+Integration sqlalchemy.sql to Django
 -------------------------------------
+
+SQLBuilder library does not contains
+`sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_,
+so, you need to install additionally sqlalchemy to your python environment.
 
 Example of usage sqlalchemy.sql in Django:
 

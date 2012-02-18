@@ -36,6 +36,23 @@ if SMARTSQL_USE:
 if SQLOBJECT_USE:
     import sqlobject
 
+    SQLOBJECT_DIALECTS = {
+        'sqlite3': 'sqlite',
+        'mysql': 'mysql',
+        'postgresql': 'postgres',
+        'postgresql_psycopg2': 'postgres',
+        'postgis': 'postgres',
+        'oracle': 'oracle',
+    }
+
+    def get_so_dialect():
+        """Returns instance of Dialect"""
+        engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
+        return SQLOBJECT_DIALECTS[engine]
+
+    SQLOBJECT_DIALECT = get_so_dialect()
+    settings.SQLBUILDER_SQLOBJECT_DIALECT = SQLOBJECT_DIALECT
+
     @classproperty
     def so(cls):
         return getattr(
