@@ -51,11 +51,12 @@ try:
     class VirtualColumns(object):
         """Virtual column class."""
         _table = None
-        _columns = {}
+        _columns = None
 
         def __init__(self, table=None):
             """Constructor"""
             self._table = table
+            self._columns = {}
 
         def __getattr__(self, name):
             """Creates column on fly."""
@@ -76,15 +77,24 @@ try:
 
     @classproperty
     def sa(cls):
-        return sqlalchemy.sql.table(cls._meta.db_table)
+        if getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), None) is None:
+            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS),
+                    sqlalchemy.sql.table(cls._meta.db_table))
+        return getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS))
 
     setattr(Model, SQLALCHEMY_ALIAS, sa)
 
     # Example of usage:
     # from sqlalchemy.sql import select, table
+    # from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
     # u = table('user')  # or User.sa
     # p = table('profile')  # or Profile.sa
-    # print select(['*']).select_from(u.join(p, u.vc.id==p.vc.uid))
+    # s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
+    # sc = s.compile(dialect=PGDialect_psycopg2())
+    # print unicode(sc), sc.params
+    # qs = User.objects.raw(unicode(sc), sc.params)
+    # for i in qs: print i
+    
 
 except ImportError:
     pass
