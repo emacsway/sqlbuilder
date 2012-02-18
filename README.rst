@@ -140,7 +140,7 @@ Integration sqlalchemy.sql to Django
 
 SQLBuilder library does not contains
 `sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_,
-so, you need to install additionally sqlalchemy to your python environment.
+so, you need to install additionally sqlalchemy to your Python environment.
 
 Example of usage sqlalchemy.sql in Django:
 
