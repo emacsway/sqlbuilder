@@ -132,6 +132,7 @@ Example of usage sqlbuilder.sqlobject in Django:
     from sqlbuilder.sqlobject import Select, LIKE, sqlrepr
     from sqlbuilder.models import SQLOBJECT_DIALECT
     
+    # Address is subclass of django.db.models.Model
     s = Select([Address.so.name, Address.so.state], where=LIKE(Address.so.name, "%ian%"))
     rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
 
@@ -149,6 +150,7 @@ Example of usage sqlalchemy.sql in Django:
     from sqlalchemy.sql import select, table
     from sqlbuilder.models import SQLALCHEMY_DIALECT
     
+    # User, Profile is subclasses of django.db.models.Model
     dialect = User.sa.dialect  # or SQLALCHEMY_DIALECT
     u = User.sa  # or table('user')
     p = Profile.sa  # or table('profile')
