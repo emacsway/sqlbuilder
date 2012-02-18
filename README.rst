@@ -137,6 +137,6 @@ Example of usage sqlalchemy.sql in Django:
     p = Profile.sa  # or table('profile')
     s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
     sc = s.compile(dialect=dialect)
-    qs = User.objects.raw(unicode(sc), sc.params)
-    for i in qs:
-        print i
+    rows = User.objects.raw(unicode(sc), sc.params)
+    for row in rows:
+        print row

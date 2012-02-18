@@ -68,6 +68,7 @@ try:
         return cls()
 
     SQLALCHEMY_DIALECT = get_sa_dialect()
+    settings.SQLBUILDER_SQLALCHEMY_DIALECT = SQLALCHEMY_DIALECT
 
     class VirtualColumns(object):
         """Virtual column class."""
