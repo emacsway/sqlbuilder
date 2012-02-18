@@ -7,6 +7,10 @@ Contains 2 separated SQLBuilders:
 1. Fork from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_ (modified).
 2. Extracted slightly `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ ORM to be used without the rest of the library (almost non-modified).
 
+Also, SQLBuilder allows to use
+`sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_
+in Django projects.
+
 LICENSE:
 
 1. sqlbuilder/sqlobject/* license is LGPL (extracted from SQLObject).
@@ -140,7 +144,7 @@ Integration sqlalchemy.sql to Django
 -------------------------------------
 
 SQLBuilder library does not contains
-`sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_,
+`sqlalchemy.sql`_,
 so, you need to install additionally sqlalchemy to your Python environment.
 
 Example of usage sqlalchemy.sql in Django:
