@@ -5,15 +5,6 @@
 import copy
 
 
-class classproperty(object):
-    """Class property decorator"""
-    def __init__(self, getter):
-        self.getter = getter
-
-    def __get__(self, instance, owner):
-        return self.getter(owner)
-
-
 class Error(Exception):
     pass
 
@@ -718,21 +709,6 @@ class UnionQuerySet(object):
         return " ".join(sql), params
 
 T, F, E, QS = Table, Field, Expr, QuerySet
-
-try:
-    from django.db.models import Model
-
-
-    @classproperty
-    def ss(cls):
-        return getattr(
-            Table,
-            cls._meta.db_table
-        )
-
-    Model.ss = ss
-except:
-    pass
 
 if __name__ == "__main__":
 

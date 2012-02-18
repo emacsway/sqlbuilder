@@ -86,6 +86,8 @@ is equal to:
 Django integration.
 --------------------
 
+Simple add "sqlbuilder" to your INSTALLED_APPS.
+
 For Django model
 
 ::
