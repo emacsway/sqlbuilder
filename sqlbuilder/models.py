@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.db import connection
 from django.db.models import Model
+from django.utils.importlib import import_module
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
 SMARTSQL_USE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE', True)
@@ -48,6 +50,25 @@ try:
         raise ImportError
     import sqlalchemy.sql
 
+    SQLALCHEMY_DIALECTS = {
+        'sqlite3': 'sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite',
+        'mysql': 'sqlalchemy.dialects.mysql.mysqldb.MySQLDialect_mysqldb',
+        'postgresql': 'sqlalchemy.dialects.postgresql.pypostgresql.PGDialect_pypostgresql',
+        'postgresql_psycopg2': 'sqlalchemy.dialects.postgresql.psycopg2.PGDialect_psycopg2',
+        'postgis': 'sqlalchemy.dialects.postgresql.psycopg2.PGDialect_psycopg2',
+        'oracle': 'sqlalchemy.dialects.oracle.cx_oracle.OracleDialect_cx_oracle',
+    }
+
+    def get_sa_dialect():
+        """Returns instance of Dialect"""
+        engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
+        module_name, cls_name = SQLALCHEMY_DIALECTS[engine].rsplit('.', 1)
+        module = import_module(module_name)
+        cls = getattr(module, cls_name)
+        return cls()
+
+    SQLALCHEMY_DIALECT = get_sa_dialect()
+
     class VirtualColumns(object):
         """Virtual column class."""
         _table = None
@@ -78,23 +99,12 @@ try:
     @classproperty
     def sa(cls):
         if getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), None) is None:
-            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS),
-                    sqlalchemy.sql.table(cls._meta.db_table))
+            table = sqlalchemy.sql.table(cls._meta.db_table)
+            table.dialect = SQLALCHEMY_DIALECT
+            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), table)
         return getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS))
 
     setattr(Model, SQLALCHEMY_ALIAS, sa)
-
-    # Example of usage:
-    # from sqlalchemy.sql import select, table
-    # from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
-    # u = table('user')  # or User.sa
-    # p = table('profile')  # or Profile.sa
-    # s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
-    # sc = s.compile(dialect=PGDialect_psycopg2())
-    # print unicode(sc), sc.params
-    # qs = User.objects.raw(unicode(sc), sc.params)
-    # for i in qs: print i
-    
 
 except ImportError:
     pass

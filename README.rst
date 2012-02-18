@@ -19,7 +19,7 @@ See also:
   * http://ivan.allindustry.net/en/blog/2012/02/11/django-improved-sqlbuilder/ (English)
 
 Short manual for sqlbuilder.smartsql
--------------------------------------
+=====================================
 
 table: "T.base" stand for "base", "T.base__a" stand for "base AS a"
 
@@ -84,9 +84,13 @@ is equal to:
     t = (t1 * t2).on(t1.item_type == t2.type)
 
 Django integration.
---------------------
+=====================
 
 Simple add "sqlbuilder" to your INSTALLED_APPS.
+
+
+Integration to Django sqlbuilder.smartsql
+------------------------------------------
 
 For Django model
 
@@ -117,3 +121,22 @@ How to execute?
 ::
 
     rows = Grade.objects.raw(*QS(t).select("*"))
+
+Integration to Django sqlalchemy.sql
+-------------------------------------
+
+Example of usage sqlalchemy.sql in Django:
+
+::
+
+    from sqlalchemy.sql import select, table
+    from sqlbuilder.models import SQLALCHEMY_DIALECT
+    
+    dialect = User.sa.dialect  # or SQLALCHEMY_DIALECT
+    u = User.sa  # or table('user')
+    p = Profile.sa  # or table('profile')
+    s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
+    sc = s.compile(dialect=dialect)
+    qs = User.objects.raw(unicode(sc), sc.params)
+    for i in qs:
+        print i
