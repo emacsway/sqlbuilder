@@ -1,6 +1,7 @@
 from django.conf import settings
-from django.db import connection
+from django.db import connection, connections
 from django.db.models import Model
+from django.db.models.query import RawQuerySet
 from django.utils.importlib import import_module
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
@@ -126,3 +127,36 @@ try:
 
 except ImportError:
     pass
+
+# Fixing django.db.models.query.RawQuerySet
+
+
+def count(self):
+    """Returns count of rows"""
+    sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(self.query.sql)
+    cursor = connections[self.query.using].cursor()
+    cursor.execute(sql)
+    row = cursor.fetchone()
+    return row[0]
+
+
+def __getslice__(self, i, j):
+    """Returns sliced instance of self.__class__"""
+    i = i or 0
+    sql = self.query.sql
+    if j:
+        limit = j - i
+        if limit > 0:
+            sql = u"{0} LIMIT {1:d}".format(sql, limit)
+    if i:
+        sql = u"{0} OFFSET {1:d}".format(sql, i)
+    return self.__class__(sql, model=self.model, query=None,
+                          params=self.params, translations=self.translations,
+                          using=self.db)
+
+if not hasattr(RawQuerySet, 'count'):
+    RawQuerySet.count = count
+if not hasattr(RawQuerySet, '__len__'):
+    RawQuerySet.__len__ = count
+if not hasattr(RawQuerySet, '__getslice__'):
+    RawQuerySet.__getslice__ = __getslice__

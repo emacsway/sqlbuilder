@@ -163,3 +163,11 @@ Example of usage sqlalchemy.sql in Django:
     rows = User.objects.raw(unicode(sc), sc.params)
     for row in rows:
         print row
+
+Paginator
+==========
+django.db.models.query.RawQuerySet `does not supports __len__() and __getslice__()
+<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_ methods,
+so it can cause problems with pagination.
+
+For this reason, SQLBuilder fixes this issue.
