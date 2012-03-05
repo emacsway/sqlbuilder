@@ -13,12 +13,12 @@ class MetaTable(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        temp = key.split("__")
-        name = temp[0]
+        pieces = key.split("__", 1)
+        name = pieces[0]
         alias = None
         
-        if len(temp) > 1:
-            alias = temp[1]
+        if len(pieces) > 1:
+            alias = pieces[1]
 
         return cls(name, alias)
 
@@ -116,23 +116,27 @@ class MetaField(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        temp = key.split("__")
-        name = temp[0]
+        pieces = key.split("__", 2)
+        name = pieces[0]
         prefix = None
+        alias = None
         
-        if len(temp) > 1:
-            prefix = temp[0]
-            name = temp[1]
-        
-        return cls(name, prefix)
+        if len(pieces) > 1:
+            prefix = pieces[0]
+            name = pieces[1]
+        if len(pieces) > 2:
+            alias = pieces[2]
+            
+        return cls(name, prefix, alias)
 
 
 class Field(object):
     __metaclass__ = MetaField
     
-    def __init__(self, name, prefix=None):
+    def __init__(self, name, prefix=None, alias=None):
         self._name = name
         self._prefix = prefix
+        self._alias = alias
 
     def __eq__(self, f):
         if f is None:
@@ -219,7 +223,10 @@ class Field(object):
 
     @property
     def sql(self):
-        return ".".join((self._prefix, self._name)) if self._prefix else self._name
+        sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
+        if self._alias:
+            sql = "{0} AS {1}".format(sql, self._alias)
+        return sql
 
 
 class Condition(object):
