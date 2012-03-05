@@ -215,8 +215,10 @@ class Field(object):
 
         return Condition(self.__sqlrepr__() + " LIKE %s", [f])
 
-    def __sqlrepr__(self):
+    def __sqlrepr__(self, repr=False):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
+        if definition:
+            return self._alias or sql
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
         return sql
@@ -408,7 +410,7 @@ def _gen_order_by_list(f_list, direct="ASC"):
 
 
 def _gen_f_list(f_list):
-    return ", ".join([(f.__sqlrepr__() if isinstance(f, Field) else f) for f in f_list])
+    return ", ".join([(f.__sqlrepr__(repr=True) if isinstance(f, Field) else f) for f in f_list])
 
 
 def _gen_v_list(v_list, params):
