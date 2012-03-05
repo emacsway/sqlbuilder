@@ -482,7 +482,17 @@ class QuerySet(object):
         return self
 
     def where(self, c):
-        self._wheres = c
+        if self._wheres is None:
+            self._wheres = c
+        else:
+            self.wheres = self.wheres & c
+        return self
+
+    def or_where(self, c):
+        if self._wheres is None:
+            self._wheres = c
+        else:
+            self.wheres = self.wheres | c
         return self
 
     def group_by(self, *f_list):
@@ -492,7 +502,18 @@ class QuerySet(object):
         return self
 
     def having(self, c):
-        self._havings = c
+        if self._havings is None:
+            self._havings = c
+        else:
+            self.havings = self.havings & c
+        return self
+        return self
+
+    def or_having(self, c):
+        if self._havings is None:
+            self._havings = c
+        else:
+            self.havings = self.havings | c
         return self
 
     @opt_checker(["desc"])
