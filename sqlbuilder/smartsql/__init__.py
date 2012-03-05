@@ -16,7 +16,7 @@ class MetaTable(type):
         pieces = key.split("__", 1)
         name = pieces[0]
         alias = None
-        
+
         if len(pieces) > 1:
             alias = pieces[1]
 
@@ -25,7 +25,7 @@ class MetaTable(type):
 
 class Table(object):
     __metaclass__ = MetaTable
-    
+
     def __init__(self, name, alias=None):
         self._name = name
         self._alias = alias
@@ -45,22 +45,20 @@ class Table(object):
             a = self._name
         return getattr(Field, u"{0}__{1}".format(a, name))
 
-    @property
-    def sql(self):
+    def __sqlrepr__(self):
         sql = [self._name]
-        
+
         if self._join:
             sql.insert(0, self._join)
         if self._alias:
             sql.extend(["AS", self._alias])
         if self._on:
-            sql.extend(["ON", "(%s)" % (self._on.sql,)])
+            sql.extend(["ON", "(%s)" % (self._on.__sqlrepr__(),)])
 
         return " ".join(sql)
 
-    @property
-    def params(self):
-        return self._on.params if self._on else []
+    def __params__(self):
+        return self._on.__params__() if self._on else []
 
 
 class TableSet(object):
@@ -76,24 +74,22 @@ class TableSet(object):
 
     def __add__(self, obj):
         return self._add_join("LEFT JOIN", obj)
-        
-    @property
-    def sql(self):
-        sql = [" ".join([k.sql for k in self._join_list])]
+
+    def __sqlrepr__(self):
+        sql = [" ".join([k.__sqlrepr__() for k in self._join_list])]
 
         if self._join:
             sql[0] = "(%s)" % (sql[0],)
             sql.insert(0, self._join)
         if self._on:
-            sql.extend(["ON", "(%s)" % (self._on.sql,)])
+            sql.extend(["ON", "(%s)" % (self._on.__sqlrepr__(),)])
 
         return " ".join(sql)
-            
-    @property
-    def params(self):
+
+    def __params__(self):
         params = []
         for sql_obj in self._join_list:
-            params.extend(sql_obj.params)
+            params.extend(sql_obj.__params__())
         return params
 
     #public func
@@ -106,8 +102,6 @@ class TableSet(object):
         obj._join = join_type
         self._join_list.append(obj)
         return self
-    
-
 
 ##################################################################
 
@@ -120,19 +114,19 @@ class MetaField(type):
         name = pieces[0]
         prefix = None
         alias = None
-        
+
         if len(pieces) > 1:
             prefix = pieces[0]
             name = pieces[1]
         if len(pieces) > 2:
             alias = pieces[2]
-            
+
         return cls(name, prefix, alias)
 
 
 class Field(object):
     __metaclass__ = MetaField
-    
+
     def __init__(self, name, prefix=None, alias=None):
         self._name = name
         self._prefix = prefix
@@ -140,89 +134,88 @@ class Field(object):
 
     def __eq__(self, f):
         if f is None:
-            return Condition("%s IS NULL" % (self.sql,))
-        
+            return Condition("%s IS NULL" % (self.__sqlrepr__(),))
+
         if isinstance(f, Field):
-            return Condition("%s = %s" % (self.sql, f.sql))
+            return Condition("%s = %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s = %s" % (self.sql, f.sql), f.params)
+            return Condition("%s = %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
         if isinstance(f, list) or isinstance(f, tuple):
             if len(f) < 1:
                 raise ("Empty list is not allowed")
-                
-            sql = ", ".join(["%s" for i in xrange(len(f))])
-            return Condition("%s IN (%s)" % (self.sql, sql), list(f))
 
-        return Condition(self.sql + " = %s", [f])
+            sql = ", ".join(["%s" for i in xrange(len(f))])
+            return Condition("%s IN (%s)" % (self.__sqlrepr__(), sql), list(f))
+
+        return Condition(self.__sqlrepr__() + " = %s", [f])
 
     def __ne__(self, f):
         if f is None:
-            return Condition("%s IS NOT NULL" % (self.sql,))
-        
+            return Condition("%s IS NOT NULL" % (self.__sqlrepr__(),))
+
         if isinstance(f, Field):
-            return Condition("%s <> %s" % (self.sql, f.sql))
+            return Condition("%s <> %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s <> %s" % (self.sql, f.sql), f.params)
+            return Condition("%s <> %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
         if isinstance(f, list) or isinstance(f, tuple):
             if len(f) < 1:
                 raise Error("Empty list is not allowed")
-                
-            sql = ", ".join(["%s" for i in xrange(len(f))])
-            return Condition("%s NOT IN (%s)" % (self.sql, sql), list(f))
 
-        return Condition(self.sql + " <> %s", [f])
+            sql = ", ".join(["%s" for i in xrange(len(f))])
+            return Condition("%s NOT IN (%s)" % (self.__sqlrepr__(), sql), list(f))
+
+        return Condition(self.__sqlrepr__() + " <> %s", [f])
 
     def __gt__(self, f):
         if isinstance(f, Field):
-            return Condition("%s > %s" % (self.sql, f.sql))
+            return Condition("%s > %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s > %s" % (self.sql, f.sql), f.params)
+            return Condition("%s > %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
-        return Condition(self.sql + " > %s", [f])
+        return Condition(self.__sqlrepr__() + " > %s", [f])
 
     def __lt__(self, f):
         if isinstance(f, Field):
-            return Condition("%s < %s" % (self.sql, f.sql))
+            return Condition("%s < %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s < %s" % (self.sql, f.sql), f.params)
+            return Condition("%s < %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
-        return Condition(self.sql + " < %s", [f])
+        return Condition(self.__sqlrepr__() + " < %s", [f])
 
     def __ge__(self, f):
         if isinstance(f, Field):
-            return Condition("%s >= %s" % (self.sql, f.sql))
+            return Condition("%s >= %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s >= %s" % (self.sql, f.sql), f.params)
+            return Condition("%s >= %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
-        return Condition(self.sql + " >= %s", [f])
+        return Condition(self.__sqlrepr__() + " >= %s", [f])
 
     def __le__(self, f):
         if isinstance(f, Field):
-            return Condition("%s <= %s" % (self.sql, f.sql))
+            return Condition("%s <= %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s <= %s" % (self.sql, f.sql), f.params)
+            return Condition("%s <= %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
-        return Condition(self.sql + " <= %s", [f])
+        return Condition(self.__sqlrepr__() + " <= %s", [f])
 
     def __mod__(self, f):
         if isinstance(f, Field):
-            return Condition("%s LIKE %s" % (self.sql, f.sql))
+            return Condition("%s LIKE %s" % (self.__sqlrepr__(), f.__sqlrepr__()))
 
         if isinstance(f, Expr):
-            return Condition("%s LIKE %s" % (self.sql, f.sql), f.params)
+            return Condition("%s LIKE %s" % (self.__sqlrepr__(), f.__sqlrepr__()), f.__params__())
 
-        return Condition(self.sql + " LIKE %s", [f])
+        return Condition(self.__sqlrepr__() + " LIKE %s", [f])
 
-    @property
-    def sql(self):
+    def __sqlrepr__(self):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
@@ -237,40 +230,38 @@ class Condition(object):
     def __and__(self, c):
         if isinstance(c, str):
             return self & Condition(c)
-        
+
         if isinstance(c, Condition):
             return ConditionSet(self) & c
 
         if isinstance(c, ConditionSet):
             return c.__rand__(self)
-        
+
         raise TypeError("Can't do operation with %s" % str(type(c)))
 
     def __or__(self, c):
         if isinstance(c, str):
             return self | Condition(c)
-        
+
         if isinstance(c, Condition):
             return ConditionSet(self) | c
-        
+
         if isinstance(c, ConditionSet):
             return c.__ror__(self)
-        
+
         raise TypeError("Can't do operation with %s" % str(type(c)))
 
-    @property
-    def sql(self):
+    def __sqlrepr__(self):
         return self._sql
 
-    @property
-    def params(self):
+    def __params__(self):
         return self._params
 
 
 class ConditionSet(object):
     OP_AND = 0
     OP_OR = 1
-    
+
     def __init__(self, c=None):
         self._empty = True
         self._last_op = None
@@ -278,8 +269,8 @@ class ConditionSet(object):
             self._init(c)
 
     def _init(self, c):
-        self._sql = c.sql
-        self._params = c.params
+        self._sql = c.__sqlrepr__()
+        self._params = c.__params__()
         if isinstance(c, ConditionSet):
             self._last_op = c._last_op
         self._empty = False
@@ -302,12 +293,12 @@ class ConditionSet(object):
 
         if self._empty:
             return self._init(c)
-        
+
         if self._last_op is not None and self._last_op == ConditionSet.OP_OR:
             self._sql = "(%s)" % (self._sql,)
-               
-        self._sql = "%s AND %s" % (c.sql, self._sql)
-        self._pre_extend(self._params, c.params)
+
+        self._sql = "%s AND %s" % (c.__sqlrepr__(), self._sql)
+        self._pre_extend(self._params, c.__params__())
         self._last_op = ConditionSet.OP_AND
         return self
 
@@ -324,16 +315,16 @@ class ConditionSet(object):
 
         if self._empty:
             return self._init(c)
-        
+
         if self._last_op is not None and self._last_op == ConditionSet.OP_OR:
             self._sql = "(%s)" % (self._sql,)
 
         if isinstance(c, ConditionSet) and c._last_op == ConditionSet.OP_OR:
-            self._sql = "%s AND (%s)" % (self._sql, c.sql)
-        else:    
-            self._sql = "%s AND %s" % (self._sql, c.sql)
+            self._sql = "%s AND (%s)" % (self._sql, c.__sqlrepr__())
+        else:
+            self._sql = "%s AND %s" % (self._sql, c.__sqlrepr__())
 
-        self._params.extend(c.params)
+        self._params.extend(c.__params__())
         self._last_op = ConditionSet.OP_AND
         return self
 
@@ -347,12 +338,12 @@ class ConditionSet(object):
 
         if not isinstance(c, Condition):
             raise TypeError("Can't do operation with %s" % str(type(c)))
-        
+
         if self._empty:
             return self._init(c)
-        
-        self._sql = "%s OR %s" % (c.sql, self._sql)
-        self._pre_extend(self._params, c.params)
+
+        self._sql = "%s OR %s" % (c.__sqlrepr__(), self._sql)
+        self._pre_extend(self._params, c.__params__())
         self._last_op = ConditionSet.OP_OR
         return self
 
@@ -366,21 +357,19 @@ class ConditionSet(object):
 
         if not isinstance(c, Condition) and not isinstance(c, ConditionSet):
             raise TypeError("Can't do operation with %s" % str(type(c)))
-        
+
         if self._empty:
             return self._init(c)
-        
-        self._sql = "%s OR %s" % (self._sql, c.sql)
-        self._params.extend(c.params)
+
+        self._sql = "%s OR %s" % (self._sql, c.__sqlrepr__())
+        self._params.extend(c.__params__())
         self._last_op = ConditionSet.OP_OR
         return self
 
-    @property
-    def sql(self):
+    def __sqlrepr__(self):
         return "" if self._empty else self._sql
 
-    @property
-    def params(self):
+    def __params__(self):
         return [] if self._empty else self._params
 
 ################################################
@@ -388,11 +377,13 @@ class ConditionSet(object):
 
 class Expr(object):
     def __init__(self, sql, *params):
-        self.sql = sql
+        self._sql = sql
         self._params = params
 
-    @property
-    def params(self):
+    def __sqlrepr__(self):
+        return self._sql
+
+    def __params__(self):
         return self._params
 
 
@@ -413,10 +404,12 @@ def opt_checker(k_list):
 
 
 def _gen_order_by_list(f_list, direct="ASC"):
-        return ", ".join(["%s %s" % ((f.sql if isinstance(f, Field) else f), direct) for f in f_list])
+        return ", ".join(["%s %s" % ((f.__sqlrepr__() if isinstance(f, Field) else f), direct) for f in f_list])
+
 
 def _gen_f_list(f_list):
-    return ", ".join([(f.sql if isinstance(f, Field) else f) for f in f_list])
+    return ", ".join([(f.__sqlrepr__() if isinstance(f, Field) else f) for f in f_list])
+
 
 def _gen_v_list(v_list, params):
     values = []
@@ -425,15 +418,17 @@ def _gen_v_list(v_list, params):
         params.append(v)
     return "(%s)" % (", ".join(values),)
 
+
 def _gen_v_list_set(v_list_set, params):
     return ", ".join([_gen_v_list(v_list, params) for v_list in v_list_set])
+
 
 def _gen_fv_dict(fv_dict, params):
     sql = []
     for f, v in fv_dict.items():
         if isinstance(v, Expr):
-            sql.append("%s = %s" % (f, v.sql))
-            params.extend(v.params)
+            sql.append("%s = %s" % (f, v.__sqlrepr__()))
+            params.extend(v.__params__())
         else:
             sql.append("%s = %%s" % (f,))
             params.append(v)
@@ -481,7 +476,7 @@ class QuerySet(object):
     # public function
     def clone(self):
         return copy.deepcopy(self)
-    
+
     def on(self, c):
         if not isinstance(self.tables, TableSet):
             raise Error("Can't set on without join table")
@@ -545,7 +540,7 @@ class QuerySet(object):
         params = []
 
         if len(f_list) == 0:
-            f_list = self._default_count_field_list            
+            f_list = self._default_count_field_list
 
         if opt.get("distinct", self._default_count_distinct):
             sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list),))
@@ -567,7 +562,7 @@ class QuerySet(object):
         f_list += self.fields
 
         if opt.get("distinct"):
-            sql.append("DISTINCT") 
+            sql.append("DISTINCT")
         sql.append(_gen_f_list(f_list))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
@@ -585,7 +580,7 @@ class QuerySet(object):
         f_list += self.fields
 
         if opt.get("distinct"):
-            sql.append("DISTINCT") 
+            sql.append("DISTINCT")
         sql.append(_gen_f_list(f_list))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
@@ -610,7 +605,7 @@ class QuerySet(object):
         if opt.get("ignore"):
             sql.append("IGNORE")
         sql.append("INTO")
-        
+
         self._join_sql_part(sql, params, ["tables"])
         sql.append("(%s) VALUES %s" % (_gen_f_list(f_list), _gen_v_list_set(v_list_set, params)))
 
@@ -633,7 +628,7 @@ class QuerySet(object):
 
         sql.append("SET")
         sql.append(_gen_fv_dict(fv_dict, params))
-        
+
         self._join_sql_part(sql, params, ["where", "limit"])
         return " ".join(sql), params
 
@@ -644,22 +639,22 @@ class QuerySet(object):
         self._join_sql_part(sql, params, ["from", "where"])
         return " ".join(sql), params
 
-    # private function    
+    # private function
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self.tables:
-            sql.append(self.tables.sql)
-            params.extend(self.tables.params)
+            sql.append(self.tables.__sqlrepr__())
+            params.extend(self.tables.__params__())
         if "from" in join_list and self.tables:
-            sql.extend(["FROM", self.tables.sql])
-            params.extend(self.tables.params)
+            sql.extend(["FROM", self.tables.__sqlrepr__()])
+            params.extend(self.tables.__params__())
         if "where" in join_list and self._wheres:
-            sql.extend(["WHERE", self._wheres.sql])
-            params.extend(self._wheres.params)
+            sql.extend(["WHERE", self._wheres.__sqlrepr__()])
+            params.extend(self._wheres.__params__())
         if "group" in join_list and self._group_by:
             sql.append(self._group_by)
         if "having" in join_list and self._havings:
-            sql.extend(["HAVING", self._havings.sql])
-            params.extend(self._havings.params)
+            sql.extend(["HAVING", self._havings.__sqlrepr__()])
+            params.extend(self._havings.__params__())
         if "order" in join_list and self._order_by:
             sql.append(self._order_by)
         if "limit" in join_list and self._limit:
@@ -668,21 +663,25 @@ class QuerySet(object):
 
 class UnionPart(object):
     def __init__(self, sql, params):
-        self.sql = sql
-        self.params = params
+        self._sql = sql
+        self._params = params
 
     def __mul__(self, up):
         if not isinstance(up, UnionPart):
             raise TypeError("Can't do operation with %s" % str(type(up)))
-
         return UnionQuerySet(self) * up
 
     def __add__(self, up):
         if not isinstance(up, UnionPart):
             raise TypeError("Can't do operation with %s" % str(type(up)))
-
         return UnionQuerySet(self) + up
-        
+
+    def __sqlrepr__(self):
+        return self._sql
+
+    def __params__(self):
+        return self._params
+
 
 class UnionQuerySet(object):
     def __init__(self, up):
@@ -695,14 +694,12 @@ class UnionQuerySet(object):
     def __mul__(self, up):
         if not isinstance(up, UnionPart):
             raise TypeError("Can't do operation with %s" % str(type(up)))
-
         self._union_part_list.append(("UNION DISTINCT", up))
         return self
 
     def __add__(self, up):
         if not isinstance(up, UnionPart):
             raise TypeError("Can't do operation with %s" % str(type(up)))
-        
         self._union_part_list.append(("UNION ALL", up))
         return self
 
@@ -725,13 +722,13 @@ class UnionQuerySet(object):
     def select(self):
         sql = []
         params = []
-        
+
         for union_type, part in self._union_part_list:
             if union_type:
                 sql.append(union_type)
-            sql.append("(%s)" % (part.sql,))
+            sql.append("(%s)" % (part.__sqlrepr__(),))
 
-            params.extend(part.params)
+            params.extend(part.__params__())
 
         if self._order_by:
             sql.append(self._order_by)
@@ -753,14 +750,13 @@ if __name__ == "__main__":
     ).where(
         (F.name == "name") & (F.status == 0) | (F.name == None)
     ).group_by("base.type").having(F("count(*)") > 1).select(F.type, F.grade__grade, F.lottery__grade)
-    
 
     print
     print "*******************************************"
     print "**********  Step by Step Query   **********"
     print "*******************************************"
     t = T.grade
-    print QS(t).limit(0,100).select(F.name)
+    print QS(t).limit(0, 100).select(F.name)
     print "==========================================="
 
     t = (t * T.base).on(F.grade__item_type == F.base__type)
@@ -775,7 +771,7 @@ if __name__ == "__main__":
     print QS(t).where(w).select(F.grade__name, for_update=True)
     print "==========================================="
 
-    w = w & (F.grade__status == [0,1])
+    w = w & (F.grade__status == [0, 1])
     print QS(t).where(w).group_by(F.grade__name, F.base__img).count()
     print "==========================================="
 
@@ -786,7 +782,6 @@ if __name__ == "__main__":
 
     w = w & (F.base__status != [1, 2])
     print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, "CASE 1 WHEN 1")
-    
 
     print
     print "*******************************************"
@@ -825,7 +820,7 @@ if __name__ == "__main__":
     print "==========================================="
     fl = ("name", "gender", "status", "age")
     vl = (("garfield", "male", 0, 1), ("superwoman", "female", 0, 10))
-    print QS(T.user).insert_many(fl, vl, on_duplicate_key_update={"age" : E("age + VALUES(age)")})
+    print QS(T.user).insert_many(fl, vl, on_duplicate_key_update={"age": E("age + VALUES(age)")})
     print "==========================================="
     print QS(T.user).where(F.id == 100).update({"name": "nobody", "status": 1}, ignore=True)
     print "==========================================="
