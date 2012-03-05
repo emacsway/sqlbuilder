@@ -556,6 +556,7 @@ class QuerySet(object):
     def select(self, *f_list, **opt):
         sql = ["SELECT"]
         params = []
+        f_list = list(f_list)
         f_list += self.fields
 
         if opt.get("distinct"):
@@ -573,6 +574,8 @@ class QuerySet(object):
     def select_one(self, *f_list, **opt):
         sql = ["SELECT"]
         params = []
+        f_list = list(f_list)
+        f_list += self.fields
 
         if opt.get("distinct"):
             sql.append("DISTINCT") 
