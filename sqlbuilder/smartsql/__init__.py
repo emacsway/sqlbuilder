@@ -4,6 +4,9 @@
 
 import copy
 
+FIELD_REPR_DEFINITION = 1
+FIELD_REPR_ALIAS = 2
+FIELD_REPR_NAME = 3
 
 class Error(Exception):
     pass
@@ -215,9 +218,11 @@ class Field(object):
 
         return Condition(self.__sqlrepr__() + " LIKE %s", [f])
 
-    def __sqlrepr__(self, repr=False):
+    def __sqlrepr__(self, repr=FIELD_REPR_ALIAS):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
-        if definition:
+        if repr == FIELD_REPR_NAME:
+            return sql
+        if repr == FIELD_REPR_ALIAS:
             return self._alias or sql
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
@@ -409,8 +414,8 @@ def _gen_order_by_list(f_list, direct="ASC"):
         return ", ".join(["%s %s" % ((f.__sqlrepr__() if isinstance(f, Field) else f), direct) for f in f_list])
 
 
-def _gen_f_list(f_list):
-    return ", ".join([(f.__sqlrepr__(repr=True) if isinstance(f, Field) else f) for f in f_list])
+def _gen_f_list(f_list, repr=FIELD_REPR_ALIAS):
+    return ", ".join([(f.__sqlrepr__(repr=repr) if isinstance(f, Field) else f) for f in f_list])
 
 
 def _gen_v_list(v_list, params):
@@ -501,7 +506,7 @@ class QuerySet(object):
         return self
 
     def group_by(self, *f_list):
-        self._group_by = "GROUP BY %s" % (_gen_f_list(f_list),)
+        self._group_by = "GROUP BY %s" % (_gen_f_list(f_list, repr=FIELD_REPR_ALIAS),)
         self._default_count_field_list = f_list
         self._default_count_distinct = True
         return self
@@ -545,9 +550,9 @@ class QuerySet(object):
             f_list = self._default_count_field_list
 
         if opt.get("distinct", self._default_count_distinct):
-            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list),))
+            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list, repr=FIELD_REPR_DEFINITION),))
         else:
-            sql.append("COUNT(%s)" % (_gen_f_list(f_list),))
+            sql.append("COUNT(%s)" % (_gen_f_list(f_list, repr=FIELD_REPR_DEFINITION),))
 
         self._join_sql_part(sql, params, ["from", "where"])
 
@@ -565,7 +570,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list))
+        sql.append(_gen_f_list(f_list, repr=FIELD_REPR_DEFINITION))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
 
@@ -583,7 +588,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list))
+        sql.append(_gen_f_list(f_list, repr=FIELD_REPR_DEFINITION))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
         sql.append("LIMIT 0, 1")
@@ -609,7 +614,7 @@ class QuerySet(object):
         sql.append("INTO")
 
         self._join_sql_part(sql, params, ["tables"])
-        sql.append("(%s) VALUES %s" % (_gen_f_list(f_list), _gen_v_list_set(v_list_set, params)))
+        sql.append("(%s) VALUES %s" % (_gen_f_list(f_list, repr=FIELD_REPR_NAME), _gen_v_list_set(v_list_set, params)))
 
         fv_dict = opt.get("on_duplicate_key_update")
         if fv_dict:
