@@ -438,6 +438,7 @@ class QuerySet(object):
     def __init__(self, t):
         # complex var
         self.tables = t
+        self.fields = []
         self._wheres = None
         self._havings = None
 
@@ -507,7 +508,6 @@ class QuerySet(object):
         else:
             self.havings = self.havings & c
         return self
-        return self
 
     def or_having(self, c):
         if self._havings is None:
@@ -556,6 +556,7 @@ class QuerySet(object):
     def select(self, *f_list, **opt):
         sql = ["SELECT"]
         params = []
+        f_list += self.fields
 
         if opt.get("distinct"):
             sql.append("DISTINCT") 
