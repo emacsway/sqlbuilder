@@ -7,7 +7,15 @@ import copy
 
 def sqlrepr(obj, dialect=None, *args, **kwargs):
     """Renders query set"""
-    return obj.__sqlrepr__()
+    try:
+        return obj.__sqlrepr__(*args, **kwargs)
+    except:
+        return obj.__sqlrepr__()
+
+
+def sqlparams(obj):
+    """Renders query set"""
+    return obj.__params__()
 
 
 class Error(Exception):
@@ -63,7 +71,7 @@ class Table(object):
         return " ".join(sql)
 
     def __params__(self):
-        return self._on.__params__() if self._on else []
+        return sqlparams(self._on) if self._on else []
 
 
 class TableSet(object):
@@ -94,7 +102,7 @@ class TableSet(object):
     def __params__(self):
         params = []
         for sql_obj in self._join_list:
-            params.extend(sql_obj.__params__())
+            params.extend(sqlparams(sql_obj))
         return params
 
     #public func
@@ -145,7 +153,7 @@ class Field(object):
             return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         if isinstance(f, list) or isinstance(f, tuple):
             if len(f) < 1:
@@ -164,7 +172,7 @@ class Field(object):
             return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         if isinstance(f, list) or isinstance(f, tuple):
             if len(f) < 1:
@@ -180,7 +188,7 @@ class Field(object):
             return Condition("%s > %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         return Condition(sqlrepr(self) + " > %s", [f])
 
@@ -189,7 +197,7 @@ class Field(object):
             return Condition("%s < %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         return Condition(sqlrepr(self) + " < %s", [f])
 
@@ -198,7 +206,7 @@ class Field(object):
             return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         return Condition(sqlrepr(self) + " >= %s", [f])
 
@@ -207,7 +215,7 @@ class Field(object):
             return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         return Condition(sqlrepr(self) + " <= %s", [f])
 
@@ -216,7 +224,7 @@ class Field(object):
             return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(f)))
 
         if isinstance(f, Expr):
-            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(f)), f.__params__())
+            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
         return Condition(sqlrepr(self) + " LIKE %s", [f])
 
@@ -277,7 +285,7 @@ class ConditionSet(object):
 
     def _init(self, c):
         self._sql = sqlrepr(c)
-        self._params = c.__params__()
+        self._params = sqlparams(c)
         if isinstance(c, ConditionSet):
             self._last_op = c._last_op
         self._empty = False
@@ -305,7 +313,7 @@ class ConditionSet(object):
             self._sql = "(%s)" % (self._sql, )
 
         self._sql = "%s AND %s" % (sqlrepr(c), self._sql)
-        self._pre_extend(self._params, c.__params__())
+        self._pre_extend(self._params, sqlparams(c))
         self._last_op = ConditionSet.OP_AND
         return self
 
@@ -331,7 +339,7 @@ class ConditionSet(object):
         else:
             self._sql = "%s AND %s" % (self._sql, sqlrepr(c))
 
-        self._params.extend(c.__params__())
+        self._params.extend(sqlparams(c))
         self._last_op = ConditionSet.OP_AND
         return self
 
@@ -350,7 +358,7 @@ class ConditionSet(object):
             return self._init(c)
 
         self._sql = "%s OR %s" % (sqlrepr(c), self._sql)
-        self._pre_extend(self._params, c.__params__())
+        self._pre_extend(self._params, sqlparams(c))
         self._last_op = ConditionSet.OP_OR
         return self
 
@@ -369,7 +377,7 @@ class ConditionSet(object):
             return self._init(c)
 
         self._sql = "%s OR %s" % (self._sql, sqlrepr(c))
-        self._params.extend(c.__params__())
+        self._params.extend(sqlparams(c))
         self._last_op = ConditionSet.OP_OR
         return self
 
@@ -418,6 +426,10 @@ def _gen_f_list(f_list):
     return ", ".join([(sqlrepr(f) if isinstance(f, Field) else f) for f in f_list])
 
 
+def _gen_f_list_define(f_list):
+    return ", ".join([(sqlrepr(f) if isinstance(f, Field) else f) for f in f_list])
+
+
 def _gen_v_list(v_list, params):
     values = []
     for v in v_list:
@@ -435,7 +447,7 @@ def _gen_fv_dict(fv_dict, params):
     for f, v in fv_dict.items():
         if isinstance(v, Expr):
             sql.append("%s = %s" % (f, sqlrepr(v)))
-            params.extend(v.__params__())
+            params.extend(sqlparams(v))
         else:
             sql.append("%s = %%s" % (f, ))
             params.append(v)
@@ -650,18 +662,18 @@ class QuerySet(object):
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self.tables:
             sql.append(sqlrepr(self.tables))
-            params.extend(self.tables.__params__())
+            params.extend(sqlparams(self.tables))
         if "from" in join_list and self.tables:
             sql.extend(["FROM", sqlrepr(self.tables)])
-            params.extend(self.tables.__params__())
+            params.extend(sqlparams(self.tables))
         if "where" in join_list and self._wheres:
             sql.extend(["WHERE", sqlrepr(self._wheres)])
-            params.extend(self._wheres.__params__())
+            params.extend(sqlparams(self._wheres))
         if "group" in join_list and self._group_by:
             sql.append(self._group_by)
         if "having" in join_list and self._havings:
             sql.extend(["HAVING", sqlrepr(self._havings)])
-            params.extend(self._havings.__params__())
+            params.extend(sqlparams(self._havings))
         if "order" in join_list and self._order_by:
             sql.append(self._order_by)
         if "limit" in join_list and self._limit:
@@ -735,7 +747,7 @@ class UnionQuerySet(object):
                 sql.append(union_type)
             sql.append("(%s)" % (sqlrepr(part), ))
 
-            params.extend(part.__params__())
+            params.extend(sqlparams(part))
 
         if self._order_by:
             sql.append(self._order_by)
