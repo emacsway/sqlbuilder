@@ -230,7 +230,7 @@ class Field(object):
 
     def __sqlrepr__(self, define=False):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
-        if define:
+        if not define:
             return self._alias or sql
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
