@@ -420,8 +420,13 @@ def _gen_order_by_list(f_list, direct="ASC"):
         return ", ".join(["%s %s" % ((sqlrepr(f) if isinstance(f, Field) else f), direct) for f in f_list])
 
 
-def _gen_f_list(f_list):
-    return ", ".join([(sqlrepr(f) if isinstance(f, Field) else f) for f in f_list])
+def _gen_f_list(f_list, params=None):
+    fields = []
+    for f in f_list:
+        fields.append(hasattr(f, '__sqlrepr__') and sqlrepr(f) or f)
+        if params is not None and hasattr(f, '__params__'):
+            params.extend(sqlparams(f))
+    return ", ".join(fields)
 
 
 def _gen_v_list(v_list, params):
@@ -557,9 +562,9 @@ class QuerySet(object):
             f_list = self._default_count_field_list
 
         if opt.get("distinct", self._default_count_distinct):
-            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list), ))
+            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list, params), ))
         else:
-            sql.append("COUNT(%s)" % (_gen_f_list(f_list), ))
+            sql.append("COUNT(%s)" % (_gen_f_list(f_list, params), ))
 
         self._join_sql_part(sql, params, ["from", "where"])
 
@@ -577,7 +582,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list))
+        sql.append(_gen_f_list(f_list, params))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
 
@@ -595,7 +600,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list))
+        sql.append(_gen_f_list(f_list, params))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
         sql.append("LIMIT 0, 1")
@@ -796,6 +801,9 @@ if __name__ == "__main__":
 
     w = w & (F.base__status != [1, 2])
     print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, "CASE 1 WHEN 1")
+    print "==========================================="
+
+    print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("(CASE 1 WHEN %s) AS exp_result", 'exp_value'))
 
     print
     print "*******************************************"
