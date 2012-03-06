@@ -462,6 +462,7 @@ class QuerySet(object):
         self.fields = []
         self._wheres = None
         self._havings = None
+        self._dialect = None
 
         # simple var
         self._group_by = None
