@@ -135,7 +135,7 @@ def count(self):
     """Returns count of rows"""
     sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(self.query.sql)
     cursor = connections[self.query.using].cursor()
-    cursor.execute(sql)
+    cursor.execute(sql, self.params)
     row = cursor.fetchone()
     return row[0]
 
