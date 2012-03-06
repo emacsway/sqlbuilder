@@ -228,10 +228,8 @@ class Field(object):
 
         return Condition(sqlrepr(self) + " LIKE %s", [f])
 
-    def __sqlrepr__(self, define=False):
+    def __sqlrepr__(self):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
-        if not define:
-            return self._alias or sql
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
         return sql
@@ -426,10 +424,6 @@ def _gen_f_list(f_list):
     return ", ".join([(sqlrepr(f) if isinstance(f, Field) else f) for f in f_list])
 
 
-def _gen_f_list_define(f_list):
-    return ", ".join([(sqlrepr(f, define=True) if isinstance(f, Field) else f) for f in f_list])
-
-
 def _gen_v_list(v_list, params):
     values = []
     for v in v_list:
@@ -563,9 +557,9 @@ class QuerySet(object):
             f_list = self._default_count_field_list
 
         if opt.get("distinct", self._default_count_distinct):
-            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list_define(f_list), ))
+            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list), ))
         else:
-            sql.append("COUNT(%s)" % (_gen_f_list_define(f_list), ))
+            sql.append("COUNT(%s)" % (_gen_f_list(f_list), ))
 
         self._join_sql_part(sql, params, ["from", "where"])
 
@@ -583,7 +577,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list_define(f_list))
+        sql.append(_gen_f_list(f_list))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
 
@@ -601,7 +595,7 @@ class QuerySet(object):
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list_define(f_list))
+        sql.append(_gen_f_list(f_list))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
         sql.append("LIMIT 0, 1")
