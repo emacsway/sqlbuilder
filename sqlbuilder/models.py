@@ -1,3 +1,4 @@
+import re
 from django.conf import settings
 from django.db import connection, connections
 from django.db.models import Model
@@ -133,7 +134,9 @@ except ImportError:
 
 def count(self):
     """Returns count of rows"""
-    sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(self.query.sql)
+    sql = self.query.sql
+    sql = re.compile(r"""^((?:"(?:[^"]|\")*"|'(?:[^']|\')*'|/\*.*?\*/|[^'"])+)ORDER BY.*$""", re.I).sub(r'\1', sql)
+    sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
     cursor = connections[self.query.using].cursor()
     cursor.execute(sql, self.params)
     row = cursor.fetchone()
