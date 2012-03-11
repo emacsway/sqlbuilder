@@ -454,7 +454,7 @@ class QuerySet(object):
     def __init__(self, t):
         # complex var
         self.tables = t
-        self.fields = []
+        self._fields = []
         self._wheres = None
         self._havings = None
         self._dialect = None
@@ -490,6 +490,16 @@ class QuerySet(object):
 
     def clone(self):
         return copy.deepcopy(self)
+
+    def fields(self, *args):
+        if len(args):
+            self = self.clone()
+            if hasattr(args, '__iter__'):
+                self.fields = list(args)
+            else:
+                self.fields += args
+            return self
+        return self.fields
 
     def on(self, c):
         self = self.clone()
