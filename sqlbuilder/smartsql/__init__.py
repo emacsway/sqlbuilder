@@ -117,8 +117,6 @@ class TableSet(object):
         self._join_list.append(obj)
         return self
 
-##################################################################
-
 
 class MetaField(type):
     def __getattr__(cls, key):
@@ -300,7 +298,6 @@ class ConditionSet(object):
         for item in array2:
             array1.insert(0, item)
 
-    ##################################
     def __rand__(self, c):
         return self.clone()._rand(c)
 
@@ -322,7 +319,6 @@ class ConditionSet(object):
         self._last_op = ConditionSet.OP_AND
         return self
 
-    ###################################
     def __and__(self, c):
         return self.clone()._and(c)
 
@@ -348,7 +344,6 @@ class ConditionSet(object):
         self._last_op = ConditionSet.OP_AND
         return self
 
-    ###################################
     def __ror__(self, c):
         return self.clone()._ror(c)
 
@@ -367,7 +362,6 @@ class ConditionSet(object):
         self._last_op = ConditionSet.OP_OR
         return self
 
-    ###################################
     def __or__(self, c):
         return self.clone()._or(c)
 
@@ -392,8 +386,6 @@ class ConditionSet(object):
     def __params__(self):
         return [] if self._empty else self._params
 
-################################################
-
 
 class Expr(object):
     def __init__(self, sql, *params):
@@ -405,9 +397,6 @@ class Expr(object):
 
     def __params__(self):
         return self._params
-
-
-################################################
 
 
 def opt_checker(k_list):
@@ -703,7 +692,6 @@ class QuerySet(object):
         self._join_sql_part(sql, params, ["from", "where"])
         return " ".join(sql), params
 
-    # private function
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self.tables:
             sql.append(sqlrepr(self.tables))
