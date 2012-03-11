@@ -587,7 +587,8 @@ class QuerySet(object):
         return self
 
     def __getslice__(self, i, j):
-        return self.limit(i, j)
+        limit = j - i
+        return self.limit(i, limit)
 
     @opt_checker(["distinct", "for_update"])
     def count(self, *f_list, **opt):
@@ -807,7 +808,8 @@ class UnionQuerySet(object):
         return self
 
     def __getslice__(self, i, j):
-        return self.limit(i, j)
+        limit = j - i
+        return self.limit(i, limit)
 
     def select(self):
         self = self.clone()
