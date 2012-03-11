@@ -155,7 +155,7 @@ class Field(object):
         if isinstance(f, Expr):
             return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
-        if isinstance(f, list) or isinstance(f, tuple):
+        if hasattr(f, '__iter__'):
             if len(f) < 1:
                 raise ("Empty list is not allowed")
 
@@ -174,7 +174,7 @@ class Field(object):
         if isinstance(f, Expr):
             return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
 
-        if isinstance(f, list) or isinstance(f, tuple):
+        if hasattr(f, '__iter__'):
             if len(f) < 1:
                 raise Error("Empty list is not allowed")
 
