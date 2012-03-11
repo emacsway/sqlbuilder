@@ -56,7 +56,7 @@ class Table(object):
             a = self._alias
         else:
             a = self._name
-        return getattr(Field, u"{0}__{1}".format(a, name))
+        return getattr(Field, "{0}__{1}".format(a, name))
 
     def __sqlrepr__(self):
         sql = [self._name]
