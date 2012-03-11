@@ -1,5 +1,4 @@
-# -*- coding: gb2312 -*-
-# $Id: sql.py 47 2010-06-25 09:12:29Z scutwukai $
+# -*- coding: utf-8 -*-
 # Forked from http://code.google.com/p/py-smart-sql-constructor/
 
 import copy
@@ -52,6 +51,8 @@ class Table(object):
         return TableSet(self).__add__(obj)
 
     def __getattr__(self, name):
+        if name[0] == '_':
+            raise AttributeError
         if self._alias:
             a = self._alias
         else:
@@ -157,7 +158,7 @@ class Field(object):
 
         if hasattr(f, '__iter__'):
             if len(f) < 1:
-                raise ("Empty list is not allowed")
+                raise Error("Empty list is not allowed")
 
             sql = ", ".join(["%s" for i in xrange(len(f))])
             return Condition("%s IN (%s)" % (sqlrepr(self), sql), list(f))
@@ -228,6 +229,9 @@ class Field(object):
 
         return Condition(sqlrepr(self) + " LIKE %s", [f])
 
+    def __getslice__(self, i, j):
+        return Condition(sqlrepr(self) + " BETWEEN %s AND %s", [i, j])
+
     def __sqlrepr__(self):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
         if self._alias:
@@ -289,13 +293,16 @@ class ConditionSet(object):
         self._empty = False
         return self
 
+    def clone(self):
+        return copy.deepcopy(self)
+
     def _pre_extend(self, array1, array2):
         for item in array2:
             array1.insert(0, item)
 
     ##################################
     def __rand__(self, c):
-        return copy.deepcopy(self)._rand(c)
+        return self.clone()._rand(c)
 
     def _rand(self, c):
         if isinstance(c, str):
@@ -317,7 +324,7 @@ class ConditionSet(object):
 
     ###################################
     def __and__(self, c):
-        return copy.deepcopy(self)._and(c)
+        return self.clone()._and(c)
 
     def _and(self, c):
         if isinstance(c, str):
@@ -343,7 +350,7 @@ class ConditionSet(object):
 
     ###################################
     def __ror__(self, c):
-        return copy.deepcopy(self)._ror(c)
+        return self.clone()._ror(c)
 
     def _ror(self, c):
         if isinstance(c, str):
@@ -362,7 +369,7 @@ class ConditionSet(object):
 
     ###################################
     def __or__(self, c):
-        return copy.deepcopy(self)._or(c)
+        return self.clone()._or(c)
 
     def _or(self, c):
         if isinstance(c, str):
@@ -492,11 +499,11 @@ class QuerySet(object):
 
         return property(**locals())
 
-    # public function
     def clone(self):
         return copy.deepcopy(self)
 
     def on(self, c):
+        self = self.clone()
         if not isinstance(self.tables, TableSet):
             raise Error("Can't set on without join table")
 
@@ -504,6 +511,7 @@ class QuerySet(object):
         return self
 
     def where(self, c):
+        self = self.clone()
         if self._wheres is None:
             self._wheres = c
         else:
@@ -511,6 +519,7 @@ class QuerySet(object):
         return self
 
     def or_where(self, c):
+        self = self.clone()
         if self._wheres is None:
             self._wheres = c
         else:
@@ -518,12 +527,14 @@ class QuerySet(object):
         return self
 
     def group_by(self, *f_list):
+        self = self.clone()
         self._group_by = "GROUP BY %s" % (_gen_f_list(f_list), )
         self._default_count_field_list = f_list
         self._default_count_distinct = True
         return self
 
     def having(self, c):
+        self = self.clone()
         if self._havings is None:
             self._havings = c
         else:
@@ -531,6 +542,7 @@ class QuerySet(object):
         return self
 
     def or_having(self, c):
+        self = self.clone()
         if self._havings is None:
             self._havings = c
         else:
@@ -539,6 +551,7 @@ class QuerySet(object):
 
     @opt_checker(["desc"])
     def order_by(self, *f_list, **opt):
+        self = self.clone()
         direct = "DESC" if opt.get("desc") else "ASC"
         order_by_field = _gen_order_by_list(f_list, direct)
 
@@ -549,12 +562,37 @@ class QuerySet(object):
 
         return self
 
-    def limit(self, offset, limit):
-        self._limit = "LIMIT %u, %u" % (offset, limit)
+    def limit(self, *args, **kwargs):
+        self = self.clone()
+        limit = None
+        offset = None
+
+        if len(args) == 1:
+            limit = args[0]
+        elif len(args) == 2:
+            offset = args[0]
+            limit = args[1]
+        if len(args) > 2:
+            raise Error("Too many arguments for limit.")
+
+        if len(args) == 0:
+            if 'limit' in kwargs:
+                limit = kwargs['limit']
+            if 'offset' in kwargs:
+                offset = kwargs['offset']
+
+        if offset is None:
+            self._limit = "LIMIT %u" % (limit, )
+        else:
+            self._limit = "LIMIT %u, %u" % (offset, limit, )
         return self
+
+    def __getslice__(self, i, j):
+        return self.limit(i, j)
 
     @opt_checker(["distinct", "for_update"])
     def count(self, *f_list, **opt):
+        self = self.clone()
         sql = ["SELECT"]
         params = []
 
@@ -575,6 +613,7 @@ class QuerySet(object):
 
     @opt_checker(["distinct", "for_update"])
     def select(self, *f_list, **opt):
+        self = self.clone()
         sql = ["SELECT"]
         params = []
         f_list = list(f_list)
@@ -593,6 +632,7 @@ class QuerySet(object):
 
     @opt_checker(["distinct", "for_update"])
     def select_one(self, *f_list, **opt):
+        self = self.clone()
         sql = ["SELECT"]
         params = []
         f_list = list(f_list)
@@ -611,13 +651,16 @@ class QuerySet(object):
         return " ".join(sql), params
 
     def select_for_union(self, *f_list):
+        self = self.clone()
         return UnionPart(*self.select(*f_list))
 
     def insert(self, fv_dict, **opt):
+        self = self.clone()
         return self.insert_many(fv_dict.keys(), ([fv_dict[k] for k in fv_dict.keys()], ), **opt)
 
     @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, f_list, v_list_set, **opt):
+        self = self.clone()
         sql = ["INSERT"]
         params = []
 
@@ -637,6 +680,7 @@ class QuerySet(object):
 
     @opt_checker(["ignore"])
     def update(self, fv_dict, **opt):
+        self = self.clone()
         sql = ["UPDATE"]
         params = []
 
@@ -652,6 +696,7 @@ class QuerySet(object):
         return " ".join(sql), params
 
     def delete(self):
+        self = self.clone()
         sql = ["DELETE"]
         params = []
 
@@ -724,6 +769,7 @@ class UnionQuerySet(object):
 
     @opt_checker(["desc"])
     def order_by(self, *f_list, **opt):
+        self = self.clone()
         direct = "DESC" if opt.get("desc") else "ASC"
         order_by_field = _gen_order_by_list(f_list, direct)
 
@@ -734,11 +780,39 @@ class UnionQuerySet(object):
 
         return self
 
-    def limit(self, offset, limit):
-        self._limit = "LIMIT %u, %u" % (offset, limit)
+    def clone(self):
+        return copy.deepcopy(self)
+
+    def limit(self, *args, **kwargs):
+        self = self.clone()
+        limit = None
+        offset = None
+
+        if len(args) == 1:
+            limit = args[0]
+        elif len(args) == 2:
+            offset = args[0]
+            limit = args[1]
+        if len(args) > 2:
+            raise Error("Too many arguments for limit.")
+
+        if len(args) == 0:
+            if 'limit' in kwargs:
+                limit = kwargs['limit']
+            if 'offset' in kwargs:
+                offset = kwargs['offset']
+
+        if offset is None:
+            self._limit = "LIMIT %u" % (limit, )
+        else:
+            self._limit = "LIMIT %u, %u" % (offset, limit, )
         return self
 
+    def __getslice__(self, i, j):
+        return self.limit(i, j)
+
     def select(self):
+        self = self.clone()
         sql = []
         params = []
 
