@@ -495,11 +495,11 @@ class QuerySet(object):
         if len(args):
             self = self.clone()
             if hasattr(args, '__iter__'):
-                self.fields = list(args)
+                self._fields = list(args)
             else:
-                self.fields += args
+                self._fields += args
             return self
-        return self.fields
+        return self._fields
 
     def on(self, c):
         self = self.clone()
@@ -616,7 +616,7 @@ class QuerySet(object):
         sql = ["SELECT"]
         params = []
         f_list = list(f_list)
-        f_list += self.fields
+        f_list += self._fields
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
@@ -635,7 +635,7 @@ class QuerySet(object):
         sql = ["SELECT"]
         params = []
         f_list = list(f_list)
-        f_list += self.fields
+        f_list += self._fields
 
         if opt.get("distinct"):
             sql.append("DISTINCT")
