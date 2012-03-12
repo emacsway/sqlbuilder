@@ -155,7 +155,7 @@ def __getitem__(self, k):
             end = int(k.stop)
             limit = end - offset
     else:
-        offset = k
+        offset = int(k)
         limit = 1
     if limit:
         sql = u"{0} LIMIT {1:d}".format(sql, limit)
