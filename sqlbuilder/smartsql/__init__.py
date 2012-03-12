@@ -7,15 +7,19 @@ import copy
 
 def sqlrepr(obj, dialect=None, *args, **kwargs):
     """Renders query set"""
-    try:
-        return obj.__sqlrepr__(*args, **kwargs)
-    except:
-        return obj.__sqlrepr__()
+    if hasattr(obj, '__sqlrepr__'):
+        try:
+            return obj.__sqlrepr__(*args, **kwargs)
+        except:
+            return obj.__sqlrepr__()
+    return obj  # It's a string
 
 
 def sqlparams(obj):
     """Renders query set"""
-    return obj.__params__()
+    if hasattr(obj, '__params__'):
+        return obj.__params__()
+    return []
 
 
 class Error(Exception):
@@ -125,12 +129,10 @@ class TableSet(object):
             params.extend(sqlparams(sql_obj))
         return params
 
-    #public func
     def on(self, c):
         self._join_list[-1]._on = c
         return self
 
-    #private func
     def _add_join(self, join_type, obj):
         obj._join = join_type
         self._join_list.append(obj)
@@ -461,15 +463,11 @@ def opt_checker(k_list):
     return new_deco
 
 
-def _gen_order_by_list(f_list, direct="ASC"):
-        return ", ".join(["%s %s" % ((sqlrepr(f) if isinstance(f, Field) else f), direct) for f in f_list])
-
-
 def _gen_f_list(f_list, params=None):
     fields = []
     for f in f_list:
-        fields.append(hasattr(f, '__sqlrepr__') and sqlrepr(f) or f)
-        if params is not None and hasattr(f, '__params__'):
+        fields.append(sqlrepr(f))
+        if params is not None:
             params.extend(sqlparams(f))
     return ", ".join(fields)
 
@@ -500,20 +498,19 @@ def _gen_fv_dict(fv_dict, params):
 
 
 class QuerySet(object):
+
     def __init__(self, t):
-        # complex var
+
         self.tables = t
         self._fields = []
         self._wheres = None
         self._havings = None
         self._dialect = None
 
-        # simple var
         self._group_by = None
-        self._order_by = None
+        self._order_by = []
         self._limit = None
 
-        # default var
         self._default_count_field_list = ("*", )
         self._default_count_distinct = False
 
@@ -543,8 +540,8 @@ class QuerySet(object):
     def fields(self, *args):
         if len(args):
             self = self.clone()
-            if hasattr(args, '__iter__'):
-                self._fields = list(args)
+            if hasattr(args[0], '__iter__'):
+                self._fields = list(args[0])
             else:
                 self._fields += args
             return self
@@ -597,18 +594,20 @@ class QuerySet(object):
             self.havings = self.havings | c
         return self
 
-    @opt_checker(["desc"])
+    @opt_checker(["desc", "reset"])
     def order_by(self, *f_list, **opt):
         self = self.clone()
         direct = "DESC" if opt.get("desc") else "ASC"
-        order_by_field = _gen_order_by_list(f_list, direct)
-
-        if self._order_by is None:
-            self._order_by = "ORDER BY %s" % (order_by_field, )
-        else:
-            self._order_by = "%s, %s" % (self._order_by, order_by_field)
-
-        return self
+        if opt.get("reset"):
+            self._order_by = []
+        if len(f_list):
+            if hasattr(f_list[0], '__iter__'):
+                self._order_by = f_list[0]
+            else:
+                for f in f_list:
+                    self._order_by.append((f, direct, ))
+            return self
+        return self._order_by
 
     def limit(self, *args, **kwargs):
         self = self.clone()
@@ -782,7 +781,11 @@ class QuerySet(object):
             sql.extend(["HAVING", sqlrepr(self._havings)])
             params.extend(sqlparams(self._havings))
         if "order" in join_list and self._order_by:
-            sql.append(self._order_by)
+            order_by = []
+            for f, direct in self._order_by:
+                order_by.append("%s %s" % (sqlrepr(f), direct, ))
+                params.extend(sqlparams(f))
+            sql.extend(["ORDER BY", ", ".join(order_by)])
         if "limit" in join_list and self._limit:
             sql.append(self._limit)
 
@@ -814,7 +817,7 @@ class UnionQuerySet(object):
         self._union_part_list = [(None, up)]
 
         self._group_by = None
-        self._order_by = None
+        self._order_by = []
         self._limit = None
 
     def __mul__(self, up):
@@ -829,18 +832,20 @@ class UnionQuerySet(object):
         self._union_part_list.append(("UNION ALL", up))
         return self
 
-    @opt_checker(["desc"])
+    @opt_checker(["desc", "reset"])
     def order_by(self, *f_list, **opt):
         self = self.clone()
         direct = "DESC" if opt.get("desc") else "ASC"
-        order_by_field = _gen_order_by_list(f_list, direct)
-
-        if self._order_by is None:
-            self._order_by = "ORDER BY %s" % (order_by_field, )
-        else:
-            self._order_by = "%s, %s" % (self._order_by, order_by_field)
-
-        return self
+        if opt.get("reset"):
+            self._order_by = []
+        if len(f_list):
+            if hasattr(f_list[0], '__iter__'):
+                self._order_by = f_list[0]
+            else:
+                for f in f_list:
+                    self._order_by.append((f, direct, ))
+            return self
+        return self._order_by
 
     def clone(self):
         return copy.deepcopy(self)
@@ -901,7 +906,11 @@ class UnionQuerySet(object):
             params.extend(sqlparams(part))
 
         if self._order_by:
-            sql.append(self._order_by)
+            order_by = []
+            for f, direct in self._order_by:
+                order_by.append("%s %s" % (sqlrepr(f), direct, ))
+                params.extend(sqlparams(f))
+            sql.append("ORDER BY %s" % (", ".join(order_by), ))
         if self._limit:
             sql.append(self._limit)
 
