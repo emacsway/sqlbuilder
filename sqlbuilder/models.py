@@ -143,23 +143,28 @@ def count(self):
     return row[0]
 
 
-def __getslice__(self, i, j):
+def __getitem__(self, k):
     """Returns sliced instance of self.__class__"""
-    i = i or 0
     sql = self.query.sql
-    if j:
-        limit = j - i
-        if limit > 0:
-            sql = u"{0} LIMIT {1:d}".format(sql, limit)
-    if i:
-        sql = u"{0} OFFSET {1:d}".format(sql, i)
+    offset = 0
+    limit = None
+    if isinstance(k, slice):
+        if k.start is not None:
+            offset = int(k.start)
+        if k.stop is not None:
+            end = int(k.stop)
+            limit = end - offset
+    else:
+        offset = k
+        limit = 1
+    if limit:
+        sql = u"{0} LIMIT {1:d}".format(sql, limit)
+    if offset:
+        sql = u"{0} OFFSET {1:d}".format(sql, offset)
     return self.__class__(sql, model=self.model, query=None,
                           params=self.params, translations=self.translations,
                           using=self.db)
 
-if not hasattr(RawQuerySet, 'count'):
-    RawQuerySet.count = count
-if not hasattr(RawQuerySet, '__len__'):
-    RawQuerySet.__len__ = count
-if not hasattr(RawQuerySet, '__getslice__'):
-    RawQuerySet.__getslice__ = __getslice__
+RawQuerySet.count = count
+RawQuerySet.__len__ = count
+RawQuerySet.__getitem__ = __getitem__

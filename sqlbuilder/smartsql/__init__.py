@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Forked from http://code.google.com/p/py-smart-sql-constructor/
 
+import sys
 import copy
 
 
@@ -227,8 +228,38 @@ class Field(object):
 
         return Condition(sqlrepr(self) + " LIKE %s", [f])
 
-    def __getslice__(self, i, j):
-        return Condition(sqlrepr(self) + " BETWEEN %s AND %s", [i, j])
+    def between(self, start, end):
+        sqls = [sqlrepr(self), ]
+        params = []
+        if isinstance(start, Field):
+            sqls.append(sqlrepr(start))
+        elif isinstance(start, Expr):
+            sqls.append("(%s)" % (sqlrepr(start), ))
+            params.append(sqlparams(start))
+        else:
+            sqls.append("%s")
+            params.append(start)
+
+        if isinstance(end, Field):
+            sqls.append(sqlrepr(end))
+        elif isinstance(end, Expr):
+            sqls.append("(%s)" % (sqlrepr(end), ))
+            params.append(sqlparams(end))
+        else:
+            sqls.append("%s")
+            params.append(end)
+
+        sql = "%s BETWEEN %s AND %s" % tuple(sqls)
+        return Condition(sql, params)
+
+    def __getitem__(self, k):
+        """Returns self.between()"""
+        if isinstance(k, slice):
+            start = k.start or 0
+            end = k.stop or sys.maxint
+            return self.between(start, end)
+        else:
+            return self.__eq__(f)
 
     def __sqlrepr__(self):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
@@ -564,7 +595,7 @@ class QuerySet(object):
     def limit(self, *args, **kwargs):
         self = self.clone()
         limit = None
-        offset = None
+        offset = 0
 
         if len(args) == 1:
             limit = args[0]
@@ -580,15 +611,29 @@ class QuerySet(object):
             if 'offset' in kwargs:
                 offset = kwargs['offset']
 
-        if offset is None:
-            self._limit = "LIMIT %u" % (limit, )
-        else:
-            self._limit = "LIMIT %u, %u" % (offset, limit, )
+        sql = ""
+        if limit:
+            sql = "LIMIT %u" % (limit, )
+        if offset:
+            sql = "%s OFFSET %u" % (sql, offset, )
+        self._limit = sql
         return self
 
-    def __getslice__(self, i, j):
-        limit = j - i
-        return self.limit(i, limit)
+    def __getitem__(self, k):
+        """Returns self.limit()"""
+        offset = 0
+        limit = None
+        args = []
+        if isinstance(k, slice):
+            if k.start is not None:
+                offset = int(k.start)
+            if k.stop is not None:
+                end = int(k.stop)
+                limit = end - offset
+        else:
+            offset = k
+            limit = 1
+        return self.limit(offset, limit)
 
     @opt_checker(["distinct", "for_update"])
     def count(self, *f_list, **opt):
@@ -785,7 +830,7 @@ class UnionQuerySet(object):
     def limit(self, *args, **kwargs):
         self = self.clone()
         limit = None
-        offset = None
+        offset = 0
 
         if len(args) == 1:
             limit = args[0]
@@ -801,15 +846,29 @@ class UnionQuerySet(object):
             if 'offset' in kwargs:
                 offset = kwargs['offset']
 
-        if offset is None:
-            self._limit = "LIMIT %u" % (limit, )
-        else:
-            self._limit = "LIMIT %u, %u" % (offset, limit, )
+        sql = ""
+        if limit:
+            sql = "LIMIT %u" % (limit, )
+        if offset:
+            sql = "%s OFFSET %u" % (sql, offset, )
+        self._limit = sql
         return self
 
-    def __getslice__(self, i, j):
-        limit = j - i
-        return self.limit(i, limit)
+    def __getitem__(self, k):
+        """Returns self.limit()"""
+        offset = 0
+        limit = None
+        args = []
+        if isinstance(k, slice):
+            if k.start is not None:
+                offset = int(k.start)
+            if k.stop is not None:
+                end = int(k.stop)
+                limit = end - offset
+        else:
+            offset = k
+            limit = 1
+        return self.limit(offset, limit)
 
     def select(self):
         self = self.clone()
