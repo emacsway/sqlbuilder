@@ -135,11 +135,11 @@ except ImportError:
 def count(self):
     """Returns count of rows"""
     sql = self.query.sql
-    if re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
-        if self._result_cache is None:
-            self._result_cache = list(self)
+    make_cache_if_need(self)
+    if getattr(self, '_result_cache', None) is not None:
         return len(self._result_cache)
-    sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY.+$""", re.I|re.U|re.S).sub(r'\1', sql)
+    if not re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(?:LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
+        sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY[^%]+$""", re.I|re.U|re.S).sub(r'\1', sql)
     sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
     cursor = connections[self.query.using].cursor()
     cursor.execute(sql, self.params)
@@ -159,18 +159,45 @@ def __getitem__(self, k):
             end = int(k.stop)
             limit = end - offset
     else:
-        if self._result_cache is None:
-            self._result_cache = list(self)
-        return self._result_cache[k]
+        return list(self)[k]
     if limit:
         sql = u"{0} LIMIT {1:d}".format(sql, limit)
     if offset:
         sql = u"{0} OFFSET {1:d}".format(sql, offset)
-    return self.__class__(sql, model=self.model, query=None,
-                          params=self.params, translations=self.translations,
-                          using=self.db)
+    new_cls = self.__class__(sql, model=self.model, query=None,
+                             params=self.params, translations=self.translations,
+                             using=self.db)
+    new_cls.sliced = True
+    new_cls.limit = limit
+    return new_cls
 
-RawQuerySet._result_cache = None
-RawQuerySet.count = count
-RawQuerySet.__len__ = count
-RawQuerySet.__getitem__ = __getitem__
+__iter_origin__ = None
+
+
+def make_cache_if_need(self):
+    """Cache for small selections"""
+    if getattr(self, 'sliced', False) and getattr(self, 'limit', 0) < 300:
+        if getattr(self, '_result_cache', None) is None:
+            self._result_cache = [v for v in __iter_origin__(self)]
+
+
+def __iter__(self):
+    """Cache for small selections"""
+    make_cache_if_need(self)
+    if getattr(self, '_result_cache', None) is not None:
+        for v in self._result_cache:
+            yield v
+    else:
+        for v in __iter_origin__(self):
+            yield v
+
+
+def patch_raw_query_set():
+    global __iter_origin__
+    if RawQuerySet.__getitem__ is not __getitem__:
+        RawQuerySet.count = RawQuerySet.__len__ = count
+        RawQuerySet.__getitem__ = __getitem__
+        __iter_origin__ = RawQuerySet.__iter__
+        RawQuerySet.__iter__ = __iter__
+
+patch_raw_query_set()
