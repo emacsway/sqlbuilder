@@ -509,7 +509,7 @@ class QuerySet(object):
         self._havings = None
         self._dialect = None
 
-        self._group_by = None
+        self._group_by = []
         self._order_by = []
         self._limit = None
 
@@ -579,12 +579,19 @@ class QuerySet(object):
             self.wheres = self.wheres | c
         return self
 
-    def group_by(self, *f_list):
+    @opt_checker(["reset", ])
+    def group_by(self, *f_list, **opt):
         self = self.clone()
-        self._group_by = "GROUP BY %s" % (_gen_f_list(f_list), )
-        self._default_count_field_list = f_list
-        self._default_count_distinct = True
-        return self
+        if opt.get("reset"):
+            self._group_by = []
+        if len(f_list):
+            if hasattr(f_list[0], '__iter__'):
+                self._group_by = f_list[0]
+            else:
+                for f in f_list:
+                    self._group_by.append(f)
+            return self
+        return self._group_by
 
     def having(self, c):
         self = self.clone()
@@ -602,7 +609,7 @@ class QuerySet(object):
             self.havings = self.havings | c
         return self
 
-    @opt_checker(["desc", "reset"])
+    @opt_checker(["desc", "reset", ])
     def order_by(self, *f_list, **opt):
         self = self.clone()
         direct = "DESC" if opt.get("desc") else "ASC"
@@ -665,11 +672,13 @@ class QuerySet(object):
         self = self.clone()
         sql = ["SELECT"]
         params = []
+        default_count_distinct = self._default_count_distinct
 
         if len(f_list) == 0:
-            f_list = self._default_count_field_list
+            f_list = self._group_by
+            default_count_distinct = True
 
-        if opt.get("distinct", self._default_count_distinct):
+        if opt.get("distinct", default_count_distinct):
             sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list, params), ))
         else:
             sql.append("COUNT(%s)" % (_gen_f_list(f_list, params), ))
@@ -784,7 +793,7 @@ class QuerySet(object):
             sql.extend(["WHERE", sqlrepr(self._wheres)])
             params.extend(sqlparams(self._wheres))
         if "group" in join_list and self._group_by:
-            sql.append(self._group_by)
+            sql.extend(["GROUP BY", _gen_f_list(self._group_by, params)])
         if "having" in join_list and self._havings:
             sql.extend(["HAVING", sqlrepr(self._havings)])
             params.extend(sqlparams(self._havings))
