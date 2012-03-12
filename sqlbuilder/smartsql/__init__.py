@@ -26,6 +26,136 @@ class Error(Exception):
     pass
 
 
+class Expr(object):
+
+    _sql = None
+    _params = None
+
+    def __init__(self, sql, *params):
+        self._sql = sql
+        self._params = params
+
+    def __eq__(self, e):
+        if e is None:
+            return Condition("%s IS NULL" % (sqlrepr(self), ))
+
+        if isinstance(e, Expr):
+            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+
+        if hasattr(e, '__iter__'):
+            if len(e) < 1:
+                raise Error("Empty list is not allowed")
+            sql = ", ".join(["%s" for i in xrange(len(e))])
+            return Condition("%s IN (%s)" % (sqlrepr(self), sql), list(e))
+
+        return Condition(sqlrepr(self) + " = %s", [e])
+
+    def __ne__(self, e):
+        if e is None:
+            return Condition("%s IS NOT NULL" % (sqlrepr(self), ))
+
+        if isinstance(e, Expr):
+            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+
+        if hasattr(e, '__iter__'):
+            if len(e) < 1:
+                raise Error("Empty list is not allowed")
+            sql = ", ".join(["%s" for i in xrange(len(e))])
+            return Condition("%s NOT IN (%s)" % (sqlrepr(self), sql), list(e))
+
+        return Condition(sqlrepr(self) + " <> %s", [e])
+
+    def __gt__(self, e):
+        if isinstance(e, Expr):
+            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+        return Condition(sqlrepr(self) + " > %s", [e])
+
+    def __lt__(self, e):
+        if isinstance(e, Expr):
+            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+        return Condition(sqlrepr(self) + " < %s", [e])
+
+    def __ge__(self, e):
+        if isinstance(e, Expr):
+            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+        return Condition(sqlrepr(self) + " >= %s", [e])
+
+    def __le__(self, e):
+        if isinstance(e, Expr):
+            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+        return Condition(sqlrepr(self) + " <= %s", [e])
+
+    def __mod__(self, e):
+        if isinstance(e, Expr):
+            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
+        return Condition(sqlrepr(self) + " LIKE %s", [e])
+
+    def between(self, start, end):
+        sqls = [sqlrepr(self), ]
+        params = []
+        if isinstance(start, Expr):
+            sqls.append(sqlrepr(start))
+            params.append(sqlparams(start))
+        else:
+            sqls.append("%s")
+            params.append(start)
+
+        if isinstance(end, Expr):
+            sqls.append(sqlrepr(end))
+            params.append(sqlparams(end))
+        else:
+            sqls.append("%s")
+            params.append(end)
+
+        sql = "%s BETWEEN %s AND %s" % tuple(sqls)
+        return Condition(sql, params)
+
+    def __getitem__(self, k):
+        """Returns self.between()"""
+        if isinstance(k, slice):
+            start = k.start or 0
+            end = k.stop or sys.maxint
+            return self.between(start, end)
+        else:
+            return self.__eq__(k)
+
+    def __sqlrepr__(self):
+        return self._sql and "(%s)" % (self._sql, ) or ""
+
+    def __params__(self):
+        return self._params or []
+
+
+class Constant(Expr):
+    def __init__(self, const, sql=None, *params):
+        self._const = const
+        if isinstance(sql, basestring):
+            self._child = Expr(sql, params)
+        else:
+            self._child = sql
+
+    def __call__(self, sql, *params):
+        if isinstance(sql, basestring):
+            self._child = Expr(sql, params)
+        else:
+            self._child = sql
+
+    def __sqlrepr__(self):
+        sql = self._const
+        if self._child:
+            sql = "%s(%s)" % (sql, sqlrepr(self._child))
+
+    def __params__(self):
+        return sqlparams(self._child)
+
+
+class ConstantSpace:
+    def __getattr__(self, attr):
+        if attr.startswith('__'):
+            raise AttributeError
+        return Constant(attr)
+
+
 class MetaTable(type):
     def __getattr__(cls, key):
         if key[0] == '_':
@@ -157,129 +287,13 @@ class MetaField(type):
         return cls(name, prefix, alias)
 
 
-class Field(object):
+class Field(Expr):
     __metaclass__ = MetaField
 
     def __init__(self, name, prefix=None, alias=None):
         self._name = name
         self._prefix = prefix
         self._alias = alias
-
-    def __eq__(self, f):
-        if f is None:
-            return Condition("%s IS NULL" % (sqlrepr(self), ))
-
-        if isinstance(f, Field):
-            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        if hasattr(f, '__iter__'):
-            if len(f) < 1:
-                raise Error("Empty list is not allowed")
-
-            sql = ", ".join(["%s" for i in xrange(len(f))])
-            return Condition("%s IN (%s)" % (sqlrepr(self), sql), list(f))
-
-        return Condition(sqlrepr(self) + " = %s", [f])
-
-    def __ne__(self, f):
-        if f is None:
-            return Condition("%s IS NOT NULL" % (sqlrepr(self), ))
-
-        if isinstance(f, Field):
-            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        if hasattr(f, '__iter__'):
-            if len(f) < 1:
-                raise Error("Empty list is not allowed")
-
-            sql = ", ".join(["%s" for i in xrange(len(f))])
-            return Condition("%s NOT IN (%s)" % (sqlrepr(self), sql), list(f))
-
-        return Condition(sqlrepr(self) + " <> %s", [f])
-
-    def __gt__(self, f):
-        if isinstance(f, Field):
-            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        return Condition(sqlrepr(self) + " > %s", [f])
-
-    def __lt__(self, f):
-        if isinstance(f, Field):
-            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        return Condition(sqlrepr(self) + " < %s", [f])
-
-    def __ge__(self, f):
-        if isinstance(f, Field):
-            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        return Condition(sqlrepr(self) + " >= %s", [f])
-
-    def __le__(self, f):
-        if isinstance(f, Field):
-            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        return Condition(sqlrepr(self) + " <= %s", [f])
-
-    def __mod__(self, f):
-        if isinstance(f, Field):
-            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(f)))
-
-        if isinstance(f, Expr):
-            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(f)), sqlparams(f))
-
-        return Condition(sqlrepr(self) + " LIKE %s", [f])
-
-    def between(self, start, end):
-        sqls = [sqlrepr(self), ]
-        params = []
-        if isinstance(start, Field):
-            sqls.append(sqlrepr(start))
-        elif isinstance(start, Expr):
-            sqls.append("(%s)" % (sqlrepr(start), ))
-            params.append(sqlparams(start))
-        else:
-            sqls.append("%s")
-            params.append(start)
-
-        if isinstance(end, Field):
-            sqls.append(sqlrepr(end))
-        elif isinstance(end, Expr):
-            sqls.append("(%s)" % (sqlrepr(end), ))
-            params.append(sqlparams(end))
-        else:
-            sqls.append("%s")
-            params.append(end)
-
-        sql = "%s BETWEEN %s AND %s" % tuple(sqls)
-        return Condition(sql, params)
-
-    def __getitem__(self, k):
-        """Returns self.between()"""
-        if isinstance(k, slice):
-            start = k.start or 0
-            end = k.stop or sys.maxint
-            return self.between(start, end)
-        else:
-            return self.__eq__(f)
 
     def __sqlrepr__(self):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
@@ -294,7 +308,7 @@ class Condition(object):
         self._params = params if params else []
 
     def __and__(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self & Condition(c)
 
         if isinstance(c, Condition):
@@ -306,7 +320,7 @@ class Condition(object):
         raise TypeError("Can't do operation with %s" % str(type(c)))
 
     def __or__(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self | Condition(c)
 
         if isinstance(c, Condition):
@@ -353,7 +367,7 @@ class ConditionSet(object):
         return self.clone()._rand(c)
 
     def _rand(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self._rand(Condition(c))
 
         if not isinstance(c, Condition):
@@ -374,7 +388,7 @@ class ConditionSet(object):
         return self.clone()._and(c)
 
     def _and(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self._and(Condition(c))
 
         if not isinstance(c, Condition) and not isinstance(c, ConditionSet):
@@ -399,7 +413,7 @@ class ConditionSet(object):
         return self.clone()._ror(c)
 
     def _ror(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self._ror(Condition(c))
 
         if not isinstance(c, Condition):
@@ -417,7 +431,7 @@ class ConditionSet(object):
         return self.clone()._or(c)
 
     def _or(self, c):
-        if isinstance(c, str):
+        if isinstance(c, basestring):
             return self._or(Condition(c))
 
         if not isinstance(c, Condition) and not isinstance(c, ConditionSet):
@@ -436,18 +450,6 @@ class ConditionSet(object):
 
     def __params__(self):
         return [] if self._empty else self._params
-
-
-class Expr(object):
-    def __init__(self, sql, *params):
-        self._sql = sql
-        self._params = params
-
-    def __sqlrepr__(self):
-        return self._sql
-
-    def __params__(self):
-        return self._params
 
 
 def opt_checker(k_list):
@@ -705,7 +707,7 @@ class QuerySet(object):
         sql.append(_gen_f_list(f_list, params))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
-        sql.append("LIMIT 0, 1")
+        sql.append("LIMIT 1 OFFSET 0")
 
         if opt.get("for_update"):
             sql.append("FOR UPDATE")
@@ -812,7 +814,7 @@ class UnionPart(object):
         return self._params
 
 
-class UnionQuerySet(object):
+class UnionQuerySet(QuerySet):
     def __init__(self, up):
         self._union_part_list = [(None, up)]
 
@@ -832,67 +834,6 @@ class UnionQuerySet(object):
         self._union_part_list.append(("UNION ALL", up))
         return self
 
-    @opt_checker(["desc", "reset"])
-    def order_by(self, *f_list, **opt):
-        self = self.clone()
-        direct = "DESC" if opt.get("desc") else "ASC"
-        if opt.get("reset"):
-            self._order_by = []
-        if len(f_list):
-            if hasattr(f_list[0], '__iter__'):
-                self._order_by = f_list[0]
-            else:
-                for f in f_list:
-                    self._order_by.append((f, direct, ))
-            return self
-        return self._order_by
-
-    def clone(self):
-        return copy.deepcopy(self)
-
-    def limit(self, *args, **kwargs):
-        self = self.clone()
-        limit = None
-        offset = 0
-
-        if len(args) == 1:
-            limit = args[0]
-        elif len(args) == 2:
-            offset = args[0]
-            limit = args[1]
-        if len(args) > 2:
-            raise Error("Too many arguments for limit.")
-
-        if len(args) == 0:
-            if 'limit' in kwargs:
-                limit = kwargs['limit']
-            if 'offset' in kwargs:
-                offset = kwargs['offset']
-
-        sql = ""
-        if limit:
-            sql = "LIMIT %u" % (limit, )
-        if offset:
-            sql = "%s OFFSET %u" % (sql, offset, )
-        self._limit = sql
-        return self
-
-    def __getitem__(self, k):
-        """Returns self.limit()"""
-        offset = 0
-        limit = None
-        args = []
-        if isinstance(k, slice):
-            if k.start is not None:
-                offset = int(k.start)
-            if k.stop is not None:
-                end = int(k.stop)
-                limit = end - offset
-        else:
-            offset = k
-            limit = 1
-        return self.limit(offset, limit)
-
     def select(self):
         self = self.clone()
         sql = []
@@ -904,19 +845,13 @@ class UnionQuerySet(object):
             sql.append("(%s)" % (sqlrepr(part), ))
 
             params.extend(sqlparams(part))
-
-        if self._order_by:
-            order_by = []
-            for f, direct in self._order_by:
-                order_by.append("%s %s" % (sqlrepr(f), direct, ))
-                params.extend(sqlparams(f))
-            sql.append("ORDER BY %s" % (", ".join(order_by), ))
-        if self._limit:
-            sql.append(self._limit)
+            self._join_sql_part(sql, params, ["order", "limit"])
 
         return " ".join(sql), params
 
 T, F, E, QS = Table, Field, Expr, QuerySet
+const = ConstantSpace()
+func = const
 
 if __name__ == "__main__":
 
