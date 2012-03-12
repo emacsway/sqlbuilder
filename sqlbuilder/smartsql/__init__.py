@@ -539,6 +539,12 @@ class QuerySet(object):
     def clone(self):
         return copy.deepcopy(self)
 
+    def dialect(dialect=None):
+        if dialect is not None:
+            self._dialect = dialect
+            return self
+        return self._dialect
+
     def fields(self, *args):
         if len(args):
             self = self.clone()
