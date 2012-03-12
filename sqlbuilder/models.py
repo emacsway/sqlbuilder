@@ -136,7 +136,9 @@ def count(self):
     """Returns count of rows"""
     sql = self.query.sql
     if re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
-        return len(list(self))
+        if self._result_cache is None:
+            self._result_cache = list(self)
+        return len(self._result_cache)
     sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY.+$""", re.I|re.U|re.S).sub(r'\1', sql)
     sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
     cursor = connections[self.query.using].cursor()
@@ -157,7 +159,9 @@ def __getitem__(self, k):
             end = int(k.stop)
             limit = end - offset
     else:
-        return list(self)[k]
+        if self._result_cache is None:
+            self._result_cache = list(self)
+        return self._result_cache[k]
     if limit:
         sql = u"{0} LIMIT {1:d}".format(sql, limit)
     if offset:
@@ -166,6 +170,7 @@ def __getitem__(self, k):
                           params=self.params, translations=self.translations,
                           using=self.db)
 
+RawQuerySet._result_cache = None
 RawQuerySet.count = count
 RawQuerySet.__len__ = count
 RawQuerySet.__getitem__ = __getitem__
