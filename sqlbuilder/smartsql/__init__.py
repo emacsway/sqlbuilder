@@ -45,11 +45,20 @@ class Table(object):
         self._join = None
         self._on = None
 
-    def __mul__(self, obj):
-        return TableSet(self).__mul__(obj)
+    def __and__(self, obj):
+        return TableSet(self).__and__(obj)
 
     def __add__(self, obj):
         return TableSet(self).__add__(obj)
+
+    def __sub__(self, obj):
+        return TableSet(self).__sub__(obj)
+
+    def __or__(self, obj):
+        return TableSet(self).__or__(obj)
+
+    def __mul__(self, obj):
+        return TableSet(self).__mul__(obj)
 
     def __getattr__(self, name):
         if name[0] == '_':
@@ -84,11 +93,20 @@ class TableSet(object):
         self._join = None
         self._on = None
 
-    def __mul__(self, obj):
-        return self._add_join("JOIN", obj)
+    def __and__(self, obj):
+        return self._add_join("INNER JOIN", obj)
 
     def __add__(self, obj):
-        return self._add_join("LEFT JOIN", obj)
+        return self._add_join("LEFT OUTER JOIN", obj)
+
+    def __sub__(self, obj):
+        return self._add_join("RIGHT OUTER JOIN", obj)
+
+    def __or__(self, obj):
+        return self._add_join("FULL OUTER JOIN", obj)
+
+    def __mul__(self, obj):
+        return self._add_join("CROSS JOIN", obj)
 
     def __sqlrepr__(self):
         sql = [" ".join([sqlrepr(k) for k in self._join_list])]
@@ -911,7 +929,7 @@ if __name__ == "__main__":
     print QS(t).limit(0, 100).select(F.name)
     print "==========================================="
 
-    t = (t * T.base).on(F.grade__item_type == F.base__type)
+    t = (t & T.base).on(F.grade__item_type == F.base__type)
     print QS(t).order_by(F.grade__name, F.base__name, desc=True).select(F.grade__name, F.base__img)
     print "==========================================="
 
@@ -945,7 +963,7 @@ if __name__ == "__main__":
     qs = QS(T.user)
     print qs.select(F.name)
     print "==========================================="
-    qs.tables = (qs.tables * T.address).on(F.user__id == F.address__user_id)
+    qs.tables = (qs.tables & T.address).on(F.user__id == F.address__user_id)
     print qs.select(F.user__name, F.address__street)
     print "==========================================="
     qs.wheres = qs.wheres & (F.id == 1)
