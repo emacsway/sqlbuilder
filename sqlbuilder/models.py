@@ -135,6 +135,8 @@ except ImportError:
 def count(self):
     """Returns count of rows"""
     sql = self.query.sql
+    if re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
+        return len(list(self))
     sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY.+$""", re.I|re.U|re.S).sub(r'\1', sql)
     sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
     cursor = connections[self.query.using].cursor()
