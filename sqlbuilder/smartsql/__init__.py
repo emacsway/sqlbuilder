@@ -56,7 +56,6 @@ class Expr(object):
 
         return Condition("<>", self, other)
 
-
     def __add__(self, other):
         return Condition("+", self, other)
 
@@ -133,7 +132,7 @@ class Expr(object):
     def __le__(self, other):
         return Condition("<=", self, other)
 
-    def __mod__(self, other):
+    def like(self, other):
         return Condition("LIKE", self, other)
 
     def between(self, start, end):
@@ -217,6 +216,7 @@ class Prefix(Expr):
 
     def __params__(self):
         return sqlparams(self._expr)
+
 
 class Constant(Expr):
     def __init__(self, const, sql=None, *params):
@@ -436,7 +436,7 @@ class QuerySet(object):
     def clone(self):
         return copy.deepcopy(self)
 
-    def dialect(dialect=None):
+    def dialect(self, dialect=None):
         if dialect is not None:
             self._dialect = dialect
             return self
@@ -559,7 +559,6 @@ class QuerySet(object):
         """Returns self.limit()"""
         offset = 0
         limit = None
-        args = []
         if isinstance(k, slice):
             if k.start is not None:
                 offset = int(k.start)
