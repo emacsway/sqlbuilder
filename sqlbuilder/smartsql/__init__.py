@@ -400,7 +400,7 @@ class QuerySet(object):
 
     def __init__(self, t):
 
-        self.tables = t
+        self._tables = t
         self._fields = []
         self._wheres = None
         self._havings = None
@@ -442,6 +442,13 @@ class QuerySet(object):
             return self
         return self._dialect
 
+    def tables(self, t=None):
+        if t:
+            self = self.clone()
+            self._tables = t
+            return self
+        return self._tables
+
     def fields(self, *args):
         if len(args):
             self = self.clone()
@@ -454,10 +461,10 @@ class QuerySet(object):
 
     def on(self, c):
         self = self.clone()
-        if not isinstance(self.tables, TableSet):
+        if not isinstance(self._tables, TableSet):
             raise Error("Can't set on without join table")
 
-        self.tables.on(c)
+        self._tables.on(c)
         return self
 
     def where(self, c):
@@ -680,12 +687,12 @@ class QuerySet(object):
         return " ".join(sql), params
 
     def _join_sql_part(self, sql, params, join_list):
-        if "tables" in join_list and self.tables:
-            sql.append(sqlrepr(self.tables))
-            params.extend(sqlparams(self.tables))
-        if "from" in join_list and self.tables:
-            sql.extend(["FROM", sqlrepr(self.tables)])
-            params.extend(sqlparams(self.tables))
+        if "tables" in join_list and self._tables:
+            sql.append(sqlrepr(self._tables))
+            params.extend(sqlparams(self._tables))
+        if "from" in join_list and self._tables:
+            sql.extend(["FROM", sqlrepr(self._tables)])
+            params.extend(sqlparams(self._tables))
         if "where" in join_list and self._wheres:
             sql.extend(["WHERE", sqlrepr(self._wheres)])
             params.extend(sqlparams(self._wheres))
@@ -870,7 +877,7 @@ if __name__ == "__main__":
     qs = QS(T.user)
     print qs.select(F.name)
     print "==========================================="
-    qs.tables = (qs.tables & T.address).on(F.user__id == F.address__user_id)
+    qs = qs.tables((qs.tables() & T.address).on(F.user__id == F.address__user_id))
     print qs.select(F.user__name, F.address__street)
     print "==========================================="
     qs.wheres = qs.wheres & (F.id == 1)
