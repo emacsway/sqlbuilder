@@ -45,7 +45,7 @@ class Expr(object):
 
     def __ne__(self, other):
         if other is None:
-            return Condition("IS NOT", self, "NULL")
+            return Condition("IS NOT", self, Expr("NULL"))
 
         if hasattr(other, '__iter__'):
             if len(other) < 1:
