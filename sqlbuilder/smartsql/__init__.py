@@ -1,25 +1,20 @@
 # -*- coding: utf-8 -*-
 # Forked from http://code.google.com/p/py-smart-sql-constructor/
-
 import sys
 import copy
 
 
-def sqlrepr(obj, dialect=None, *args, **kwargs):
-    """Renders query set"""
-    if hasattr(obj, '__sqlrepr__'):
-        try:
-            return obj.__sqlrepr__(*args, **kwargs)
-        except:
-            return obj.__sqlrepr__()
-    return obj  # It's a string
+def opt_checker(k_list):
+    def new_deco(func):
+        def new_func(self, *args, **opt):
+            for k, v in opt.items():
+                if k not in k_list:
+                    raise TypeError("Not implemented option: %s" % (k, ))
+            return func(self, *args, **opt)
 
-
-def sqlparams(obj):
-    """Renders query set"""
-    if hasattr(obj, '__params__'):
-        return list(obj.__params__())
-    return []
+        new_func.__doc__ = func.__doc__
+        return new_func
+    return new_deco
 
 
 class Error(Exception):
@@ -401,53 +396,6 @@ class Field(Expr):
         return sql
 
 
-def opt_checker(k_list):
-    def new_deco(func):
-        def new_func(self, *args, **opt):
-            for k, v in opt.items():
-                if k not in k_list:
-                    raise TypeError("Not implemented option: %s" % (k, ))
-            return func(self, *args, **opt)
-
-        new_func.__doc__ = func.__doc__
-        return new_func
-    return new_deco
-
-
-def _gen_f_list(f_list, params=None):
-    fields = []
-    for f in f_list:
-        fields.append(sqlrepr(f))
-        if params is not None:
-            params.extend(sqlparams(f))
-    return ", ".join(fields)
-
-
-def _gen_v_list(v_list, params):
-    values = []
-    for v in v_list:
-        values.append("%s")
-        params.append(v)
-    return "(%s)" % (", ".join(values), )
-
-
-def _gen_v_list_set(v_list_set, params):
-    return ", ".join([_gen_v_list(v_list, params) for v_list in v_list_set])
-
-
-def _gen_fv_dict(fv_dict, params):
-    sql = []
-    for f, v in fv_dict.items():
-        if isinstance(v, Expr):
-            sql.append("%s = %s" % (f, sqlrepr(v)))
-            params.extend(sqlparams(v))
-        else:
-            sql.append("%s = %%s" % (f, ))
-            params.append(v)
-
-    return ", ".join(sql)
-
-
 class QuerySet(object):
 
     def __init__(self, t):
@@ -812,6 +760,57 @@ class UnionQuerySet(QuerySet):
             self._join_sql_part(sql, params, ["order", "limit"])
 
         return " ".join(sql), params
+
+
+def _gen_f_list(f_list, params=None):
+    fields = []
+    for f in f_list:
+        fields.append(sqlrepr(f))
+        if params is not None:
+            params.extend(sqlparams(f))
+    return ", ".join(fields)
+
+
+def _gen_v_list(v_list, params):
+    values = []
+    for v in v_list:
+        values.append("%s")
+        params.append(v)
+    return "(%s)" % (", ".join(values), )
+
+
+def _gen_v_list_set(v_list_set, params):
+    return ", ".join([_gen_v_list(v_list, params) for v_list in v_list_set])
+
+
+def _gen_fv_dict(fv_dict, params):
+    sql = []
+    for f, v in fv_dict.items():
+        if isinstance(v, Expr):
+            sql.append("%s = %s" % (f, sqlrepr(v)))
+            params.extend(sqlparams(v))
+        else:
+            sql.append("%s = %%s" % (f, ))
+            params.append(v)
+
+    return ", ".join(sql)
+
+
+def sqlrepr(obj, dialect=None, *args, **kwargs):
+    """Renders query set"""
+    if hasattr(obj, '__sqlrepr__'):
+        try:
+            return obj.__sqlrepr__(*args, **kwargs)
+        except:
+            return obj.__sqlrepr__()
+    return obj  # It's a string
+
+
+def sqlparams(obj):
+    """Renders query set"""
+    if hasattr(obj, '__params__'):
+        return list(obj.__params__())
+    return []
 
 T, F, E, QS = Table, Field, Expr, QuerySet
 const = ConstantSpace()
