@@ -35,80 +35,127 @@ class Expr(object):
         self._sql = sql
         self._params = params
 
-    def __eq__(self, e):
-        if e is None:
-            return Condition("%s IS NULL" % (sqlrepr(self), ))
+    def __eq__(self, other):
+        if other is None:
+            return Condition("IS", self, Expr("NULL"))
 
-        if isinstance(e, Expr):
-            return Condition("%s = %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-
-        if hasattr(e, '__iter__'):
-            if len(e) < 1:
+        if hasattr(other, '__iter__'):
+            if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(e))])
-            return Condition("%s IN (%s)" % (sqlrepr(self), sql), list(e))
+            sql = ", ".join(["%s" for i in xrange(len(other))])
+            sql = "({0})".format(sql)
+            return Condition("IN", self, Expr(sql, *list(other)))
 
-        return Condition(sqlrepr(self) + " = %s", [e])
+        return Condition("=", self, other)
 
-    def __ne__(self, e):
-        if e is None:
-            return Condition("%s IS NOT NULL" % (sqlrepr(self), ))
+    def __ne__(self, other):
+        if other is None:
+            return Condition("IS NOT", self, "NULL")
 
-        if isinstance(e, Expr):
-            return Condition("%s <> %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-
-        if hasattr(e, '__iter__'):
-            if len(e) < 1:
+        if hasattr(other, '__iter__'):
+            if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(e))])
-            return Condition("%s NOT IN (%s)" % (sqlrepr(self), sql), list(e))
+            sql = ", ".join(["%s" for i in xrange(len(other))])
+            sql = "({0})".format(sql)
+            return Condition("NOT IN", self, Expr(sql, *list(other)))
 
-        return Condition(sqlrepr(self) + " <> %s", [e])
+        return Condition("<>", self, other)
 
-    def __gt__(self, e):
-        if isinstance(e, Expr):
-            return Condition("%s > %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-        return Condition(sqlrepr(self) + " > %s", [e])
 
-    def __lt__(self, e):
-        if isinstance(e, Expr):
-            return Condition("%s < %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-        return Condition(sqlrepr(self) + " < %s", [e])
+    def __add__(self, other):
+        return Condition("+", self, other)
 
-    def __ge__(self, e):
-        if isinstance(e, Expr):
-            return Condition("%s >= %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-        return Condition(sqlrepr(self) + " >= %s", [e])
+    def __radd__(self, other):
+        return Condition("+", other, self)
 
-    def __le__(self, e):
-        if isinstance(e, Expr):
-            return Condition("%s <= %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-        return Condition(sqlrepr(self) + " <= %s", [e])
+    def __sub__(self, other):
+        return Condition("-", self, other)
 
-    def __mod__(self, e):
-        if isinstance(e, Expr):
-            return Condition("%s LIKE %s" % (sqlrepr(self), sqlrepr(e)), sqlparams(e))
-        return Condition(sqlrepr(self) + " LIKE %s", [e])
+    def __rsub__(self, other):
+        return Condition("-", other, self)
+
+    def __mul__(self, other):
+        return Condition("*", self, other)
+
+    def __rmul__(self, other):
+        return Condition("*", other, self)
+
+    def __div__(self, other):
+        return Condition("/", self, other)
+
+    def __rdiv__(self, other):
+        return Condition("/", other, self)
+
+    def __pos__(self):
+        return Prefix("+", self)
+
+    def __neg__(self):
+        return Prefix("-", self)
+
+    def __pow__(self, other):
+        return Constant("POW")(self, other)
+
+    def __rpow__(self, other):
+        return Constant("POW")(other, self)
+
+    def __abs__(self):
+        return Constant("ABS")(self)
+
+    def __mod__(self, other):
+        sql = "MOD(%s, %s)" % (sqlrepr(self), sqlrepr(other))
+        params = []
+        params.extent(sqlparams(self))
+        params.extent(sqlparams(other))
+        return Expr(sql, *params)
+
+    def __rmod__(self, other):
+        return Constant("MOD")(other, self)
+
+    def __and__(self, other):
+        return Condition("AND", self, other)
+
+    def __or__(self, other):
+        return Condition("OR", self, other)
+
+    def __rand__(self, other):
+        return Condition("AND", other, self)
+
+    def __ror__(self, other):
+        return Condition("OR", other, self)
+
+    def __invert__(self):
+        return Prefix("NOT", self)
+
+    def __gt__(self, other):
+        return Condition(">", self, other)
+
+    def __lt__(self, other):
+        return Condition("<", self, other)
+
+    def __ge__(self, other):
+        return Condition(">=", self, other)
+
+    def __le__(self, other):
+        return Condition("<=", self, other)
+
+    def __mod__(self, other):
+        return Condition("LIKE", self, other)
 
     def between(self, start, end):
         sqls = [sqlrepr(self), ]
         params = []
-        if isinstance(start, Expr):
-            sqls.append(sqlrepr(start))
-            params.append(sqlparams(start))
-        else:
-            sqls.append("%s")
-            params.append(start)
+        if not isinstance(start, Expr):
+            start = Expr("%s", start)
+        sqls.append(sqlrepr(start))
+        params.extent(sqlparams(start))
 
-        if isinstance(end, Expr):
-            sqls.append(sqlrepr(end))
-            params.append(sqlparams(end))
-        else:
-            sqls.append("%s")
-            params.append(end)
+        if not isinstance(end, Expr):
+            end = Expr("%s", end)
+        sqls.append(sqlrepr(end))
+        params.extent(sqlparams(end))
 
-        sql = "%s BETWEEN %s AND %s" % tuple(sqls)
-        return Condition(sql, params)
+        sql = "{0} BETWEEN {1} AND {1}".format(*sqls)
+        return Expr(sql, *params)
 
     def __getitem__(self, k):
         """Returns self.between()"""
@@ -120,11 +167,61 @@ class Expr(object):
             return self.__eq__(k)
 
     def __sqlrepr__(self):
-        return self._sql and "(%s)" % (self._sql, ) or ""
+        return self._sql or ""
 
     def __params__(self):
         return self._params or []
 
+    def __str__(self):
+        return self.__sqlrepr__()
+
+    def __repr__(self):
+        return self.__sqlrepr__()
+
+
+class Condition(Expr):
+    def __init__(self, op, expr1, expr2):
+        self.op = op.upper()
+
+        if not isinstance(expr1, Expr):
+            expr1 = Expr("%s", expr1)
+        if not isinstance(expr2, Expr):
+            expr1 = Expr("%s", expr2)
+
+        self.expr1 = expr1
+        self.expr2 = expr2
+
+    def __sqlrepr__(self):
+        s1 = sqlrepr(self.expr1)
+        s2 = sqlrepr(self.expr2)
+        if not s1:
+            return s2
+        if not s2:
+            return s1
+        if s1[0] != '(' and s1 != 'NULL' and isinstance(self.expr1, Condition):
+            s1 = '(' + s1 + ')'
+        if s2[0] != '(' and s2 != 'NULL' and isinstance(self.expr2, Condition):
+            s2 = '(' + s2 + ')'
+        return "%s %s %s" % (s1, self.op, s2)
+
+    def __params__(self):
+        params = []
+        params.extend(sqlparams(self.expr1))
+        params.extend(sqlparams(self.expr2))
+        return params
+
+
+class Prefix(Expr):
+
+    def __init__(self, prefix, expr):
+        self._prefix = prefix
+        self._expr = expr
+
+    def __sqlrepr__(self):
+        return "{0} {1}".format(self._prefix, sqlrepr(self._expr))
+
+    def __params__(self):
+        return sqlparams(self._expr)
 
 class Constant(Expr):
     def __init__(self, const, sql=None, *params):
@@ -302,7 +399,7 @@ class Field(Expr):
         return sql
 
 
-class Condition(object):
+class Condition2(object):
     def __init__(self, sql, params=None):
         self._sql = sql
         self._params = params if params else []
@@ -519,7 +616,7 @@ class QuerySet(object):
     @apply
     def wheres():
         def fget(self):
-            return self._wheres if self._wheres else ConditionSet()
+            return self._wheres
 
         def fset(self, cs):
             self._wheres = cs
@@ -529,7 +626,7 @@ class QuerySet(object):
     @apply
     def havings():
         def fget(self):
-            return self._havings if self._havings else ConditionSet()
+            return self._havings
 
         def fset(self, cs):
             self._havings = cs
