@@ -18,7 +18,7 @@ def sqlrepr(obj, dialect=None, *args, **kwargs):
 def sqlparams(obj):
     """Renders query set"""
     if hasattr(obj, '__params__'):
-        return obj.__params__()
+        return list(obj.__params__())
     return []
 
 
@@ -183,9 +183,9 @@ class Condition(Expr):
     def __init__(self, op, expr1, expr2):
         self.op = op.upper()
 
-        if not isinstance(expr1, Expr):
+        if expr1 is not None and not isinstance(expr1, Expr):
             expr1 = Expr("%s", expr1)
-        if not isinstance(expr2, Expr):
+        if expr2 is not None and not isinstance(expr2, Expr):
             expr2 = Expr("%s", expr2)
 
         self.expr1 = expr1
@@ -875,7 +875,7 @@ if __name__ == "__main__":
     qs.wheres = qs.wheres & (F.id == 1)
     print qs.select(F.name, F.id)
     print "==========================================="
-    qs.wheres = qs.wheres & ((F.address__city_id == [111, 112]) | "address.city_id IS NULL")
+    qs.wheres = qs.wheres & ((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
     print qs.select(F.user__name, F.address__street, "COUNT(*) AS count")
     print "==========================================="
 
