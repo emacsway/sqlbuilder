@@ -9,7 +9,7 @@ def opt_checker(k_list):
         def new_func(self, *args, **opt):
             for k, v in opt.items():
                 if k not in k_list:
-                    raise TypeError("Not implemented option: %s" % (k, ))
+                    raise TypeError("Not implemented option: {0}".format(k))
             return func(self, *args, **opt)
 
         new_func.__doc__ = func.__doc__
@@ -97,7 +97,7 @@ class Expr(object):
         return Constant("ABS")(self)
 
     def __mod__(self, other):
-        sql = "MOD(%s, %s)" % (sqlrepr(self), sqlrepr(other))
+        sql = "MOD({0}, {1})".format(sqlrepr(self), sqlrepr(other))
         params = []
         params.extend(sqlparams(self))
         params.extend(sqlparams(other))
@@ -197,7 +197,7 @@ class Condition(Expr):
             s1 = '(' + s1 + ')'
         if s2[0] != '(' and s2 != 'NULL' and isinstance(self.expr2, Condition):
             s2 = '(' + s2 + ')'
-        return "%s %s %s" % (s1, self.op, s2)
+        return "{0} {1} {2}".format(s1, self.op, s2)
 
     def __params__(self):
         params = []
@@ -236,7 +236,7 @@ class Constant(Expr):
     def __sqlrepr__(self):
         sql = self._const
         if self._child:
-            sql = "%s(%s)" % (sql, sqlrepr(self._child))
+            sql = "{0}({1})".format(sql, sqlrepr(self._child))
         return sql
 
     def __params__(self):
@@ -305,7 +305,7 @@ class Table(object):
         if self._alias:
             sql.extend(["AS", self._alias])
         if self._on:
-            sql.extend(["ON", "(%s)" % (sqlrepr(self._on), )])
+            sql.extend(["ON", "({0})".format(sqlrepr(self._on))])
 
         return " ".join(sql)
 
@@ -340,10 +340,10 @@ class TableSet(object):
         sql = [" ".join([sqlrepr(k) for k in self._join_list])]
 
         if self._join:
-            sql[0] = "(%s)" % (sql[0], )
+            sql[0] = "({0})".format(sql[0])
             sql.insert(0, self._join)
         if self._on:
-            sql.extend(["ON", "(%s)" % (sqlrepr(self._on), )])
+            sql.extend(["ON", "({0})".format(sqlrepr(self._on))])
 
         return " ".join(sql)
 
@@ -542,9 +542,9 @@ class QuerySet(object):
 
         sql = ""
         if limit:
-            sql = "LIMIT %u" % (limit, )
+            sql = "LIMIT {0:d}".format(limit)
         if offset:
-            sql = "%s OFFSET %u" % (sql, offset, )
+            sql = "{0} OFFSET {1:d}".format(sql, offset)
         self._limit = sql
         return self
 
@@ -576,9 +576,9 @@ class QuerySet(object):
             default_count_distinct = True
 
         if opt.get("distinct", default_count_distinct):
-            sql.append("COUNT(DISTINCT %s)" % (_gen_f_list(f_list, params), ))
+            sql.append("COUNT(DISTINCT {0})".format(_gen_f_list(f_list, params)))
         else:
-            sql.append("COUNT(%s)" % (_gen_f_list(f_list, params), ))
+            sql.append("COUNT({0})".format(_gen_f_list(f_list, params)))
 
         self._join_sql_part(sql, params, ["from", "where"])
 
@@ -645,7 +645,7 @@ class QuerySet(object):
         sql.append("INTO")
 
         self._join_sql_part(sql, params, ["tables"])
-        sql.append("(%s) VALUES %s" % (_gen_f_list(f_list), _gen_v_list_set(v_list_set, params)))
+        sql.append("({0}) VALUES {1}".format(_gen_f_list(f_list), _gen_v_list_set(v_list_set, params)))
 
         fv_dict = opt.get("on_duplicate_key_update")
         if fv_dict:
@@ -697,7 +697,7 @@ class QuerySet(object):
         if "order" in join_list and self._order_by:
             order_by = []
             for f, direct in self._order_by:
-                order_by.append("%s %s" % (sqlrepr(f), direct, ))
+                order_by.append("{0} {1}".format(sqlrepr(f), direct))
                 params.extend(sqlparams(f))
             sql.extend(["ORDER BY", ", ".join(order_by)])
         if "limit" in join_list and self._limit:
@@ -711,12 +711,12 @@ class UnionPart(object):
 
     def __mul__(self, up):
         if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with %s" % str(type(up)))
+            raise TypeError("Can't do operation with {0}".format(str(type(up))))
         return UnionQuerySet(self) * up
 
     def __add__(self, up):
         if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with %s" % str(type(up)))
+            raise TypeError("Can't do operation with {0}".format(str(type(up))))
         return UnionQuerySet(self) + up
 
     def __sqlrepr__(self):
@@ -736,13 +736,13 @@ class UnionQuerySet(QuerySet):
 
     def __mul__(self, up):
         if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with %s" % str(type(up)))
+            raise TypeError("Can't do operation with {0}".format(str(type(up))))
         self._union_part_list.append(("UNION DISTINCT", up))
         return self
 
     def __add__(self, up):
         if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with %s" % str(type(up)))
+            raise TypeError("Can't do operation with {0}".format(str(type(up))))
         self._union_part_list.append(("UNION ALL", up))
         return self
 
@@ -754,7 +754,7 @@ class UnionQuerySet(QuerySet):
         for union_type, part in self._union_part_list:
             if union_type:
                 sql.append(union_type)
-            sql.append("(%s)" % (sqlrepr(part), ))
+            sql.append("({0})".format(sqlrepr(part)))
 
             params.extend(sqlparams(part))
             self._join_sql_part(sql, params, ["order", "limit"])
@@ -776,7 +776,7 @@ def _gen_v_list(v_list, params):
     for v in v_list:
         values.append("%s")
         params.append(v)
-    return "(%s)" % (", ".join(values), )
+    return "({0})".format(", ".join(values))
 
 
 def _gen_v_list_set(v_list_set, params):
@@ -787,10 +787,10 @@ def _gen_fv_dict(fv_dict, params):
     sql = []
     for f, v in fv_dict.items():
         if isinstance(v, Expr):
-            sql.append("%s = %s" % (f, sqlrepr(v)))
+            sql.append("{0} = {1}".format(f, sqlrepr(v)))
             params.extend(sqlparams(v))
         else:
-            sql.append("%s = %%s" % (f, ))
+            sql.append("{0} = %s".format(f))
             params.append(v)
 
     return ", ".join(sql)
