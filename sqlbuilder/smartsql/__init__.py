@@ -236,11 +236,13 @@ class Constant(Expr):
             self._child = Expr(sql, params)
         else:
             self._child = sql
+        return self
 
     def __sqlrepr__(self):
         sql = self._const
         if self._child:
             sql = "%s(%s)" % (sql, sqlrepr(self._child))
+        return sql
 
     def __params__(self):
         return sqlparams(self._child)
@@ -908,7 +910,13 @@ if __name__ == "__main__":
     print "*******************************************"
     print "**********      Unit      **********"
     print "*******************************************"
+    print "================== BETWEEN ================"
     print QS(T.tb).where(T.tb.clmn[5:15]).select('*')
     print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:15]).select('*')
     print QS(T.tb).where(T.tb.clmn[15:T.tb.clmn3]).select('*')
     print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:T.tb.clmn3]).select('*')
+
+    print "=================== CONSTANT ==============="
+    print QS(T.tb).where(const.CONST_NAME == 5).select('*')
+    print "=================== FUNCTION ==============="
+    print QS(T.tb).where(func.FUNC_NAME(T.tb.clmn) == 5).select('*')
