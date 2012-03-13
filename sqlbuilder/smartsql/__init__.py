@@ -104,8 +104,8 @@ class Expr(object):
     def __mod__(self, other):
         sql = "MOD(%s, %s)" % (sqlrepr(self), sqlrepr(other))
         params = []
-        params.extent(sqlparams(self))
-        params.extent(sqlparams(other))
+        params.extend(sqlparams(self))
+        params.extend(sqlparams(other))
         return Expr(sql, *params)
 
     def __rmod__(self, other):
@@ -147,12 +147,12 @@ class Expr(object):
         if not isinstance(start, Expr):
             start = Expr("%s", start)
         sqls.append(sqlrepr(start))
-        params.extent(sqlparams(start))
+        params.extend(sqlparams(start))
 
         if not isinstance(end, Expr):
             end = Expr("%s", end)
         sqls.append(sqlrepr(end))
-        params.extent(sqlparams(end))
+        params.extend(sqlparams(end))
 
         sql = "{0} BETWEEN {1} AND {1}".format(*sqls)
         return Expr(sql, *params)
@@ -186,7 +186,7 @@ class Condition(Expr):
         if not isinstance(expr1, Expr):
             expr1 = Expr("%s", expr1)
         if not isinstance(expr2, Expr):
-            expr1 = Expr("%s", expr2)
+            expr2 = Expr("%s", expr2)
 
         self.expr1 = expr1
         self.expr2 = expr2
@@ -1054,3 +1054,11 @@ if __name__ == "__main__":
     print QS(T.user).where(F.id == 100).update({"name": "nobody", "status": 1}, ignore=True)
     print "==========================================="
     print QS(T.user).where(F.status == 1).delete()
+
+    print "*******************************************"
+    print "**********      Unit      **********"
+    print "*******************************************"
+    print QS(T.tb).where(T.tb.clmn[5:15]).select('*')
+    print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:15]).select('*')
+    print QS(T.tb).where(T.tb.clmn[15:T.tb.clmn3]).select('*')
+    print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:T.tb.clmn3]).select('*')
