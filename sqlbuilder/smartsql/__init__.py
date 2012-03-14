@@ -439,6 +439,7 @@ class QuerySet(object):
 
     def dialect(self, dialect=None):
         if dialect is not None:
+            self = self.clone()
             self._dialect = dialect
             return self
         return self._dialect
