@@ -226,7 +226,7 @@ class Constant(Expr):
         else:
             self._child = sql
 
-    def __call__(self, sql, *params):
+    def __call__(self, sql="", *params):
         if isinstance(sql, basestring):
             self._child = Expr(sql, params)
         else:
@@ -235,7 +235,7 @@ class Constant(Expr):
 
     def __sqlrepr__(self):
         sql = self._const
-        if self._child:
+        if self._child is not None:
             sql = "{0}({1})".format(sql, sqlrepr(self._child))
         return sql
 
