@@ -400,8 +400,9 @@ class QuerySet(object):
 
     def __init__(self, t):
 
-        self._tables = t
+        self._distinct = False
         self._fields = []
+        self._tables = t
         self._wheres = None
         self._havings = None
         self._dialect = None
@@ -448,6 +449,13 @@ class QuerySet(object):
             self._tables = t
             return self
         return self._tables
+
+    def distinct(self, val=None):
+        if val is not None:
+            self = self.clone()
+            self._distinct = val
+            return self
+        return self._distinct
 
     def fields(self, *args):
         if len(args):
@@ -575,7 +583,7 @@ class QuerySet(object):
         self = self.clone()
         sql = ["SELECT"]
         params = []
-        default_count_distinct = self._default_count_distinct
+        default_count_distinct = self._default_count_distinct or self._distinct
 
         if len(f_list) == 0:
             f_list = self._group_by
@@ -601,7 +609,7 @@ class QuerySet(object):
         f_list = list(f_list)
         f_list += self._fields
 
-        if opt.get("distinct"):
+        if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
         sql.append(_gen_f_list(f_list, params))
 
@@ -620,7 +628,7 @@ class QuerySet(object):
         f_list = list(f_list)
         f_list += self._fields
 
-        if opt.get("distinct"):
+        if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
         sql.append(_gen_f_list(f_list, params))
 
@@ -926,3 +934,7 @@ if __name__ == "__main__":
     print "=================== FUNCTION ==============="
     print QS(T.tb).where(func.FUNC_NAME(T.tb.clmn) == 5).select('*')
     print QS(T.tb).where(T.tb.clmn == func.RANDOM()).select('*')
+    print "=================== DISTINCT ==============="
+    print QS(T.tb).select('*')
+    print QS(T.tb).distinct(False).select('*')
+    print QS(T.tb).distinct(True).select('*')
