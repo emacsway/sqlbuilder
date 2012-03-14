@@ -925,3 +925,4 @@ if __name__ == "__main__":
     print QS(T.tb).where(const.CONST_NAME == 5).select('*')
     print "=================== FUNCTION ==============="
     print QS(T.tb).where(func.FUNC_NAME(T.tb.clmn) == 5).select('*')
+    print QS(T.tb).where(T.tb.clmn == func.RANDOM()).select('*')
