@@ -24,11 +24,16 @@ class SqlDialects(object):
         callback = ns.get(cls, None)
         if callback is not None:
             return callback
+
+        callback = getattr(cls, '__sqlrepr__', None)
+        if callback is not None:
+            return callback
+
         for parent in cls.__bases__:
             callback = self.sqlrepr(dialect, parent)
             if callback is not None:
                 return callback
-        return getattr(cls, '__sqlrepr__', None)
+        return None
 
 sql_dialects = SqlDialects()
 
