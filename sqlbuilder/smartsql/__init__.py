@@ -6,6 +6,33 @@ import copy
 DEFAULT_DIALECT = 'postgres'
 
 
+class SqlDialects(object):
+    """
+    Stores all dialect representations
+    """
+    def __init__(self):
+        """Constructor, initial registry."""
+        self._registry = {}
+
+    def register(self, dialect, cls, sqlrepr_callback):
+        """Registers callbacks."""
+        ns = self._registry.setdefault(dialect, {})
+        ns[cls] = sqlrepr_callback
+
+    def sqlrepr(self, dialect, cls):
+        ns = self._registry.setdefault(dialect, {})
+        callback = ns.get(cls, None)
+        if callback is not None:
+            return callback
+        for parent in cls.__bases__:
+            callback = self.sqlrepr(dialect, parent)
+            if callback is not None:
+                return callback
+        return getattr(cls, '__sqlrepr__', None)
+
+sql_dialects = SqlDialects()
+
+
 def opt_checker(k_list):
     def new_deco(func):
         def new_func(self, *args, **opt):
@@ -213,10 +240,12 @@ class Between(Expr):
         self._end = end
 
     def __sqlrepr__(self, dialect):
-        sqls = [sqlrepr(self, dialect), ]
-        sqls.append(sqlrepr(start, dialect))
-        sqls.append(sqlrepr(end, dialect))
-        return "{0} BETWEEN {1} AND {1}".format(*sqls)
+        sqls = [
+            sqlrepr(self._child, dialect),
+            sqlrepr(self._start, dialect),
+            sqlrepr(self._end, dialect),
+        ]
+        return "{0} BETWEEN {1} AND {2}".format(*sqls)
 
     def __params__(self):
         return sqlparams(self._child) + sqlparams(self._start) + sqlparams(self._end)
@@ -228,7 +257,7 @@ class Constant(Expr):
         self._childs = None
 
     def __call__(self, *childs):
-        self = copy.deepcopy(self)
+        childs = list(childs)
         for i, c in enumerate(childs):
             if not isinstance(c, Expr):
                 childs[i] = Expr("%s", c)
@@ -244,8 +273,9 @@ class Constant(Expr):
 
     def __params__(self):
         params = []
-        for c in self._childs:
-            params.extend(sqlparams(s))
+        if self._childs is not None:
+            for c in self._childs:
+                params.extend(sqlparams(c))
         return params
 
 
@@ -647,12 +677,6 @@ class QuerySet(object):
 
         return " ".join(sql), params
 
-    def union(self, *f_list):
-        self = self.clone()
-        if len(f_list) > 0:
-            self.fields(*f_list)
-        return UnionQuerySet(self)
-
     def insert(self, fv_dict, **opt):
         self = self.clone()
         return self.insert_many(fv_dict.keys(), ([fv_dict[k] for k in fv_dict.keys()], ), **opt)
@@ -708,7 +732,7 @@ class QuerySet(object):
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self._tables:
             sql.append(sqlrepr(self._tables, self._dialect))
-            params.extend(sqlparams(self._tables, self._dialect))
+            params.extend(sqlparams(self._tables))
         if "from" in join_list and self._tables:
             sql.extend(["FROM", sqlrepr(self._tables, self._dialect)])
             params.extend(sqlparams(self._tables))
@@ -729,6 +753,12 @@ class QuerySet(object):
         if "limit" in join_list and self._limit:
             sql.append(self._limit)
 
+    def __mul__(self, other):
+        return UnionQuerySet(self).__mul__(other)
+
+    def __add__(self, other):
+        return UnionQuerySet(self).__add__(other)
+
     def __sqlrepr__(self, dialect):
         return self.dialect(dialect).select()[0]
 
@@ -737,8 +767,9 @@ class QuerySet(object):
 
 
 class UnionQuerySet(QuerySet):
+
     def __init__(self, qs):
-        self._union_part_list = [(None, qs)]
+        self._union_parts = [(None, qs)]
         self._dialect = DEFAULT_DIALECT
         self._group_by = None
         self._order_by = []
@@ -747,13 +778,13 @@ class UnionQuerySet(QuerySet):
     def __mul__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_part_list.append(("UNION DISTINCT", qs))
+        self._union_parts.append(("UNION DISTINCT", qs))
         return self
 
     def __add__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_part_list.append(("UNION ALL", qs))
+        self._union_parts.append(("UNION ALL", qs))
         return self
 
     def select(self):
@@ -761,13 +792,13 @@ class UnionQuerySet(QuerySet):
         sql = []
         params = []
 
-        for union_type, part in self._union_part_list:
+        for union_type, part in self._union_parts:
             if union_type:
                 sql.append(union_type)
-            part_sql, part_params = part.qs().dialect(self._dialect).select()
+            part_sql, part_params = part.dialect(self._dialect).select()
             sql.append("({0})".format(part_sql))
             params.extend(part_params)
-            self._join_sql_part(sql, params, ["order", "limit"])
+        self._join_sql_part(sql, params, ["order", "limit"])
         return " ".join(sql), params
 
 
@@ -807,11 +838,9 @@ def _gen_fv_dict(fv_dict, params, dialect):
 
 def sqlrepr(obj, dialect=DEFAULT_DIALECT, *args, **kwargs):
     """Renders query set"""
-    if hasattr(obj, '__sqlrepr__'):
-        try:
-            return obj.__sqlrepr__(dialect, *args, **kwargs)
-        except:
-            return obj.__sqlrepr__(dialect)
+    callback = sql_dialects.sqlrepr(dialect, obj.__class__)
+    if callback is not None:
+        return callback(obj, dialect)
     return obj  # It's a string
 
 
@@ -893,8 +922,8 @@ if __name__ == "__main__":
     print "*******************************************"
     print "**********      Union Query      **********"
     print "*******************************************"
-    a = QS(T.item).where(F.status != -1).select_for_union("type, name, img")
-    b = QS(T.gift).where(F.storage > 0).select_for_union("type, name, img")
+    a = QS(T.item).where(F.status != -1).fields("type, name, img")
+    b = QS(T.gift).where(F.storage > 0).fields("type, name, img")
     print (a + b).order_by("type", "name", desc=True).limit(100, 10).select()
 
     print
@@ -933,3 +962,7 @@ if __name__ == "__main__":
     print QS(T.tb).select('*')
     print QS(T.tb).distinct(False).select('*')
     print QS(T.tb).distinct(True).select('*')
+    print "=================== MOD ==============="
+    print QS(T.tb).where((T.tb.clmn % 5) == 3).select('*')
+    print QS(T.tb).where((T.tb.clmn % T.tb.clmn2) == 3).select('*')
+    print QS(T.tb).where((100 % T.tb.clmn2) == 3).select('*')
