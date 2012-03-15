@@ -3,6 +3,8 @@
 import sys
 import copy
 
+DEFAULT_DIALECT = 'postgres'
+
 
 def opt_checker(k_list):
     def new_deco(func):
@@ -96,11 +98,7 @@ class Expr(object):
         return Constant("ABS")(self)
 
     def __mod__(self, other):
-        sql = "MOD({0}, {1})".format(sqlrepr(self), sqlrepr(other))
-        params = []
-        params.extend(sqlparams(self))
-        params.extend(sqlparams(other))
-        return Expr(sql, *params)
+        return Constant("MOD")(self, other)
 
     def __rmod__(self, other):
         return Constant("MOD")(other, self)
@@ -136,41 +134,28 @@ class Expr(object):
         return Condition("LIKE", self, other)
 
     def between(self, start, end):
-        sqls = [sqlrepr(self), ]
-        params = []
-        if not isinstance(start, Expr):
-            start = Expr("%s", start)
-        sqls.append(sqlrepr(start))
-        params.extend(sqlparams(start))
-
-        if not isinstance(end, Expr):
-            end = Expr("%s", end)
-        sqls.append(sqlrepr(end))
-        params.extend(sqlparams(end))
-
-        sql = "{0} BETWEEN {1} AND {1}".format(*sqls)
-        return Expr(sql, *params)
+        return Between(self, start, end)
 
     def __getitem__(self, k):
         """Returns self.between()"""
         if isinstance(k, slice):
             start = k.start or 0
             end = k.stop or sys.maxint
-            return self.between(start, end)
+            return Between(self, start, end)
         else:
             return self.__eq__(k)
 
-    def __sqlrepr__(self):
+    def __sqlrepr__(self, dialect):
         return self._sql or ""
 
     def __params__(self):
         return self._params or []
 
     def __str__(self):
-        return self.__sqlrepr__()
+        return self.__sqlrepr__(dialect)
 
     def __repr__(self):
-        return self.__sqlrepr__()
+        return self.__sqlrepr__(dialect)
 
 
 class Condition(Expr):
@@ -185,9 +170,9 @@ class Condition(Expr):
         self.expr1 = expr1
         self.expr2 = expr2
 
-    def __sqlrepr__(self):
-        s1 = sqlrepr(self.expr1)
-        s2 = sqlrepr(self.expr2)
+    def __sqlrepr__(self, dialect):
+        s1 = sqlrepr(self.expr1, dialect)
+        s2 = sqlrepr(self.expr2, dialect)
         if not s1:
             return s2
         if not s2:
@@ -199,9 +184,7 @@ class Condition(Expr):
         return "{0} {1} {2}".format(s1, self.op, s2)
 
     def __params__(self):
-        params = []
-        params.extend(sqlparams(self.expr1))
-        params.extend(sqlparams(self.expr2))
+        params = sqlparams(self.expr1) + sqlparams(self.expr2)
         return params
 
 
@@ -211,36 +194,59 @@ class Prefix(Expr):
         self._prefix = prefix
         self._expr = expr
 
-    def __sqlrepr__(self):
-        return "{0} {1}".format(self._prefix, sqlrepr(self._expr))
+    def __sqlrepr__(self, dialect):
+        return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
 
     def __params__(self):
         return sqlparams(self._expr)
 
 
-class Constant(Expr):
-    def __init__(self, const, sql=None, *params):
-        self._const = const
-        if isinstance(sql, basestring):
-            self._child = Expr(sql, params)
-        else:
-            self._child = sql
+class Between(Expr):
 
-    def __call__(self, sql="", *params):
-        if isinstance(sql, basestring):
-            self._child = Expr(sql, params)
-        else:
-            self._child = sql
+    def __init__(self, child, start, end):
+        if not isinstance(start, Expr):
+            start = Expr("%s", start)
+        if not isinstance(end, Expr):
+            end = Expr("%s", end)
+        self._child = child
+        self._start = start
+        self._end = end
+
+    def __sqlrepr__(self, dialect):
+        sqls = [sqlrepr(self, dialect), ]
+        sqls.append(sqlrepr(start, dialect))
+        sqls.append(sqlrepr(end, dialect))
+        return "{0} BETWEEN {1} AND {1}".format(*sqls)
+
+    def __params__(self):
+        return sqlparams(self._child) + sqlparams(self._start) + sqlparams(self._end)
+
+
+class Constant(Expr):
+    def __init__(self, const):
+        self._const = const.upper()
+        self._childs = None
+
+    def __call__(self, *childs):
+        self = copy.deepcopy(self)
+        for i, c in enumerate(childs):
+            if not isinstance(c, Expr):
+                childs[i] = Expr("%s", c)
+        self._childs = childs
         return self
 
-    def __sqlrepr__(self):
+    def __sqlrepr__(self, dialect):
         sql = self._const
-        if self._child is not None:
-            sql = "{0}({1})".format(sql, sqlrepr(self._child))
+        if self._childs is not None:
+            childs_sql = ", ".join([sqlrepr(c, dialect) for c in self._childs])
+            sql = "{0}({1})".format(sql, childs_sql)
         return sql
 
     def __params__(self):
-        return sqlparams(self._child)
+        params = []
+        for c in self._childs:
+            params.extend(sqlparams(s))
+        return params
 
 
 class ConstantSpace:
@@ -297,7 +303,7 @@ class Table(object):
             a = self._name
         return getattr(Field, "{0}__{1}".format(a, name))
 
-    def __sqlrepr__(self):
+    def __sqlrepr__(self, dialect):
         sql = [self._name]
 
         if self._join:
@@ -305,7 +311,7 @@ class Table(object):
         if self._alias:
             sql.extend(["AS", self._alias])
         if self._on:
-            sql.extend(["ON", "({0})".format(sqlrepr(self._on))])
+            sql.extend(["ON", "({0})".format(sqlrepr(self._on, dialect))])
 
         return " ".join(sql)
 
@@ -336,14 +342,14 @@ class TableSet(object):
     def __mul__(self, obj):
         return self._add_join("CROSS JOIN", obj)
 
-    def __sqlrepr__(self):
-        sql = [" ".join([sqlrepr(k) for k in self._join_list])]
+    def __sqlrepr__(self, dialect):
+        sql = [" ".join([sqlrepr(k, dialect) for k in self._join_list])]
 
         if self._join:
             sql[0] = "({0})".format(sql[0])
             sql.insert(0, self._join)
         if self._on:
-            sql.extend(["ON", "({0})".format(sqlrepr(self._on))])
+            sql.extend(["ON", "({0})".format(sqlrepr(self._on, dialect))])
 
         return " ".join(sql)
 
@@ -389,7 +395,7 @@ class Field(Expr):
         self._prefix = prefix
         self._alias = alias
 
-    def __sqlrepr__(self):
+    def __sqlrepr__(self, dialect):
         sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
         if self._alias:
             sql = "{0} AS {1}".format(sql, self._alias)
@@ -405,7 +411,7 @@ class QuerySet(object):
         self._tables = t
         self._wheres = None
         self._havings = None
-        self._dialect = None
+        self._dialect = DEFAULT_DIALECT
 
         self._group_by = []
         self._order_by = []
@@ -591,9 +597,9 @@ class QuerySet(object):
             default_count_distinct = True
 
         if opt.get("distinct", default_count_distinct):
-            sql.append("COUNT(DISTINCT {0})".format(_gen_f_list(f_list, params)))
+            sql.append("COUNT(DISTINCT {0})".format(_gen_f_list(f_list, params, self._dialect)))
         else:
-            sql.append("COUNT({0})".format(_gen_f_list(f_list, params)))
+            sql.append("COUNT({0})".format(_gen_f_list(f_list, params, self._dialect)))
 
         self._join_sql_part(sql, params, ["from", "where"])
 
@@ -612,7 +618,7 @@ class QuerySet(object):
 
         if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list, params))
+        sql.append(_gen_f_list(f_list, params, self._dialect))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
 
@@ -631,7 +637,7 @@ class QuerySet(object):
 
         if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list, params))
+        sql.append(_gen_f_list(f_list, params, self._dialect))
 
         self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
         sql.append("LIMIT 1 OFFSET 0")
@@ -641,9 +647,11 @@ class QuerySet(object):
 
         return " ".join(sql), params
 
-    def select_for_union(self, *f_list):
+    def union(self, *f_list):
         self = self.clone()
-        return UnionPart(*self.select(*f_list))
+        if len(f_list) > 0:
+            self.fields(*f_list)
+        return UnionQuerySet(self)
 
     def insert(self, fv_dict, **opt):
         self = self.clone()
@@ -660,12 +668,15 @@ class QuerySet(object):
         sql.append("INTO")
 
         self._join_sql_part(sql, params, ["tables"])
-        sql.append("({0}) VALUES {1}".format(_gen_f_list(f_list), _gen_v_list_set(v_list_set, params)))
+        sql.append("({0}) VALUES {1}".format(
+            _gen_f_list(f_list, params, self._dialect),
+            _gen_v_list_set(v_list_set, params))
+        )
 
         fv_dict = opt.get("on_duplicate_key_update")
         if fv_dict:
             sql.append("ON DUPLICATE KEY UPDATE")
-            sql.append(_gen_fv_dict(fv_dict, params))
+            sql.append(_gen_fv_dict(fv_dict, params, self._dialect))
 
         return " ".join(sql), params
 
@@ -681,7 +692,7 @@ class QuerySet(object):
         self._join_sql_part(sql, params, ["tables"])
 
         sql.append("SET")
-        sql.append(_gen_fv_dict(fv_dict, params))
+        sql.append(_gen_fv_dict(fv_dict, params, self._dialect))
 
         self._join_sql_part(sql, params, ["where", "limit"])
         return " ".join(sql), params
@@ -696,69 +707,53 @@ class QuerySet(object):
 
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self._tables:
-            sql.append(sqlrepr(self._tables))
-            params.extend(sqlparams(self._tables))
+            sql.append(sqlrepr(self._tables, self._dialect))
+            params.extend(sqlparams(self._tables, self._dialect))
         if "from" in join_list and self._tables:
-            sql.extend(["FROM", sqlrepr(self._tables)])
+            sql.extend(["FROM", sqlrepr(self._tables, self._dialect)])
             params.extend(sqlparams(self._tables))
         if "where" in join_list and self._wheres:
-            sql.extend(["WHERE", sqlrepr(self._wheres)])
+            sql.extend(["WHERE", sqlrepr(self._wheres, self._dialect)])
             params.extend(sqlparams(self._wheres))
         if "group" in join_list and self._group_by:
-            sql.extend(["GROUP BY", _gen_f_list(self._group_by, params)])
+            sql.extend(["GROUP BY", _gen_f_list(self._group_by, params, self._dialect)])
         if "having" in join_list and self._havings:
-            sql.extend(["HAVING", sqlrepr(self._havings)])
+            sql.extend(["HAVING", sqlrepr(self._havings, self._dialect)])
             params.extend(sqlparams(self._havings))
         if "order" in join_list and self._order_by:
             order_by = []
             for f, direct in self._order_by:
-                order_by.append("{0} {1}".format(sqlrepr(f), direct))
+                order_by.append("{0} {1}".format(sqlrepr(f, self._dialect), direct))
                 params.extend(sqlparams(f))
             sql.extend(["ORDER BY", ", ".join(order_by)])
         if "limit" in join_list and self._limit:
             sql.append(self._limit)
 
-
-class UnionPart(object):
-    def __init__(self, sql, params):
-        self._sql = sql
-        self._params = params
-
-    def __mul__(self, up):
-        if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with {0}".format(str(type(up))))
-        return UnionQuerySet(self) * up
-
-    def __add__(self, up):
-        if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with {0}".format(str(type(up))))
-        return UnionQuerySet(self) + up
-
-    def __sqlrepr__(self):
-        return self._sql
+    def __sqlrepr__(self, dialect):
+        return self.dialect(dialect).select()[0]
 
     def __params__(self):
-        return self._params
+        return self.dialect(dialect).select()[1]
 
 
 class UnionQuerySet(QuerySet):
-    def __init__(self, up):
-        self._union_part_list = [(None, up)]
-
+    def __init__(self, qs):
+        self._union_part_list = [(None, qs)]
+        self._dialect = DEFAULT_DIALECT
         self._group_by = None
         self._order_by = []
         self._limit = None
 
-    def __mul__(self, up):
-        if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with {0}".format(str(type(up))))
-        self._union_part_list.append(("UNION DISTINCT", up))
+    def __mul__(self, qs):
+        if not isinstance(qs, QuerySet):
+            raise TypeError("Can't do operation with {0}".format(str(type(qs))))
+        self._union_part_list.append(("UNION DISTINCT", qs))
         return self
 
-    def __add__(self, up):
-        if not isinstance(up, UnionPart):
-            raise TypeError("Can't do operation with {0}".format(str(type(up))))
-        self._union_part_list.append(("UNION ALL", up))
+    def __add__(self, qs):
+        if not isinstance(qs, QuerySet):
+            raise TypeError("Can't do operation with {0}".format(str(type(qs))))
+        self._union_part_list.append(("UNION ALL", qs))
         return self
 
     def select(self):
@@ -769,18 +764,17 @@ class UnionQuerySet(QuerySet):
         for union_type, part in self._union_part_list:
             if union_type:
                 sql.append(union_type)
-            sql.append("({0})".format(sqlrepr(part)))
-
-            params.extend(sqlparams(part))
+            part_sql, part_params = part.qs().dialect(self._dialect).select()
+            sql.append("({0})".format(part_sql))
+            params.extend(part_params)
             self._join_sql_part(sql, params, ["order", "limit"])
-
         return " ".join(sql), params
 
 
-def _gen_f_list(f_list, params=None):
+def _gen_f_list(f_list, params, dialect):
     fields = []
     for f in f_list:
-        fields.append(sqlrepr(f))
+        fields.append(sqlrepr(f, dialect))
         if params is not None:
             params.extend(sqlparams(f))
     return ", ".join(fields)
@@ -798,11 +792,11 @@ def _gen_v_list_set(v_list_set, params):
     return ", ".join([_gen_v_list(v_list, params) for v_list in v_list_set])
 
 
-def _gen_fv_dict(fv_dict, params):
+def _gen_fv_dict(fv_dict, params, dialect):
     sql = []
     for f, v in fv_dict.items():
         if isinstance(v, Expr):
-            sql.append("{0} = {1}".format(f, sqlrepr(v)))
+            sql.append("{0} = {1}".format(f, sqlrepr(v, dialect)))
             params.extend(sqlparams(v))
         else:
             sql.append("{0} = %s".format(f))
@@ -811,13 +805,13 @@ def _gen_fv_dict(fv_dict, params):
     return ", ".join(sql)
 
 
-def sqlrepr(obj, dialect=None, *args, **kwargs):
+def sqlrepr(obj, dialect=DEFAULT_DIALECT, *args, **kwargs):
     """Renders query set"""
     if hasattr(obj, '__sqlrepr__'):
         try:
-            return obj.__sqlrepr__(*args, **kwargs)
+            return obj.__sqlrepr__(dialect, *args, **kwargs)
         except:
-            return obj.__sqlrepr__()
+            return obj.__sqlrepr__(dialect)
     return obj  # It's a string
 
 
