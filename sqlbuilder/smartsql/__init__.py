@@ -184,10 +184,10 @@ class Expr(object):
         return self._params or []
 
     def __str__(self):
-        return self.__sqlrepr__(dialect)
+        return sqlrepr(self)
 
     def __repr__(self):
-        return self.__sqlrepr__(dialect)
+        return sqlrepr(self)
 
 
 class Condition(Expr):
