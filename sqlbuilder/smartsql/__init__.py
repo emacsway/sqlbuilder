@@ -62,7 +62,11 @@ class Expr(object):
 
     def __init__(self, sql, *params):
         self._sql = sql
-        self._params = params
+        self._params = []
+        params = list(params)
+        if len(params) and hasattr(params[0], '__iter__'):
+            self._params.extend(params.pop(0))
+        self._params.extend(params)
 
     def __eq__(self, other):
         if other is None:
