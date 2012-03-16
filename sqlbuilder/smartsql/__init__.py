@@ -271,11 +271,15 @@ class Callable(Expr):
 
     def __init__(self, expr, *args):
         self._expr = expr
+        self._args = []
         args = list(args)
-        for i, c in enumerate(args):
-            if not isinstance(c, Expr):
-                args[i] = Expr("%s", c)
-        self._args = args
+        if len(args) and hasattr(args[0], '__iter__'):
+            self._args.extend(args.pop(0))
+        self._args.extend(args)
+
+        for i, arg in enumerate(self._args):
+            if not isinstance(arg, Expr):
+                self._args[i] = Expr("%s", arg)
 
     def __sqlrepr__(self, dialect):
         args_sql = ", ".join([sqlrepr(arg, dialect) for arg in self._args])
