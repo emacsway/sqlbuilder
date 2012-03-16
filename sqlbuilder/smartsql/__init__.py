@@ -199,31 +199,35 @@ class Expr(object):
 
 class Condition(Expr):
     def __init__(self, op, expr1, expr2):
-        self.op = op.upper()
+        self._op = op.upper()
 
         if expr1 is not None and not isinstance(expr1, Expr):
             expr1 = Expr("%s", expr1)
+        if isinstance(expr1, QuerySet):
+            expr1 = Callable(Expr(""), expr1)
         if expr2 is not None and not isinstance(expr2, Expr):
             expr2 = Expr("%s", expr2)
+        if isinstance(expr2, QuerySet):
+            expr2 = Callable(Expr(""), expr2)
 
-        self.expr1 = expr1
-        self.expr2 = expr2
+        self._expr1 = expr1
+        self._expr2 = expr2
 
     def __sqlrepr__(self, dialect):
-        s1 = sqlrepr(self.expr1, dialect)
-        s2 = sqlrepr(self.expr2, dialect)
+        s1 = sqlrepr(self._expr1, dialect)
+        s2 = sqlrepr(self._expr2, dialect)
         if not s1:
             return s2
         if not s2:
             return s1
-        if s1[0] != '(' and s1 != 'NULL' and isinstance(self.expr1, Condition):
+        if s1[0] != '(' and s1 != 'NULL' and isinstance(self._expr1, Condition):
             s1 = '(' + s1 + ')'
-        if s2[0] != '(' and s2 != 'NULL' and isinstance(self.expr2, Condition):
+        if s2[0] != '(' and s2 != 'NULL' and isinstance(self._expr2, Condition):
             s2 = '(' + s2 + ')'
-        return "{0} {1} {2}".format(s1, self.op, s2)
+        return "{0} {1} {2}".format(s1, self._op, s2)
 
     def __params__(self):
-        params = sqlparams(self.expr1) + sqlparams(self.expr2)
+        params = sqlparams(self._expr1) + sqlparams(self._expr2)
         return params
 
 
@@ -242,53 +246,61 @@ class Prefix(Expr):
 
 class Between(Expr):
 
-    def __init__(self, child, start, end):
+    def __init__(self, expr, start, end):
         if not isinstance(start, Expr):
             start = Expr("%s", start)
         if not isinstance(end, Expr):
             end = Expr("%s", end)
-        self._child = child
+        self._expr = expr
         self._start = start
         self._end = end
 
     def __sqlrepr__(self, dialect):
         sqls = [
-            sqlrepr(self._child, dialect),
+            sqlrepr(self._expr, dialect),
             sqlrepr(self._start, dialect),
             sqlrepr(self._end, dialect),
         ]
         return "{0} BETWEEN {1} AND {2}".format(*sqls)
 
     def __params__(self):
-        return sqlparams(self._child) + sqlparams(self._start) + sqlparams(self._end)
+        return sqlparams(self._expr) + sqlparams(self._start) + sqlparams(self._end)
+
+
+class Callable(Expr):
+
+    def __init__(self, expr, *args):
+        self._expr = expr
+        args = list(args)
+        for i, c in enumerate(args):
+            if not isinstance(c, Expr):
+                args[i] = Expr("%s", c)
+        self._args = args
+
+    def __sqlrepr__(self, dialect):
+        args_sql = ", ".join([sqlrepr(arg, dialect) for arg in self._args])
+        sql = "{0}({1})".format(sqlrepr(self._expr), args_sql)
+        return sql
+
+    def __params__(self):
+        params = sqlparams(self._expr)
+        if self._args is not None:
+            for c in self._args:
+                params.extend(sqlparams(c))
+        return params
 
 
 class Constant(Expr):
     def __init__(self, const):
         self._const = const.upper()
-        self._childs = None
+        self._params = []
 
-    def __call__(self, *childs):
-        childs = list(childs)
-        for i, c in enumerate(childs):
-            if not isinstance(c, Expr):
-                childs[i] = Expr("%s", c)
-        self._childs = childs
-        return self
+    def __call__(self, *args):
+        self = copy.deepcopy(self)
+        return Callable(self, *args)
 
     def __sqlrepr__(self, dialect):
-        sql = self._const
-        if self._childs is not None:
-            childs_sql = ", ".join([sqlrepr(c, dialect) for c in self._childs])
-            sql = "{0}({1})".format(sql, childs_sql)
-        return sql
-
-    def __params__(self):
-        params = []
-        if self._childs is not None:
-            for c in self._childs:
-                params.extend(sqlparams(c))
-        return params
+        return self._const
 
 
 class ConstantSpace:
@@ -444,7 +456,7 @@ class Field(Expr):
         return sql
 
 
-class QuerySet(object):
+class QuerySet(Expr):
 
     def __init__(self, tables=None):
 
@@ -772,7 +784,7 @@ class QuerySet(object):
         return self.dialect(dialect).select()[0]
 
     def __params__(self):
-        return self.dialect(dialect).select()[1]
+        return self.select()[1]
 
 
 class UnionQuerySet(QuerySet):
@@ -932,6 +944,14 @@ if __name__ == "__main__":
     qs.wheres = qs.wheres & ((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
     print qs.select(F.user__name, F.address__street, "COUNT(*) AS count")
     print "==========================================="
+
+    print
+    print "*******************************************"
+    print "**********      SubQuery      *************"
+    print "*******************************************"
+    sub_q = QS(T.tb2).where(T.tb2.id == T.tb1.tb2_id).limit(1)
+    print QS(T.tb1).where(T.tb1.tb2_id == sub_q).select(T.tb1.id)
+
 
     print
     print "*******************************************"
