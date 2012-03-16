@@ -186,6 +186,9 @@ class Expr(object):
     def __str__(self):
         return sqlrepr(self)
 
+    def __unicode__(self):
+        return sqlrepr(self)
+
     def __repr__(self):
         return sqlrepr(self)
 
@@ -734,6 +737,9 @@ class QuerySet(object):
         self._join_sql_part(sql, params, ["from", "where"])
         return " ".join(sql), params
 
+    def union_set(self):
+        return UnionQuerySet(self)
+
     def _join_sql_part(self, sql, params, join_list):
         if "tables" in join_list and self._tables:
             sql.append(sqlrepr(self._tables, self._dialect))
@@ -757,12 +763,6 @@ class QuerySet(object):
             sql.extend(["ORDER BY", ", ".join(order_by)])
         if "limit" in join_list and self._limit:
             sql.append(self._limit)
-
-    def __mul__(self, other):
-        return UnionQuerySet(self).__mul__(other)
-
-    def __add__(self, other):
-        return UnionQuerySet(self).__add__(other)
 
     def __sqlrepr__(self, dialect):
         return self.dialect(dialect).select()[0]
@@ -841,8 +841,17 @@ def _gen_fv_dict(fv_dict, params, dialect):
     return ", ".join(sql)
 
 
-def sqlrepr(obj, dialect=DEFAULT_DIALECT, *args, **kwargs):
+def default_dialect(dialect=None):
+    global DEFAULT_DIALECT
+    if dialect is not None:
+        DEFAULT_DIALECT = dialect
+    return DEFAULT_DIALECT
+
+
+def sqlrepr(obj, dialect=None):
     """Renders query set"""
+    if dialect is None:
+        dialect = DEFAULT_DIALECT
     callback = sql_dialects.sqlrepr(dialect, obj.__class__)
     if callback is not None:
         return callback(obj, dialect)
@@ -929,7 +938,7 @@ if __name__ == "__main__":
     print "*******************************************"
     a = QS(T.item).where(F.status != -1).fields("type, name, img")
     b = QS(T.gift).where(F.storage > 0).fields("type, name, img")
-    print (a + b).order_by("type", "name", desc=True).limit(100, 10).select()
+    print (a.union_set() + b).order_by("type", "name", desc=True).limit(100, 10).select()
 
     print
     print "*******************************************"
