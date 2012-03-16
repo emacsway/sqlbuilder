@@ -446,11 +446,11 @@ class Field(Expr):
 
 class QuerySet(object):
 
-    def __init__(self, t):
+    def __init__(self, tables=None):
 
         self._distinct = False
         self._fields = []
-        self._tables = t
+        self._tables = tables
         self._wheres = None
         self._havings = None
         self._dialect = DEFAULT_DIALECT
@@ -778,11 +778,8 @@ class QuerySet(object):
 class UnionQuerySet(QuerySet):
 
     def __init__(self, qs):
+        super(UnionQuerySet,self).__init__()
         self._union_parts = [(None, qs)]
-        self._dialect = DEFAULT_DIALECT
-        self._group_by = None
-        self._order_by = []
-        self._limit = None
 
     def __mul__(self, qs):
         if not isinstance(qs, QuerySet):
