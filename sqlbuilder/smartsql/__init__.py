@@ -165,16 +165,16 @@ class Expr(object):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
-            other = Expr(sql, other)
-        return Condition("IN", self, other)
+            other = Constant("IN")(Expr(sql, other))
+        return Condition("", self, other)
 
     def not_in(self, other):
         if hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
-            other = Expr(sql, other)
-        return Condition("NOT IN", self, other)
+            other = Constant("NOT IN")(Expr(sql, other))
+        return Condition("", self, other)
 
     def like(self, other):
         return Condition("LIKE", self, other)
@@ -254,14 +254,16 @@ class Condition(Expr):
 class Prefix(Expr):
 
     def __init__(self, prefix, expr):
+        if isinstance(prefix, basestring):
+            prefix = Expr(prefix)
         self._prefix = prefix
         self._expr = expr
 
     def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
+        return "{0} {1}".format(sqlrepr(self._prefix, dialect), sqlrepr(self._expr, dialect))
 
     def __params__(self):
-        return sqlparams(self._expr)
+        return sqlparams(self._prefix) + sqlparams(self._expr)
 
 
 class Between(Expr):
@@ -1018,8 +1020,10 @@ if __name__ == "__main__":
     print QS(T.tb).where(T.tb.cl[15:T.tb.cl3]).select('*')
     print QS(T.tb).where(T.tb.cl[T.tb.cl2:T.tb.cl3]).select('*')
     print "=================== IN ==============="
-    print QS(T.tb).where(T.tb.cl.in_([1,3,5])).select('*')
-    print QS(T.tb).where(T.tb.cl.not_in([1,3,5])).select('*')
+    print QS(T.tb).where(T.tb.cl == [1, 3, 5]).where(T.tb.cl2 == [1, ]).select('*')
+    print QS(T.tb).where(T.tb.cl != [1, 3, 5]).select('*')
+    print QS(T.tb).where(T.tb.cl.in_([1, 3, 5])).select('*')
+    print QS(T.tb).where(T.tb.cl.not_in([1, 3, 5])).select('*')
     print "=================== CONSTANT ==============="
     print QS(T.tb).where(const.CONST_NAME == 5).select('*')
     print "=================== FUNCTION ==============="
@@ -1033,3 +1037,6 @@ if __name__ == "__main__":
     print QS(T.tb).where((T.tb.cl % 5) == 3).select('*')
     print QS(T.tb).where((T.tb.cl % T.tb.cl2) == 3).select('*')
     print QS(T.tb).where((100 % T.tb.cl2) == 3).select('*')
+    print "=================== PREFIX ==============="
+    print QS(T.tb).where(~T.tb.cl == 3).select('*')
+    print QS(T.tb).where(Prefix((T.tb.cl == 2), (T.tb.cl2 == 3))).select('*')
