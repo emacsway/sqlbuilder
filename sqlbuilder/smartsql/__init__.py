@@ -252,7 +252,6 @@ class Condition(Expr):
 class ExprList(Expr):
 
     def __init__(self, *args):
-        #import rpdb2; rpdb2.start_embedded_debugger('111')
         self._sep = " "
         self._args = []
         args = list(args)
@@ -349,26 +348,14 @@ class Callable(Expr):
 
     def __init__(self, expr, *args):
         self._expr = expr
-        self._args = []
-        args = list(args)
-        if len(args) and hasattr(args[0], '__iter__'):
-            self._args.extend(args.pop(0))
-        self._args.extend(args)
-
-        for i, arg in enumerate(self._args):
-            if not isinstance(arg, Expr):
-                self._args[i] = Expr(PLACEHOLDER, arg)
+        self._args = ExprList(*args)
 
     def __sqlrepr__(self, dialect):
-        args_sql = ", ".join([sqlrepr(arg, dialect) for arg in self._args])
-        sql = "{0}({1})".format(sqlrepr(self._expr), args_sql)
-        return sql
+        return "{0}({1})".format(sqlrepr(self._expr, dialect), sqlrepr(self._args, dialect))
 
     def __params__(self):
         params = sqlparams(self._expr)
-        for arg in self._args:
-            params.extend(sqlparams(arg))
-        return params
+        return sqlparams(self._expr) + sqlparams(self._args)
 
 
 class Constant(Expr):
