@@ -214,13 +214,12 @@ class Expr(object):
 class Condition(Expr):
     def __init__(self, op, expr1, expr2):
         self._op = op.upper()
-        if expr1 is not None and not isinstance(expr1, Expr):
-            expr1 = Placeholder(expr1)
-        if expr2 is not None and not isinstance(expr2, Expr):
-            expr2 = Placeholder(expr2)
-
-        self._expr1 = parentheses_conditional(expr1)
-        self._expr2 = parentheses_conditional(expr2)
+        if expr1 is not None:
+            expr1 = prepare_expr(expr1)
+        if expr2 is not None:
+            expr2 = prepare_expr(expr2)
+        self._expr1 = expr1
+        self._expr2 = expr2
 
     def __sqlrepr__(self, dialect):
         s1 = sqlrepr(self._expr1, dialect)
@@ -247,10 +246,7 @@ class ExprList(Expr):
         self._args.extend(args)
 
         for i, arg in enumerate(self._args):
-            if not isinstance(arg, Expr):
-                self._args[i] = Placeholder(arg)
-            else:
-                self._args[i] = parentheses_conditional(arg)
+            self._args[i] = prepare_expr(arg)
 
     def join(self, sep):
         self._sep = sep
@@ -319,7 +315,7 @@ class Prefix(Expr):
 
     def __init__(self, prefix, expr):
         self._prefix = prefix
-        self._expr = parentheses_conditional(expr)
+        self._expr = prepare_expr(expr)
 
     def __sqlrepr__(self, dialect):
         return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
@@ -331,13 +327,9 @@ class Prefix(Expr):
 class Between(Expr):
 
     def __init__(self, expr, start, end):
-        if not isinstance(start, Expr):
-            start = Placeholder(start)
-        if not isinstance(end, Expr):
-            end = Placeholder(end)
-        self._expr = parentheses_conditional(expr)
-        self._start = parentheses_conditional(start)
-        self._end = parentheses_conditional(end)
+        self._expr = prepare_expr(expr)
+        self._start = prepare_expr(start)
+        self._end = prepare_expr(end)
 
     def __sqlrepr__(self, dialect):
         sqls = [
@@ -879,7 +871,6 @@ class UnionQuerySet(QuerySet):
         self = self.clone()
         sql = []
         params = []
-
         for union_type, part in self._union_parts:
             if union_type:
                 sql.append(union_type)
@@ -924,11 +915,25 @@ def _gen_fv_dict(fv_dict, params, dialect):
     return ", ".join(sql)
 
 
+def placeholder_conditional(expr):
+    if not isinstance(expr, Expr):
+        expr = Placeholder(expr)
+    return expr
+
+
 def parentheses_conditional(expr):
     if isinstance(expr, (Condition, QuerySet)):
         return Parentheses(expr)
     if expr.__class__ == Expr:
         return Parentheses(expr)
+    return expr
+
+
+def prepare_expr(expr):
+    if expr is None:
+        return Constant("NULL")
+    expr = placeholder_conditional(expr)
+    expr = parentheses_conditional(expr)
     return expr
 
 
