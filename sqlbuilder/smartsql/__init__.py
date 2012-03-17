@@ -235,9 +235,13 @@ class Condition(Expr):
             return s2
         if not s2:
             return s1
-        if s1[0] != '(' and s1 != 'NULL' and isinstance(self._expr1, (Condition, QuerySet)):
+        if s1 not in ('NULL', '%s') and (
+                isinstance(self._expr1, (Condition, QuerySet, ))
+                or self._expr1.__class__ == Expr):
             s1 = '(' + s1 + ')'
-        if s2[0] != '(' and s2 != 'NULL' and isinstance(self._expr2, (Condition, QuerySet)):
+        if s2 not in ('NULL', '%s') and (
+                isinstance(self._expr2, (Condition, QuerySet, ))
+                or self._expr2.__class__ == Expr):
             s2 = '(' + s2 + ')'
         return "{0} {1} {2}".format(s1, self._op, s2)
 
@@ -988,7 +992,9 @@ if __name__ == "__main__":
     print QS(T.tb1).where(T.tb1.tb2_id == sub_q).select(T.tb1.id)
     print QS(T.tb1).where(T.tb1.tb2_id.in_(sub_q)).select(T.tb1.id)
     print QS(T.tb1).select(sub_q.as_('sub_value'))
-
+    print "SQL expression in query:"
+    print QS(T.tb1).select(E('5 * 3 - 2*8').as_('sub_value'))
+    print QS(T.tb1).select(E('(5 - 2) * 8 + (6 - 3) * 8').as_('sub_value'))
 
     print
     print "*******************************************"
