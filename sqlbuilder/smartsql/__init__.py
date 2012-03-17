@@ -161,20 +161,18 @@ class Expr(object):
         return Condition("AS", self, alias)
 
     def in_(self, other):
-        if hasattr(other, '__iter__'):
+        if not isinstance(other, Expr) and hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
-            other = Constant("IN")(Expr(sql, other))
-        return Condition("", self, other)
+            other = ExprList(*other).join(", ")
+        return ExprList(self, Expr("IN"), other).join(" ")
 
     def not_in(self, other):
-        if hasattr(other, '__iter__'):
+        if not isinstance(other, Expr) and hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
-            other = Constant("NOT IN")(Expr(sql, other))
-        return Condition("", self, other)
+            other = ExprList(*other).join(", ")
+        return ExprList(self, Expr("NOT IN"), other).join(" ")
 
     def like(self, other):
         return Condition("LIKE", self, other)
@@ -182,14 +180,14 @@ class Expr(object):
     def between(self, start, end):
         return Between(self, start, end)
 
-    def __getitem__(self, k):
+    def __getitem__(self, key):
         """Returns self.between()"""
-        if isinstance(k, slice):
-            start = k.start or 0
-            end = k.stop or sys.maxint
+        if isinstance(key, slice):
+            start = key.start or 0
+            end = key.stop or sys.maxint
             return Between(self, start, end)
         else:
-            return self.__eq__(k)
+            return self.__eq__(key)
 
     def __sqlrepr__(self, dialect):
         return self._sql or ""
@@ -251,19 +249,77 @@ class Condition(Expr):
         return params
 
 
+class ExprList(Expr):
+
+    def __init__(self, *args):
+        #import rpdb2; rpdb2.start_embedded_debugger('111')
+        self._sep = " "
+        self._args = []
+        args = list(args)
+        if len(args) and hasattr(args[0], '__iter__'):
+            self._args.extend(args.pop(0))
+        self._args.extend(args)
+
+        for i, arg in enumerate(self._args):
+            if not isinstance(arg, Expr):
+                self._args[i] = Expr(PLACEHOLDER, arg)
+
+    def join(self, sep):
+        self._sep = sep
+        return self
+
+    def __len__(self):
+        return len(self._args)
+
+    def __setitem__(self, key, value):
+        self._args[key] = value
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            start = key.start or 0
+            end = key.stop or sys.maxint
+            return self._args[start:end]
+        else:
+            return self._args[key]
+
+    def __getitem__(self, key):
+        del self._args[key]
+
+    def append(self, arg):
+        return self._args.append(arg)
+
+    def insert(self, key, val):
+        return self._args.insert(key, val)
+
+    def pop(self, key):
+        return self._args.pop(key)
+
+    def __sqlrepr__(self, dialect):
+        sqls = []
+        for arg in self._args:
+            sql = sqlrepr(arg, dialect)
+            # Some actions here if need
+            sqls.append(sql)
+        return self._sep.join(sqls)
+
+    def __params__(self):
+        params = []
+        for arg in self._args:
+            params.extend(sqlparams(arg))
+        return params
+
+
 class Prefix(Expr):
 
     def __init__(self, prefix, expr):
-        if isinstance(prefix, basestring):
-            prefix = Expr(prefix)
         self._prefix = prefix
         self._expr = expr
 
     def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(sqlrepr(self._prefix, dialect), sqlrepr(self._expr, dialect))
+        return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
 
     def __params__(self):
-        return sqlparams(self._prefix) + sqlparams(self._expr)
+        return sqlparams(self._expr)
 
 
 class Between(Expr):
@@ -310,9 +366,8 @@ class Callable(Expr):
 
     def __params__(self):
         params = sqlparams(self._expr)
-        if self._args is not None:
-            for c in self._args:
-                params.extend(sqlparams(c))
+        for arg in self._args:
+            params.extend(sqlparams(arg))
         return params
 
 
@@ -663,18 +718,18 @@ class QuerySet(Expr):
         self._limit = sql
         return self
 
-    def __getitem__(self, k):
+    def __getitem__(self, key):
         """Returns self.limit()"""
         offset = 0
         limit = None
-        if isinstance(k, slice):
-            if k.start is not None:
-                offset = int(k.start)
-            if k.stop is not None:
-                end = int(k.stop)
+        if isinstance(key, slice):
+            if key.start is not None:
+                offset = int(key.start)
+            if key.stop is not None:
+                end = int(key.stop)
                 limit = end - offset
         else:
-            offset = k
+            offset = key
             limit = 1
         return self.limit(offset, limit)
 
