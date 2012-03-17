@@ -707,8 +707,7 @@ class QuerySet(Expr):
         self = self.clone()
         sql = ["SELECT"]
         params = []
-        f_list = list(f_list)
-        f_list += self._fields
+        f_list = self._fields + list(f_list)
 
         if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
