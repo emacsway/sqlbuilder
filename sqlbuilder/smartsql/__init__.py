@@ -71,14 +71,14 @@ class Expr(object):
 
     def __eq__(self, other):
         if other is None:
-            return Condition("IS", self, Expr("NULL"))
+            return Condition("IS", self, Constant("NULL"))
         if hasattr(other, '__iter__'):
             return self.in_(other)
         return Condition("=", self, other)
 
     def __ne__(self, other):
         if other is None:
-            return Condition("IS NOT", self, Expr("NULL"))
+            return Condition("IS NOT", self, Constant("NULL"))
         if hasattr(other, '__iter__'):
             return self.not_in(other)
         return Condition("<>", self, other)
@@ -165,14 +165,14 @@ class Expr(object):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
-        return ExprList(self, Expr("IN"), Parentheses(other)).join(" ")
+        return ExprList(self, Constant("IN"), Parentheses(other)).join(" ")
 
     def not_in(self, other):
         if not isinstance(other, Expr) and hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
-        return ExprList(self, Expr("NOT IN"), Parentheses(other)).join(" ")
+        return ExprList(self, Constant("NOT IN"), Parentheses(other)).join(" ")
 
     def like(self, other):
         return Condition("LIKE", self, other)
@@ -214,18 +214,13 @@ class Expr(object):
 class Condition(Expr):
     def __init__(self, op, expr1, expr2):
         self._op = op.upper()
-
         if expr1 is not None and not isinstance(expr1, Expr):
-            expr1 = Expr(PLACEHOLDER, expr1)
-        if isinstance(expr1, QuerySet):
-            expr1 = Callable(Expr(""), expr1)
+            expr1 = Placeholder(expr1)
         if expr2 is not None and not isinstance(expr2, Expr):
-            expr2 = Expr(PLACEHOLDER, expr2)
-        if isinstance(expr2, QuerySet):
-            expr2 = Callable(Expr(""), expr2)
+            expr2 = Placeholder(expr2)
 
-        self._expr1 = expr1
-        self._expr2 = expr2
+        self._expr1 = parentheses_conditional(expr1)
+        self._expr2 = parentheses_conditional(expr2)
 
     def __sqlrepr__(self, dialect):
         s1 = sqlrepr(self._expr1, dialect)
@@ -234,14 +229,6 @@ class Condition(Expr):
             return s2
         if not s2:
             return s1
-        if s1 not in ('NULL', PLACEHOLDER) and (
-                isinstance(self._expr1, (Condition, QuerySet, ))
-                or self._expr1.__class__ == Expr):
-            s1 = '(' + s1 + ')'
-        if s2 not in ('NULL', PLACEHOLDER) and (
-                isinstance(self._expr2, (Condition, QuerySet, ))
-                or self._expr2.__class__ == Expr):
-            s2 = '(' + s2 + ')'
         return "{0} {1} {2}".format(s1, self._op, s2)
 
     def __params__(self):
@@ -261,7 +248,9 @@ class ExprList(Expr):
 
         for i, arg in enumerate(self._args):
             if not isinstance(arg, Expr):
-                self._args[i] = Expr(PLACEHOLDER, arg)
+                self._args[i] = Placeholder(arg)
+            else:
+                self._args[i] = parentheses_conditional(arg)
 
     def join(self, sep):
         self._sep = sep
@@ -308,6 +297,11 @@ class ExprList(Expr):
         return params
 
 
+class Placeholder(Expr):
+    def __init__(self, *params):
+        super(Placeholder, self).__init__(PLACEHOLDER, *params)
+
+
 class Parentheses(Expr):
 
     def __init__(self, expr):
@@ -325,7 +319,7 @@ class Prefix(Expr):
 
     def __init__(self, prefix, expr):
         self._prefix = prefix
-        self._expr = expr
+        self._expr = parentheses_conditional(expr)
 
     def __sqlrepr__(self, dialect):
         return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
@@ -338,12 +332,12 @@ class Between(Expr):
 
     def __init__(self, expr, start, end):
         if not isinstance(start, Expr):
-            start = Expr(PLACEHOLDER, start)
+            start = Placeholder(start)
         if not isinstance(end, Expr):
-            end = Expr(PLACEHOLDER, end)
-        self._expr = expr
-        self._start = start
-        self._end = end
+            end = Placeholder(end)
+        self._expr = parentheses_conditional(expr)
+        self._start = parentheses_conditional(start)
+        self._end = parentheses_conditional(end)
 
     def __sqlrepr__(self, dialect):
         sqls = [
@@ -930,10 +924,11 @@ def _gen_fv_dict(fv_dict, params, dialect):
     return ", ".join(sql)
 
 
-def add_parentheses_conditional(expr):
-    if isinstance(expr, (Condition, QuerySet))\
-            or expr.__class__ == Expr:
-        expr = Parentheses(expr)
+def parentheses_conditional(expr):
+    if isinstance(expr, (Condition, QuerySet)):
+        return Parentheses(expr)
+    if expr.__class__ == Expr:
+        return Parentheses(expr)
     return expr
 
 
