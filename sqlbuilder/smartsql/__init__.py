@@ -699,6 +699,10 @@ class QuerySet(Expr):
         return " ".join(sql), params
 
     @opt_checker(["distinct", "for_update"])
+    def select_one(self, *items, **opt):
+        return self.limit(1).select(*items, **opt)
+
+    @opt_checker(["distinct", "for_update"])
     def select(self, *f_list, **opt):
         self = self.clone()
         sql = ["SELECT"]
@@ -938,7 +942,7 @@ if __name__ == "__main__":
 
     from datetime import datetime
     w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= datetime.now())
-    print QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price)
+    print QS(t).where(w).select_one(F.grade__name, F.base__img, F.lottery__price)
     print "==========================================="
 
     w = w & (F.base__status != [1, 2])
