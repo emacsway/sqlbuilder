@@ -165,6 +165,7 @@ class Expr(object):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
+            sql = "({0})".format(sql)
             other = Expr(sql, other)
         return Condition("IN", self, other)
 
@@ -173,6 +174,7 @@ class Expr(object):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
+            sql = "({0})".format(sql)
             other = Expr(sql, other)
         return Condition("NOT IN", self, other)
 
