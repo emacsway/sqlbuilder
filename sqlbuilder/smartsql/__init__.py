@@ -71,27 +71,15 @@ class Expr(object):
     def __eq__(self, other):
         if other is None:
             return Condition("IS", self, Expr("NULL"))
-
         if hasattr(other, '__iter__'):
-            if len(other) < 1:
-                raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(other))])
-            sql = "({0})".format(sql)
-            return Condition("IN", self, Expr(sql, *list(other)))
-
+            return self.in_(other)
         return Condition("=", self, other)
 
     def __ne__(self, other):
         if other is None:
             return Condition("IS NOT", self, Expr("NULL"))
-
         if hasattr(other, '__iter__'):
-            if len(other) < 1:
-                raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(other))])
-            sql = "({0})".format(sql)
-            return Condition("NOT IN", self, Expr(sql, *list(other)))
-
+            return self.not_in(other)
         return Condition("<>", self, other)
 
     def __add__(self, other):
@@ -166,6 +154,27 @@ class Expr(object):
     def __le__(self, other):
         return Condition("<=", self, other)
 
+    def as_(self, alias):
+        if isinstance(alias, basestring):
+            alias = Alias(alias)
+        return Condition("AS", self, alias)
+
+    def in_(self, other):
+        if hasattr(other, '__iter__'):
+            if len(other) < 1:
+                raise Error("Empty list is not allowed")
+            sql = ", ".join(["%s" for i in xrange(len(other))])
+            other = Expr(sql, other)
+        return Condition("IN", self, other)
+
+    def not_in(self, other):
+        if hasattr(other, '__iter__'):
+            if len(other) < 1:
+                raise Error("Empty list is not allowed")
+            sql = ", ".join(["%s" for i in xrange(len(other))])
+            other = Expr(sql, other)
+        return Condition("NOT IN", self, other)
+
     def like(self, other):
         return Condition("LIKE", self, other)
 
@@ -196,6 +205,12 @@ class Expr(object):
     def __repr__(self):
         return sqlrepr(self)
 
+    # Aliases:
+    AS = as_
+    IN = in_
+    NOT_IN = not_in
+    LIKE = like
+    BETWEEN = between
 
 class Condition(Expr):
     def __init__(self, op, expr1, expr2):
@@ -220,9 +235,9 @@ class Condition(Expr):
             return s2
         if not s2:
             return s1
-        if s1[0] != '(' and s1 != 'NULL' and isinstance(self._expr1, Condition):
+        if s1[0] != '(' and s1 != 'NULL' and isinstance(self._expr1, (Condition, QuerySet)):
             s1 = '(' + s1 + ')'
-        if s2[0] != '(' and s2 != 'NULL' and isinstance(self._expr2, Condition):
+        if s2[0] != '(' and s2 != 'NULL' and isinstance(self._expr2, (Condition, QuerySet)):
             s2 = '(' + s2 + ')'
         return "{0} {1} {2}".format(s1, self._op, s2)
 
@@ -307,6 +322,10 @@ class Constant(Expr):
         return self._const
 
 
+class Alias(Expr):
+    pass
+
+
 class ConstantSpace:
     def __getattr__(self, attr):
         if attr.startswith('__'):
@@ -318,12 +337,12 @@ class MetaTable(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        pieces = key.split("__", 1)
-        name = pieces[0]
+        parts = key.split("__", 1)
+        name = parts[0]
         alias = None
 
-        if len(pieces) > 1:
-            alias = pieces[1]
+        if len(parts) > 1:
+            alias = parts[1]
 
         return cls(name, alias)
 
@@ -375,6 +394,10 @@ class Table(object):
 
     def __params__(self):
         return sqlparams(self._on) if self._on else []
+
+
+class TableAlias(Table):
+    pass
 
 
 class TableSet(object):
@@ -431,32 +454,37 @@ class MetaField(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        pieces = key.split("__", 2)
-        name = pieces[0]
+        parts = key.split("__", 2)
+        name = parts[0]
         prefix = None
         alias = None
 
-        if len(pieces) > 1:
-            prefix = pieces[0]
-            name = pieces[1]
-        if len(pieces) > 2:
-            alias = pieces[2]
+        if len(parts) > 1:
+            prefix = parts[0]
+            name = parts[1]
+        if len(parts) > 2:
+            alias = parts[2]
 
-        return cls(name, prefix, alias)
+        f = cls(name, prefix)
+        if alias is not None:
+            f = f.as_(alias)
+        return f
 
 
 class Field(Expr):
     __metaclass__ = MetaField
 
-    def __init__(self, name, prefix=None, alias=None):
+    def __init__(self, name, prefix=None):
         self._name = name
+
+        if isinstance(prefix, basestring):
+            prefix = Table(prefix)
         self._prefix = prefix
-        self._alias = alias
 
     def __sqlrepr__(self, dialect):
-        sql = ".".join((self._prefix, self._name)) if self._prefix else self._name
-        if self._alias:
-            sql = "{0} AS {1}".format(sql, self._alias)
+        sql = self._name
+        if self._prefix is not None:
+            sql = ".".join((sqlrepr(self._prefix, dialect), sql, ))
         return sql
 
 
@@ -790,6 +818,9 @@ class QuerySet(Expr):
     def __params__(self):
         return self.select()[1]
 
+    # Aliases:
+    columns = fields
+
 
 class UnionQuerySet(QuerySet):
 
@@ -881,7 +912,7 @@ def sqlparams(obj):
         return list(obj.__params__())
     return []
 
-T, F, E, QS = Table, Field, Expr, QuerySet
+T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
 const = ConstantSpace()
 func = const
 
@@ -955,6 +986,8 @@ if __name__ == "__main__":
     print "*******************************************"
     sub_q = QS(T.tb2).where(T.tb2.id == T.tb1.tb2_id).limit(1)
     print QS(T.tb1).where(T.tb1.tb2_id == sub_q).select(T.tb1.id)
+    print QS(T.tb1).where(T.tb1.tb2_id.in_(sub_q)).select(T.tb1.id)
+    print QS(T.tb1).select(sub_q.as_('sub_value'))
 
 
     print
@@ -962,7 +995,7 @@ if __name__ == "__main__":
     print "**********      Union Query      **********"
     print "*******************************************"
     a = QS(T.item).where(F.status != -1).fields("type, name, img")
-    b = QS(T.gift).where(F.storage > 0).fields("type, name, img")
+    b = QS(T.gift).where(F.storage > 0).columns("type, name, img")
     print (a.union_set() + b).order_by("type", "name", desc=True).limit(100, 10).select()
 
     print
@@ -986,22 +1019,27 @@ if __name__ == "__main__":
     print "*******************************************"
     print "**********      Unit      **********"
     print "*******************************************"
+    print "=================== ALIAS ==============="
+    print QS(T.tb).where(A('al') == 5).select(T.tb.cl__al)
+    print QS(T.tb).where(A('al') == 5).select(T.tb.cl.as_('al'))
     print "================== BETWEEN ================"
-    print QS(T.tb).where(T.tb.clmn[5:15]).select('*')
-    print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:15]).select('*')
-    print QS(T.tb).where(T.tb.clmn[15:T.tb.clmn3]).select('*')
-    print QS(T.tb).where(T.tb.clmn[T.tb.clmn2:T.tb.clmn3]).select('*')
-
+    print QS(T.tb).where(T.tb.cl[5:15]).select('*')
+    print QS(T.tb).where(T.tb.cl[T.tb.cl2:15]).select('*')
+    print QS(T.tb).where(T.tb.cl[15:T.tb.cl3]).select('*')
+    print QS(T.tb).where(T.tb.cl[T.tb.cl2:T.tb.cl3]).select('*')
+    print "=================== IN ==============="
+    print QS(T.tb).where(T.tb.cl.in_([1,3,5])).select('*')
+    print QS(T.tb).where(T.tb.cl.not_in([1,3,5])).select('*')
     print "=================== CONSTANT ==============="
     print QS(T.tb).where(const.CONST_NAME == 5).select('*')
     print "=================== FUNCTION ==============="
-    print QS(T.tb).where(func.FUNC_NAME(T.tb.clmn) == 5).select('*')
-    print QS(T.tb).where(T.tb.clmn == func.RANDOM()).select('*')
+    print QS(T.tb).where(func.FUNC_NAME(T.tb.cl) == 5).select('*')
+    print QS(T.tb).where(T.tb.cl == func.RANDOM()).select('*')
     print "=================== DISTINCT ==============="
     print QS(T.tb).select('*')
     print QS(T.tb).distinct(False).select('*')
     print QS(T.tb).distinct(True).select('*')
     print "=================== MOD ==============="
-    print QS(T.tb).where((T.tb.clmn % 5) == 3).select('*')
-    print QS(T.tb).where((T.tb.clmn % T.tb.clmn2) == 3).select('*')
-    print QS(T.tb).where((100 % T.tb.clmn2) == 3).select('*')
+    print QS(T.tb).where((T.tb.cl % 5) == 3).select('*')
+    print QS(T.tb).where((T.tb.cl % T.tb.cl2) == 3).select('*')
+    print QS(T.tb).where((100 % T.tb.cl2) == 3).select('*')
