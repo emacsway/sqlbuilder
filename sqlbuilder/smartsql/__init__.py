@@ -497,7 +497,7 @@ class QuerySet(Expr):
     def __init__(self, tables=None):
 
         self._distinct = False
-        self._fields = []
+        self._items = []
         self._tables = tables
         self._wheres = None
         self._havings = None
@@ -554,15 +554,15 @@ class QuerySet(Expr):
             return self
         return self._distinct
 
-    def fields(self, *args):
+    def items(self, *args):
         if len(args):
             self = self.clone()
             if hasattr(args[0], '__iter__'):
-                self._fields = list(args[0])
+                self._items = list(args[0])
             else:
-                self._fields += args
+                self._items += args
             return self
-        return self._fields
+        return self._items
 
     def on(self, c):
         self = self.clone()
@@ -704,7 +704,7 @@ class QuerySet(Expr):
         sql = ["SELECT"]
         params = []
         f_list = list(f_list)
-        f_list += self._fields
+        f_list += self._items
 
         if opt.get("distinct", self._distinct):
             sql.append("DISTINCT")
@@ -803,7 +803,8 @@ class QuerySet(Expr):
         return self.select()[1]
 
     # Aliases:
-    columns = fields
+    columns = items
+    fields = items
 
 
 class UnionQuerySet(QuerySet):
