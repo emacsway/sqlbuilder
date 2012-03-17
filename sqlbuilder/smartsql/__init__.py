@@ -165,14 +165,14 @@ class Expr(object):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
-        return ExprList(self, Expr("IN"), other).join(" ")
+        return ExprList(self, Expr("IN"), Parentheses(other)).join(" ")
 
     def not_in(self, other):
         if not isinstance(other, Expr) and hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
-        return ExprList(self, Expr("NOT IN"), other).join(" ")
+        return ExprList(self, Expr("NOT IN"), Parentheses(other)).join(" ")
 
     def like(self, other):
         return Condition("LIKE", self, other)
@@ -308,6 +308,19 @@ class ExprList(Expr):
         return params
 
 
+class Parentheses(Expr):
+
+    def __init__(self, expr):
+        self._expr = expr
+
+    def __sqlrepr__(self, dialect):
+        return "({0})".format(sqlrepr(self._expr, dialect))
+
+    def __params__(self):
+        return sqlparams(self._expr)
+    
+
+
 class Prefix(Expr):
 
     def __init__(self, prefix, expr):
@@ -348,7 +361,7 @@ class Callable(Expr):
 
     def __init__(self, expr, *args):
         self._expr = expr
-        self._args = ExprList(*args)
+        self._args = ExprList(*args).join(", ")
 
     def __sqlrepr__(self, dialect):
         return "{0}({1})".format(sqlrepr(self._expr, dialect), sqlrepr(self._args, dialect))
@@ -555,25 +568,21 @@ class QuerySet(Expr):
         self._default_count_field_list = ("*", )
         self._default_count_distinct = False
 
-    @apply
-    def wheres():
-        def fget(self):
-            return self._wheres
+    @property
+    def wheres(self):
+        return self._wheres
 
-        def fset(self, cs):
-            self._wheres = cs
+    @wheres.setter
+    def wheres(self, cs):
+        self._wheres = cs
 
-        return property(**locals())
+    @property
+    def havings(self):
+        return self._havings
 
-    @apply
-    def havings():
-        def fget(self):
-            return self._havings
-
-        def fset(self, cs):
-            self._havings = cs
-
-        return property(**locals())
+    @havings.setter
+    def havings(self, cs):
+        self._havings = cs
 
     def clone(self):
         return copy.deepcopy(self)
@@ -921,6 +930,13 @@ def _gen_fv_dict(fv_dict, params, dialect):
     return ", ".join(sql)
 
 
+def add_parentheses_conditional(expr):
+    if isinstance(expr, (Condition, QuerySet))\
+            or expr.__class__ == Expr:
+        expr = Parentheses(expr)
+    return expr
+
+
 def default_dialect(dialect=None):
     global DEFAULT_DIALECT
     if dialect is not None:
@@ -1062,10 +1078,10 @@ if __name__ == "__main__":
     print QS(T.tb).where(T.tb.cl[15:T.tb.cl3]).select('*')
     print QS(T.tb).where(T.tb.cl[T.tb.cl2:T.tb.cl3]).select('*')
     print "=================== IN ==============="
-    print QS(T.tb).where(T.tb.cl == [1, 3, 5]).where(T.tb.cl2 == [1, ]).select('*')
-    print QS(T.tb).where(T.tb.cl != [1, 3, 5]).select('*')
-    print QS(T.tb).where(T.tb.cl.in_([1, 3, 5])).select('*')
-    print QS(T.tb).where(T.tb.cl.not_in([1, 3, 5])).select('*')
+    print QS(T.tb).where(T.tb.cl == [1, T.tb.cl3, 5, ]).where(T.tb.cl2 == [1, T.tb.cl4, ]).select('*')
+    print QS(T.tb).where(T.tb.cl != [1, 3, 5, ]).select('*')
+    print QS(T.tb).where(T.tb.cl.in_([1, 3, 5, ])).select('*')
+    print QS(T.tb).where(T.tb.cl.not_in([1, 3, 5, ])).select('*')
     print "=================== CONSTANT ==============="
     print QS(T.tb).where(const.CONST_NAME == 5).select('*')
     print "=================== FUNCTION ==============="
