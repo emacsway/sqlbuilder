@@ -717,26 +717,6 @@ class QuerySet(Expr):
 
         return " ".join(sql), params
 
-    @opt_checker(["distinct", "for_update"])
-    def select_one(self, *f_list, **opt):
-        self = self.clone()
-        sql = ["SELECT"]
-        params = []
-        f_list = list(f_list)
-        f_list += self._fields
-
-        if opt.get("distinct", self._distinct):
-            sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list, params, self._dialect))
-
-        self._join_sql_part(sql, params, ["from", "where", "group", "having", "order"])
-        sql.append("LIMIT 1 OFFSET 0")
-
-        if opt.get("for_update"):
-            sql.append("FOR UPDATE")
-
-        return " ".join(sql), params
-
     def insert(self, fv_dict, **opt):
         self = self.clone()
         return self.insert_many(fv_dict.keys(), ([fv_dict[k] for k in fv_dict.keys()], ), **opt)
@@ -958,7 +938,7 @@ if __name__ == "__main__":
 
     from datetime import datetime
     w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= datetime.now())
-    print QS(t).where(w).select_one(F.grade__name, F.base__img, F.lottery__price)
+    print QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price)
     print "==========================================="
 
     w = w & (F.base__status != [1, 2])
