@@ -4,6 +4,7 @@ import sys
 import copy
 
 DEFAULT_DIALECT = 'postgres'
+PLACEHOLDER = "%s"
 
 
 class SqlDialects(object):
@@ -163,7 +164,7 @@ class Expr(object):
         if hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(other))])
+            sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
             other = Expr(sql, other)
         return Condition("IN", self, other)
 
@@ -171,7 +172,7 @@ class Expr(object):
         if hasattr(other, '__iter__'):
             if len(other) < 1:
                 raise Error("Empty list is not allowed")
-            sql = ", ".join(["%s" for i in xrange(len(other))])
+            sql = ", ".join([PLACEHOLDER for i in xrange(len(other))])
             other = Expr(sql, other)
         return Condition("NOT IN", self, other)
 
@@ -217,11 +218,11 @@ class Condition(Expr):
         self._op = op.upper()
 
         if expr1 is not None and not isinstance(expr1, Expr):
-            expr1 = Expr("%s", expr1)
+            expr1 = Expr(PLACEHOLDER, expr1)
         if isinstance(expr1, QuerySet):
             expr1 = Callable(Expr(""), expr1)
         if expr2 is not None and not isinstance(expr2, Expr):
-            expr2 = Expr("%s", expr2)
+            expr2 = Expr(PLACEHOLDER, expr2)
         if isinstance(expr2, QuerySet):
             expr2 = Callable(Expr(""), expr2)
 
@@ -235,11 +236,11 @@ class Condition(Expr):
             return s2
         if not s2:
             return s1
-        if s1 not in ('NULL', '%s') and (
+        if s1 not in ('NULL', PLACEHOLDER) and (
                 isinstance(self._expr1, (Condition, QuerySet, ))
                 or self._expr1.__class__ == Expr):
             s1 = '(' + s1 + ')'
-        if s2 not in ('NULL', '%s') and (
+        if s2 not in ('NULL', PLACEHOLDER) and (
                 isinstance(self._expr2, (Condition, QuerySet, ))
                 or self._expr2.__class__ == Expr):
             s2 = '(' + s2 + ')'
@@ -267,9 +268,9 @@ class Between(Expr):
 
     def __init__(self, expr, start, end):
         if not isinstance(start, Expr):
-            start = Expr("%s", start)
+            start = Expr(PLACEHOLDER, start)
         if not isinstance(end, Expr):
-            end = Expr("%s", end)
+            end = Expr(PLACEHOLDER, end)
         self._expr = expr
         self._start = start
         self._end = end
@@ -298,7 +299,7 @@ class Callable(Expr):
 
         for i, arg in enumerate(self._args):
             if not isinstance(arg, Expr):
-                self._args[i] = Expr("%s", arg)
+                self._args[i] = Expr(PLACEHOLDER, arg)
 
     def __sqlrepr__(self, dialect):
         args_sql = ", ".join([sqlrepr(arg, dialect) for arg in self._args])
@@ -854,7 +855,7 @@ def _gen_f_list(f_list, params, dialect):
 def _gen_v_list(v_list, params):
     values = []
     for v in v_list:
-        values.append("%s")
+        values.append(PLACEHOLDER)
         params.append(v)
     return "({0})".format(", ".join(values))
 
@@ -870,7 +871,7 @@ def _gen_fv_dict(fv_dict, params, dialect):
             sql.append("{0} = {1}".format(f, sqlrepr(v, dialect)))
             params.extend(sqlparams(v))
         else:
-            sql.append("{0} = %s".format(f))
+            sql.append("{0} = {1}".format(f, PLACEHOLDER))
             params.append(v)
 
     return ", ".join(sql)
@@ -948,7 +949,7 @@ if __name__ == "__main__":
     print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, "CASE 1 WHEN 1")
     print "==========================================="
 
-    print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("(CASE 1 WHEN %s) AS exp_result", 'exp_value'))
+    print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN " + PLACEHOLDER, 'exp_value').as_("exp_result"))
 
     print
     print "*******************************************"
