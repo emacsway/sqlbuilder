@@ -177,7 +177,7 @@ Example of usage sqlalchemy.sql in Django:
 
 Paginator
 ==========
-django.db.models.query.RawQuerySet `does not supports __len__() and __getslice__()
+django.db.models.query.RawQuerySet `does not supports __len__() and __getitem__()
 <https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_ methods,
 so it can cause problems with pagination.
 
