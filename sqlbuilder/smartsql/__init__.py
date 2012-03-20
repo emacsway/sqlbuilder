@@ -156,9 +156,7 @@ class Expr(object):
         return Condition("<=", self, other)
 
     def as_(self, alias):
-        if isinstance(alias, basestring):
-            alias = Alias(self, alias)
-        return Condition("AS", self, alias)
+        return Alias(alias, self)
 
     def in_(self, other):
         if not isinstance(other, Expr) and hasattr(other, '__iter__'):
@@ -371,152 +369,19 @@ class Constant(Expr):
 
 
 class Alias(Expr):
-    def __init__(self, expr, alias):
+    def __init__(self, alias, expr=None):
         self._expr = expr
         super(Alias, self).__init__(alias)
 
+    @property
+    def expr(self):
+        return self._expr
 
 class ConstantSpace:
     def __getattr__(self, attr):
         if attr.startswith('__'):
             raise AttributeError
         return Constant(attr)
-
-
-class MetaTable(type):
-    def __getattr__(cls, key):
-        if key[0] == '_':
-            raise AttributeError
-        parts = key.split("__", 1)
-        name = parts[0]
-        alias = None
-
-        if len(parts) > 1:
-            alias = parts[1]
-
-        return cls(name, alias)
-
-
-class Table(object):
-    __metaclass__ = MetaTable
-
-    def __init__(self, name):
-        self._name = name
-
-    def __and__(self, obj):
-        return TableJoin(None, self).__and__(obj)
-
-    def __add__(self, obj):
-        return TableJoin(None, self).__add__(obj)
-
-    def __sub__(self, obj):
-        return TableJoin(None, self).__sub__(obj)
-
-    def __or__(self, obj):
-        return TableJoin(None, self).__or__(obj)
-
-    def __mul__(self, obj):
-        return TableJoin(None, self).__mul__(obj)
-
-    def as_(self, alias):
-        return TableAlias(self, alias)
-
-    def on(self, c):
-        return TableJoin(None, obj).on(c)
-
-    def __getattr__(self, name):
-        if name[0] == '_':
-            raise AttributeError
-        return Field(name, self)
-
-    def __sqlrepr__(self, dialect):
-        return self._name
-
-    def __params__(self):
-        return []
-
-    # Aliases:
-    AS = as_
-
-
-class TableAlias(Table):
-    def __init__(self, table, alias):
-        self._table = table
-        self._alias = alias
-
-    @property
-    def table():
-        return self._table
-
-    def as_(self, alias):
-        return TableAlias(self._table, alias)
-
-    def __sqlrepr__(self, dialect):
-        return self._alias
-
-
-class TableJoin(object):
-
-    def __init__(self, table_or_alias, join_type=None, on=None, left=None):
-        if isinstance(table_or_alias, TableAlias):
-            self._table = table_or_alias.table
-            self._alias = table_or_alias
-        else:
-            self._table = table_or_alias
-            self._alias = None
-        self._left = left
-        self._join_type = join_type
-        self._on = on and prepare_expr(on) or on
-        self._right = right
-
-    def __and__(self, obj):
-        return self._add_join("INNER JOIN", obj)
-
-    def __add__(self, obj):
-        return self._add_join("LEFT OUTER JOIN", obj)
-
-    def __sub__(self, obj):
-        return self._add_join("RIGHT OUTER JOIN", obj)
-
-    def __or__(self, obj):
-        return self._add_join("FULL OUTER JOIN", obj)
-
-    def __mul__(self, obj):
-        return self._add_join("CROSS JOIN", obj)
-
-    def _add_join(self, join_type, obj):
-        if not isinstance(obj, TableJoin):
-            obj = TableJoin(obj, left=self)
-        obj = obj.left(self).join_type(join_type)
-        return obj
-
-    def left(self, left):
-        self._left = left
-        return self
-
-    def join_type(self, join_type):
-        self._join_type = join_type
-        return self
-
-    def on(self, c):
-        self._on = c
-        return self
-
-    def __sqlrepr__(self, dialect):
-        sql = []
-        if self._left is not None:
-            sql.append(sqlrepr(self._left, dialect))
-        if self._join_type:
-            sql.append(self._join_type)
-        sql.append(sqlrepr(self._table, dialect))
-        if self._alias is not None:
-            sql.extend(["AS", sqlrepr(self._alias, dialect)])
-        if self._on is not None:
-            sql.extend(["ON", sqlrepr(self._on, dialect)])
-        return " ".join(sql)
-
-    def __params__(self):
-        return sqlparams(self._left) + sqlparams(self._on)
 
 
 class MetaField(type):
@@ -555,6 +420,157 @@ class Field(Expr):
         if self._prefix is not None:
             sql = ".".join((sqlrepr(self._prefix, dialect), sql, ))
         return sql
+
+
+class MetaTable(type):
+    def __getattr__(cls, key):
+        if key[0] == '_':
+            raise AttributeError
+        parts = key.split("__", 1)
+        name = parts[0]
+        alias = None
+
+        if len(parts) > 1:
+            alias = parts[1]
+
+        table = cls(name)
+        if alias is not None:
+            table = table.as_(alias)
+        return table
+
+
+class Table(object):
+    __metaclass__ = MetaTable
+
+    def __init__(self, name):
+        self._name = name
+
+    def __and__(self, obj):
+        return TableJoin(self).__and__(obj)
+
+    def __add__(self, obj):
+        return TableJoin(self).__add__(obj)
+
+    def __sub__(self, obj):
+        return TableJoin(self).__sub__(obj)
+
+    def __or__(self, obj):
+        return TableJoin(self).__or__(obj)
+
+    def __mul__(self, obj):
+        return TableJoin(self).__mul__(obj)
+
+    def as_(self, alias):
+        return TableAlias(alias, self)
+
+    def on(self, c):
+        return TableJoin(obj).on(c)
+
+    def __getattr__(self, name):
+        if name[0] == '_':
+            raise AttributeError
+        parts = name.split('__')
+        name = parts.pop(0)
+        alias = parts.pop(0) if len(parts) else None
+        f = Field(name, self)
+        if alias is not None:
+            f = f.as_(alias)
+        return f
+
+    def __sqlrepr__(self, dialect):
+        return self._name
+
+    def __params__(self):
+        return []
+
+    # Aliases:
+    AS = as_
+    ON = on
+
+
+class TableAlias(Table):
+    def __init__(self, alias, table):
+        self._table = table
+        self._alias = alias
+
+    @property
+    def table():
+        return self._table
+
+    def as_(self, alias):
+        return TableAlias(alias, self._table)
+
+    def __sqlrepr__(self, dialect):
+        return self._alias
+
+    # Aliases:
+    AS = as_
+
+
+class TableJoin(object):
+
+    def __init__(self, table_or_alias, join_type=None, on=None, left=None):
+        if isinstance(table_or_alias, TableAlias):
+            self._table = table_or_alias.table
+            self._alias = table_or_alias
+        else:
+            self._table = table_or_alias
+            self._alias = None
+        self._join_type = join_type
+        self._on = on and parentheses_conditional(on) or on
+        self._left = left
+
+    def __and__(self, obj):
+        return self._add_join("INNER JOIN", obj)
+
+    def __add__(self, obj):
+        return self._add_join("LEFT OUTER JOIN", obj)
+
+    def __sub__(self, obj):
+        return self._add_join("RIGHT OUTER JOIN", obj)
+
+    def __or__(self, obj):
+        return self._add_join("FULL OUTER JOIN", obj)
+
+    def __mul__(self, obj):
+        return self._add_join("CROSS JOIN", obj)
+
+    def _add_join(self, join_type, obj):
+        if not isinstance(obj, TableJoin):
+            obj = TableJoin(obj, left=self)
+        obj = obj.left(self).join_type(join_type)
+        return obj
+
+    def left(self, left):
+        self._left = left
+        return self
+
+    def join_type(self, join_type):
+        self._join_type = join_type
+        return self
+
+    def on(self, c):
+        self._on = parentheses_conditional(c)
+        return self
+
+    def __sqlrepr__(self, dialect):
+        sql = []
+        if self._left is not None:
+            sql.append(sqlrepr(self._left, dialect))
+        if self._join_type:
+            sql.append(self._join_type)
+        sql.append(sqlrepr(self._table, dialect))
+        if self._alias is not None:
+            sql.extend(["AS", sqlrepr(self._alias, dialect)])
+        if self._on is not None:
+            sql.extend(["ON", sqlrepr(self._on, dialect)])
+        return " ".join(sql)
+
+    def __params__(self):
+        return sqlparams(self._left) + sqlparams(self._on)
+
+    # Aliases:
+    ON = on
 
 
 class QuerySet(Expr):
@@ -904,6 +920,8 @@ class UnionQuerySet(QuerySet):
 def _gen_f_list(f_list, params, dialect):
     fields = []
     for f in f_list:
+        if isinstance(f, Alias):
+            f = Condition("AS", f.expr, f)
         fields.append(sqlrepr(f, dialect))
         if params is not None:
             params.extend(sqlparams(f))
@@ -1090,6 +1108,7 @@ if __name__ == "__main__":
     print "**********      Unit      **********"
     print "*******************************************"
     print "=================== ALIAS ==============="
+    print QS(T.tb).where(A('al') == 5).select(F.tb__cl__al)
     print QS(T.tb).where(A('al') == 5).select(T.tb.cl__al)
     print QS(T.tb).where(A('al') == 5).select(T.tb.cl.as_('al'))
     print "================== BETWEEN ================"
@@ -1106,7 +1125,7 @@ if __name__ == "__main__":
     print QS(T.tb).where(const.CONST_NAME == 5).select('*')
     print "=================== FUNCTION ==============="
     print QS(T.tb).where(func.FUNC_NAME(T.tb.cl) == 5).select('*')
-    print QS(T.tb).where(T.tb.cl == func.RANDOM()).select('*')
+    print QS(T.tb).where(T.tb.cl == func.RAND()).select('*')
     print "=================== DISTINCT ==============="
     print QS(T.tb).select('*')
     print QS(T.tb).distinct(False).select('*')
