@@ -23,6 +23,44 @@ class classproperty(object):
     def __get__(self, instance, owner):
         return self.getter(owner)
 
+
+class SmartSqlHelper(object):
+    """Helber for Django models"""
+    _model = None
+    _table = None
+    _query_set = None
+
+    def __init__(self, model):
+        """Constructor"""
+        self._model = model
+        self._table = smartsql.Table(self._meta.db_table)
+        self._query_set = smartsql.QS(self.table)
+
+    @property
+    def table(self):
+        return self._table
+
+    def get_fields(self, prefix=None):
+        if prefix is None:
+            prefix = self.table
+        result = []
+        for f in self._model._meta.fields:
+            if f.column:
+                result.append(smartsql.Field(f.column, prefix))
+        return result
+
+    def set_query_set(self, query_set):
+        self._query_set = query_set
+        return self
+
+    def get_query_set(self):
+        return self._query_set
+
+    # Aliases
+    t = table
+    qs = query_set
+
+
 if SMARTSQL_USE:
     import smartsql
 

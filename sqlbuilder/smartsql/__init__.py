@@ -157,7 +157,7 @@ class Expr(object):
 
     def as_(self, alias):
         if isinstance(alias, basestring):
-            alias = Alias(alias)
+            alias = Alias(self, alias)
         return Condition("AS", self, alias)
 
     def in_(self, other):
@@ -371,7 +371,9 @@ class Constant(Expr):
 
 
 class Alias(Expr):
-    pass
+    def __init__(self, expr, alias):
+        self._expr = expr
+        super(Alias, self).__init__(alias)
 
 
 class ConstantSpace:
@@ -398,63 +400,74 @@ class MetaTable(type):
 class Table(object):
     __metaclass__ = MetaTable
 
-    def __init__(self, name, alias=None):
+    def __init__(self, name):
         self._name = name
-        self._alias = alias
-        self._join = None
-        self._on = None
 
     def __and__(self, obj):
-        return TableSet(self).__and__(obj)
+        return TableJoin(None, self).__and__(obj)
 
     def __add__(self, obj):
-        return TableSet(self).__add__(obj)
+        return TableJoin(None, self).__add__(obj)
 
     def __sub__(self, obj):
-        return TableSet(self).__sub__(obj)
+        return TableJoin(None, self).__sub__(obj)
 
     def __or__(self, obj):
-        return TableSet(self).__or__(obj)
+        return TableJoin(None, self).__or__(obj)
 
     def __mul__(self, obj):
-        return TableSet(self).__mul__(obj)
+        return TableJoin(None, self).__mul__(obj)
+
+    def as_(self, alias):
+        return TableAlias(self, alias)
+
+    def on(self, c):
+        return TableJoin(None, obj).on(c)
 
     def __getattr__(self, name):
         if name[0] == '_':
             raise AttributeError
-        if self._alias:
-            a = self._alias
-        else:
-            a = self._name
-        return getattr(Field, "{0}__{1}".format(a, name))
+        return Field(name, self)
 
     def __sqlrepr__(self, dialect):
-        sql = [self._name]
-
-        if self._join:
-            sql.insert(0, self._join)
-        if self._alias:
-            sql.extend(["AS", self._alias])
-        if self._on:
-            sql.extend(["ON", "({0})".format(sqlrepr(self._on, dialect))])
-
-        return " ".join(sql)
+        return self._name
 
     def __params__(self):
-        return sqlparams(self._on) if self._on else []
+        return []
+
+    # Aliases:
+    AS = as_
 
 
 class TableAlias(Table):
-    pass
+    def __init__(self, table, alias):
+        self._table = table
+        self._alias = alias
+
+    @property
+    def table():
+        return self._table
+
+    def as_(self, alias):
+        return TableAlias(self._table, alias)
+
+    def __sqlrepr__(self, dialect):
+        return self._alias
 
 
-class TableSet(object):
-    def __init__(self, join_obj):
-        self._join_list = [join_obj]
+class TableJoin(object):
 
-        self._sub = False
-        self._join = None
-        self._on = None
+    def __init__(self, table_or_alias, join_type=None, on=None, left=None):
+        if isinstance(table_or_alias, TableAlias):
+            self._table = table_or_alias.table
+            self._alias = table_or_alias
+        else:
+            self._table = table_or_alias
+            self._alias = None
+        self._left = left
+        self._join_type = join_type
+        self._on = on and prepare_expr(on) or on
+        self._right = right
 
     def __and__(self, obj):
         return self._add_join("INNER JOIN", obj)
@@ -471,31 +484,39 @@ class TableSet(object):
     def __mul__(self, obj):
         return self._add_join("CROSS JOIN", obj)
 
+    def _add_join(self, join_type, obj):
+        if not isinstance(obj, TableJoin):
+            obj = TableJoin(obj, left=self)
+        obj = obj.left(self).join_type(join_type)
+        return obj
+
+    def left(self, left):
+        self._left = left
+        return self
+
+    def join_type(self, join_type):
+        self._join_type = join_type
+        return self
+
+    def on(self, c):
+        self._on = c
+        return self
+
     def __sqlrepr__(self, dialect):
-        sql = [" ".join([sqlrepr(k, dialect) for k in self._join_list])]
-
-        if self._join:
-            sql[0] = "({0})".format(sql[0])
-            sql.insert(0, self._join)
-        if self._on:
-            sql.extend(["ON", "({0})".format(sqlrepr(self._on, dialect))])
-
+        sql = []
+        if self._left is not None:
+            sql.append(sqlrepr(self._left, dialect))
+        if self._join_type:
+            sql.append(self._join_type)
+        sql.append(sqlrepr(self._table, dialect))
+        if self._alias is not None:
+            sql.extend(["AS", sqlrepr(self._alias, dialect)])
+        if self._on is not None:
+            sql.extend(["ON", sqlrepr(self._on, dialect)])
         return " ".join(sql)
 
     def __params__(self):
-        params = []
-        for sql_obj in self._join_list:
-            params.extend(sqlparams(sql_obj))
-        return params
-
-    def on(self, c):
-        self._join_list[-1]._on = c
-        return self
-
-    def _add_join(self, join_type, obj):
-        obj._join = join_type
-        self._join_list.append(obj)
-        return self
+        return sqlparams(self._left) + sqlparams(self._on)
 
 
 class MetaField(type):
@@ -606,9 +627,8 @@ class QuerySet(Expr):
 
     def on(self, c):
         self = self.clone()
-        if not isinstance(self._tables, TableSet):
+        if not isinstance(self._tables, TableJoin):
             raise Error("Can't set on without join table")
-
         self._tables.on(c)
         return self
 
