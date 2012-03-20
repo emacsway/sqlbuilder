@@ -209,6 +209,7 @@ class Expr(object):
     LIKE = like
     BETWEEN = between
 
+
 class Condition(Expr):
     def __init__(self, op, expr1, expr2):
         self._op = op.upper()
@@ -264,9 +265,6 @@ class ExprList(Expr):
         else:
             return self._args[key]
 
-    def __getitem__(self, key):
-        del self._args[key]
-
     def append(self, arg):
         return self._args.append(arg)
 
@@ -306,7 +304,6 @@ class Parentheses(Expr):
 
     def __params__(self):
         return sqlparams(self._expr)
-    
 
 
 class Prefix(Expr):
@@ -351,7 +348,6 @@ class Callable(Expr):
         return "{0}({1})".format(sqlrepr(self._expr, dialect), sqlrepr(self._args, dialect))
 
     def __params__(self):
-        params = sqlparams(self._expr)
         return sqlparams(self._expr) + sqlparams(self._args)
 
 
@@ -366,6 +362,7 @@ class Constant(Expr):
 
     def __sqlrepr__(self, dialect):
         return self._const
+
 
 class ConstantSpace:
     def __getattr__(self, attr):
@@ -464,7 +461,7 @@ class Table(object):
         return TableAlias(alias, self)
 
     def on(self, c):
-        return TableJoin(obj).on(c)
+        return TableJoin(self).on(c)
 
     def __getattr__(self, name):
         if name[0] == '_':
@@ -494,7 +491,7 @@ class TableAlias(Table):
         self._alias = alias
 
     @property
-    def table():
+    def table(self):
         return self._table
 
     def as_(self, alias):
@@ -888,7 +885,7 @@ class QuerySet(Expr):
 class UnionQuerySet(QuerySet):
 
     def __init__(self, qs):
-        super(UnionQuerySet,self).__init__()
+        super(UnionQuerySet, self).__init__()
         self._union_parts = [(None, qs)]
 
     def __mul__(self, qs):
