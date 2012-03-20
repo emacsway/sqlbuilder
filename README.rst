@@ -129,6 +129,8 @@ How to execute?
     rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select("*"))
     # or
     rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select(Grade.ss.get_fields()))
+    # or simple
+    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select())
 
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------
@@ -139,9 +141,14 @@ Example of usage sqlbuilder.sqlobject in Django:
 
     from sqlbuilder.sqlobject import Select, LIKE, sqlrepr
     from sqlbuilder.models import SQLOBJECT_DIALECT
-    
+
     # Address is subclass of django.db.models.Model
-    s = Select([Address.so.name, Address.so.state], where=LIKE(Address.so.name, "%ian%"))
+    s = Select([Address.so.t.name, Address.so.t.state], where=LIKE(Address.so.name, "%ian%"))
+    # or
+    s = Address.so.qs.newItems(Address.so.get_fields())
+    # or simple
+    s = Address.so.qs
+
     rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
 
 Integration sqlalchemy.sql to Django
@@ -160,8 +167,8 @@ Example of usage sqlalchemy.sql in Django:
     
     # User, Profile is subclasses of django.db.models.Model
     dialect = User.sa.dialect  # or SQLALCHEMY_DIALECT
-    u = User.sa  # or table('user')
-    p = Profile.sa  # or table('profile')
+    u = User.sa.t  # or table('user')
+    p = Profile.sa.t  # or table('profile')
     s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
     sc = s.compile(dialect=dialect)
     rows = User.objects.raw(unicode(sc), sc.params)

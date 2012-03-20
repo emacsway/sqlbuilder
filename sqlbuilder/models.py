@@ -64,23 +64,22 @@ class AbstractFacade(object):
         return self._table
 
 
-
 if SMARTSQL_USE:
     import smartsql
 
-    class SmartSqlFacade(AbstractFacade):
+    class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
 
         def __init__(self, model):
             """Constructor"""
             self._model = model
             self._table = smartsql.Table(self._model._meta.db_table)
-            self._query_set = smartsql.QS(self.table)
+            self._query_set = smartsql.QS(self.table).fields(self.get_fields())
 
         def get_fields(self, prefix=None):
             """Returns field list."""
             if prefix is None:
-                prefix = self.table
+                prefix = self._table
             result = []
             for f in self._model._meta.fields:
                 if f.column:
@@ -90,7 +89,7 @@ if SMARTSQL_USE:
     @classproperty
     def ss(cls):
         if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
-            setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSqlFacade(cls))
+            setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSQLFacade(cls))
         return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
 
     setattr(Model, SMARTSQL_ALIAS, ss)
@@ -115,12 +114,33 @@ if SQLOBJECT_USE:
     SQLOBJECT_DIALECT = get_so_dialect()
     settings.SQLBUILDER_SQLOBJECT_DIALECT = SQLOBJECT_DIALECT
 
+    class SQLObjectFacade(AbstractFacade):
+        """Abstract facade for Django integration"""
+
+        def __init__(self, model):
+            """Constructor"""
+            self._model = model
+            self._table = sqlobject.Table(self._model._meta.db_table)
+            self._query_set = sqlobject.Select(
+                items=self.get_fields(),
+                staticTables=[self.table, ]
+            )
+
+        def get_fields(self, prefix=None):
+            """Returns field list."""
+            if prefix is None:
+                prefix = self._table
+            result = []
+            for f in self._model._meta.fields:
+                if f.column:
+                    result.append(getattr(prefix, f.column))
+            return result
+
     @classproperty
     def so(cls):
-        return getattr(
-            sqlobject.table,
-            cls._meta.db_table
-        )
+        if getattr(cls, '_{0}'.format(SQLOBJECT_ALIAS), None) is None:
+            setattr(cls, '_{0}'.format(SQLOBJECT_ALIAS), SQLObjectFacade(cls))
+        return getattr(cls, '_{0}'.format(SQLOBJECT_ALIAS))
 
     setattr(Model, SQLOBJECT_ALIAS, so)
 
@@ -176,12 +196,32 @@ try:
 
     sqlalchemy.sql.TableClause.vc = vc
 
+    class SQLAlchemyFacade(AbstractFacade):
+        """Abstract facade for Django integration"""
+
+        dialect = SQLALCHEMY_DIALECT
+
+        def __init__(self, model):
+            """Constructor"""
+            self._model = model
+            self._table = sqlalchemy.sql.table(self._model._meta.db_table)
+            self._query_set = sqlalchemy.sql.select(self.get_fields())\
+                .select_from(self.table)
+
+        def get_fields(self, prefix=None):
+            """Returns field list."""
+            if prefix is None:
+                prefix = self._table
+            result = []
+            for f in self._model._meta.fields:
+                if f.column:
+                    result.append(getattr(self._table.vc, f.column))
+            return result
+
     @classproperty
     def sa(cls):
         if getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), None) is None:
-            table = sqlalchemy.sql.table(cls._meta.db_table)
-            table.dialect = SQLALCHEMY_DIALECT
-            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), table)
+            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), SQLAlchemyFacade(cls))
         return getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS))
 
     setattr(Model, SQLALCHEMY_ALIAS, sa)

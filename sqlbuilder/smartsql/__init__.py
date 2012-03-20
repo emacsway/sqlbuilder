@@ -925,6 +925,7 @@ def _gen_f_list(f_list, params, dialect):
         fields.append(sqlrepr(f, dialect))
         if params is not None:
             params.extend(sqlparams(f))
+    fields = list(set(fields))
     return ", ".join(fields)
 
 
