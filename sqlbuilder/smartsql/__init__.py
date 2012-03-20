@@ -367,16 +367,6 @@ class Constant(Expr):
     def __sqlrepr__(self, dialect):
         return self._const
 
-
-class Alias(Expr):
-    def __init__(self, alias, expr=None):
-        self._expr = expr
-        super(Alias, self).__init__(alias)
-
-    @property
-    def expr(self):
-        return self._expr
-
 class ConstantSpace:
     def __getattr__(self, attr):
         if attr.startswith('__'):
@@ -420,6 +410,16 @@ class Field(Expr):
         if self._prefix is not None:
             sql = ".".join((sqlrepr(self._prefix, dialect), sql, ))
         return sql
+
+
+class Alias(Expr):
+    def __init__(self, alias, expr=None):
+        self._expr = expr
+        super(Alias, self).__init__(alias)
+
+    @property
+    def expr(self):
+        return self._expr
 
 
 class MetaTable(type):
