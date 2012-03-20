@@ -105,26 +105,30 @@ For Django model
         class Meta:
             db_table = "grade"
 
-T.grade is equal Grade.ss
+* T.grade is equal Grade.ss.table or simple Grade.ss.t
+* QS(T.grade) is equal Grade.ss.qs
+* [T.grade.id, T.grade.title, ...] is equal Grade.ss.get_fields()
+
 
 So,
 
 ::
 
-    t = T.grade
-    t = (t * T.base).on(F.grade__item_type == F.base__type)
+    QS(T.grade).where(F.grade__item_type == 'type1')
 
 is equal to:
 
 ::
 
-    t = (Grade.ss * Base.ss).on(Grade.ss.item_type == Base.ss.type)
+    Grade.ss.qs.where(Grade.ss.t.item_type == 'type1')
 
 How to execute?
 
 ::
-
-    rows = Grade.objects.raw(*QS(t).select("*"))
+    
+    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select("*"))
+    # or
+    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select(Grade.ss.get_fields()))
 
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------

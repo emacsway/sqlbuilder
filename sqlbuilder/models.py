@@ -24,52 +24,74 @@ class classproperty(object):
         return self.getter(owner)
 
 
-class SmartSqlHelper(object):
-    """Helber for Django models"""
+class AbstractFacade(object):
+    """Abstract facade for Django integration"""
     _model = None
     _table = None
     _query_set = None
 
     def __init__(self, model):
         """Constructor"""
-        self._model = model
-        self._table = smartsql.Table(self._meta.db_table)
-        self._query_set = smartsql.QS(self.table)
+        raise NotImplementedError
 
     @property
     def table(self):
+        """Returns table instance."""
         return self._table
 
     def get_fields(self, prefix=None):
-        if prefix is None:
-            prefix = self.table
-        result = []
-        for f in self._model._meta.fields:
-            if f.column:
-                result.append(smartsql.Field(f.column, prefix))
-        return result
+        """Returns fileld list."""
+        raise NotImplementedError
 
     def set_query_set(self, query_set):
+        """Sets query set."""
         self._query_set = query_set
         return self
 
     def get_query_set(self):
+        """Returns query set."""
         return self._query_set
 
+    @property
+    def qs(self):
+        """Sets query set."""
+        return self.get_query_set()
+
     # Aliases
-    t = table
-    qs = query_set
+    @property
+    def t(self):
+        """Returns table instance."""
+        return self._table
+
 
 
 if SMARTSQL_USE:
     import smartsql
 
+    class SmartSqlFacade(AbstractFacade):
+        """Abstract facade for Django integration"""
+
+        def __init__(self, model):
+            """Constructor"""
+            self._model = model
+            self._table = smartsql.Table(self._model._meta.db_table)
+            self._query_set = smartsql.QS(self.table)
+
+        def get_fields(self, prefix=None):
+            """Returns field list."""
+            if prefix is None:
+                prefix = self.table
+            result = []
+            for f in self._model._meta.fields:
+                if f.column:
+                    result.append(smartsql.Field(f.column, prefix))
+            return result
+
     @classproperty
     def ss(cls):
-        return getattr(
-            smartsql.Table,
-            cls._meta.db_table
-        )
+        if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
+            setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSqlFacade(cls))
+        return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
 
     setattr(Model, SMARTSQL_ALIAS, ss)
 
