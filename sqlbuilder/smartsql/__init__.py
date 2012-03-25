@@ -1137,37 +1137,3 @@ if __name__ == "__main__":
     print QS(T.user).where(F.id == 100).update({"name": "nobody", "status": 1}, ignore=True)
     print "==========================================="
     print QS(T.user).where(F.status == 1).delete()
-
-    print "*******************************************"
-    print "**********      Unit      **********"
-    print "*******************************************"
-    print "=================== ALIAS ==============="
-    print QS(T.tb).where(A('al') == 5).select(F.tb__cl__al)
-    print QS(T.tb).where(A('al') == 5).select(T.tb.cl__al)
-    print QS(T.tb).where(A('al') == 5).select(T.tb.cl.as_('al'))
-    print "================== BETWEEN ================"
-    print QS(T.tb).where(T.tb.cl[5:15]).select('*')
-    print QS(T.tb).where(T.tb.cl[T.tb.cl2:15]).select('*')
-    print QS(T.tb).where(T.tb.cl[15:T.tb.cl3]).select('*')
-    print QS(T.tb).where(T.tb.cl[T.tb.cl2:T.tb.cl3]).select('*')
-    print "=================== IN ==============="
-    print QS(T.tb).where(T.tb.cl == [1, T.tb.cl3, 5, ]).where(T.tb.cl2 == [1, T.tb.cl4, ]).select('*')
-    print QS(T.tb).where(T.tb.cl != [1, 3, 5, ]).select('*')
-    print QS(T.tb).where(T.tb.cl.in_([1, 3, 5, ])).select('*')
-    print QS(T.tb).where(T.tb.cl.not_in([1, 3, 5, ])).select('*')
-    print "=================== CONSTANT ==============="
-    print QS(T.tb).where(const.CONST_NAME == 5).select('*')
-    print "=================== FUNCTION ==============="
-    print QS(T.tb).where(func.FUNC_NAME(T.tb.cl) == 5).select('*')
-    print QS(T.tb).where(T.tb.cl == func.RAND()).select('*')
-    print "=================== DISTINCT ==============="
-    print QS(T.tb).select('*')
-    print QS(T.tb).distinct(False).select('*')
-    print QS(T.tb).distinct(True).select('*')
-    print "=================== MOD ==============="
-    print QS(T.tb).where((T.tb.cl % 5) == 3).select('*')
-    print QS(T.tb).where((T.tb.cl % T.tb.cl2) == 3).select('*')
-    print QS(T.tb).where((100 % T.tb.cl2) == 3).select('*')
-    print "=================== PREFIX ==============="
-    print QS(T.tb).where(~T.tb.cl == 3).select('*')
-    print QS(T.tb).where(Prefix((T.tb.cl == 2), (T.tb.cl2 == 3))).select('*')
