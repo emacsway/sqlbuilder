@@ -4,7 +4,7 @@ SQLBuilder
 
 Contains 2 separated SQLBuilders:
 
-1. SmartSQL, my own lightweight library, with some ideas from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_, but it's not a fork.
+1. SmartSQL, my own lightweight library, with some ideas from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_, but it's not a fork anymore...
 2. Extracted slightly `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ ORM to be used without the rest of the library (almost non-modified).
 
 Also, SQLBuilder allows to use
