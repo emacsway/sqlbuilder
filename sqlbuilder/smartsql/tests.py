@@ -158,7 +158,6 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT grade.name, base.img, lottery.price FROM grade INNER JOIN base ON (grade.item_type = base.type) LEFT OUTER JOIN lottery ON (base.type = lottery.item_type) WHERE (((base.type = %s) AND grade.status IN (%s, %s)) OR ((lottery.add_time > %s) AND (lottery.add_time <= %s))) LIMIT 1', [1, 0, 1, '2009-01-01', now, ], )
         )
         w = w & (F.base__status != [1, 2])
-        
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN 1")),
             ('SELECT grade.name, base.img, lottery.price, (CASE 1 WHEN 1) FROM grade INNER JOIN base ON (grade.item_type = base.type) LEFT OUTER JOIN lottery ON (base.type = lottery.item_type) WHERE ((((base.type = %s) AND grade.status IN (%s, %s)) OR ((lottery.add_time > %s) AND (lottery.add_time <= %s))) AND base.status NOT IN (%s, %s))', [1, 0, 1, '2009-01-01', now, 1, 2, ], )
