@@ -661,13 +661,14 @@ class QuerySet(Expr):
 
     @opt_checker(["reset", ])
     def fields(self, *args, **opts):
-        args = list(args)
         if opts.get("reset"):
-            self._group_by = ExprList().join(", ")
+            self = self.clone()
+            self._fields = ExprList().join(", ")
         if len(args):
             self = self.clone()
+            args = list(args)
             if hasattr(args[0], '__iter__'):
-                self = self.fields(*args.pop(0))
+                self = self.fields(*args.pop(0), reset=True)
             if len(args):
                 for i, f in enumerate(args):
                     if not isinstance(f, Expr):
@@ -704,13 +705,15 @@ class QuerySet(Expr):
 
     @opt_checker(["reset", ])
     def group_by(self, *args, **opts):
-        self = self.clone()
         if opts.get("reset"):
+            self = self.clone()
             self._group_by = ExprList().join(", ")
         if len(args):
+            self = self.clone()
+            args = list(args)
             if hasattr(args[0], '__iter__'):
-                self._group_by = ExprList(*args[0])
-            else:
+                self._group_by = ExprList(*args.pop(0))
+            if len(args):
                 self._group_by.extend(args)
             return self
         return self._group_by
@@ -733,14 +736,16 @@ class QuerySet(Expr):
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
-        self = self.clone()
         direct = Constant("DESC") if opts.get("desc") else Constant("ASC")
         if opts.get("reset"):
+            self = self.clone()
             self._order_by = ExprList().join(", ")
         if len(args):
+            self = self.clone()
+            args = list(args)
             if hasattr(args[0], '__iter__'):
-                self._order_by = ExprList(*list(args[0]))
-            else:
+                self._order_by = ExprList(*args.pop(0))
+            if len(args):
                 for f in args:
                     self._order_by.append(ExprList(f, direct).join(" "))
             return self
