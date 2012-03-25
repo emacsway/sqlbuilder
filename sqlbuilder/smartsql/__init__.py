@@ -23,14 +23,17 @@ class SqlDialects(object):
 
     def sqlrepr(self, dialect, cls):
         ns = self._registry.setdefault(dialect, {})
+
+        # Looking for registered dialect
         callback = ns.get(cls, None)
         if callback is not None:
             return callback
 
-        callback = getattr(cls, '__sqlrepr__', None)
-        if callback is not None:
-            return callback
+        # Looking for __sqlrepr__ directly in class, except parent classes
+        if '__sqlrepr__' in cls.__dict__:
+            return getattr(cls, '__sqlrepr__')
 
+        # Looking for parents
         for parent in cls.__bases__:
             callback = self.sqlrepr(dialect, parent)
             if callback is not None:
