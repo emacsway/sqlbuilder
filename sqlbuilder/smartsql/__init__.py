@@ -255,7 +255,7 @@ class ExprList(Expr):
         return len(self._args)
 
     def __setitem__(self, key, value):
-        self._args[key] = value
+        self._args[key] = prepare_expr(value)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -265,14 +265,21 @@ class ExprList(Expr):
         else:
             return self._args[key]
 
-    def append(self, arg):
-        return self._args.append(arg)
+    def __iter__(self):
+        for a in self._args:
+            yield a
 
-    def insert(self, key, val):
-        return self._args.insert(key, val)
+    def append(self, x):
+        return self._args.append(prepare_expr(x))
 
-    def pop(self, key):
-        return self._args.pop(key)
+    def insert(self, i, x):
+        return self._args.insert(i, prepare_expr(x))
+
+    def extend(self, L):
+        return self._args.extend(map(prepare_expr, L))
+
+    def pop(self, i):
+        return self._args.pop(i)
 
     def __sqlrepr__(self, dialect):
         sqls = []
@@ -480,6 +487,15 @@ class Table(object):
     def __params__(self):
         return []
 
+    def __str__(self):
+        return sqlrepr(self)
+
+    def __unicode__(self):
+        return sqlrepr(self)
+
+    def __repr__(self):
+        return sqlrepr(self)
+
     # Aliases:
     AS = as_
     ON = on
@@ -566,6 +582,15 @@ class TableJoin(object):
     def __params__(self):
         return sqlparams(self._left) + sqlparams(self._on)
 
+    def __str__(self):
+        return sqlrepr(self)
+
+    def __unicode__(self):
+        return sqlrepr(self)
+
+    def __repr__(self):
+        return sqlrepr(self)
+
     # Aliases:
     ON = on
 
@@ -575,18 +600,24 @@ class QuerySet(Expr):
     def __init__(self, tables=None):
 
         self._distinct = False
-        self._fields = []
+        self._fields = ExprList().join(", ")
         self._tables = tables
         self._wheres = None
         self._havings = None
-        self._dialect = DEFAULT_DIALECT
-
-        self._group_by = []
-        self._order_by = []
+        self._group_by = ExprList().join(", ")
+        self._order_by = ExprList().join(", ")
         self._limit = None
 
-        self._default_count_field_list = ("*", )
-        self._default_count_distinct = False
+        self._values = ExprList().join(", ")
+        self._key_values = ExprList().join(", ")
+        self._ignore = False
+        self._on_duplicate_key_update = False
+        self._for_update = False
+
+        self._action = "select"
+        self._dialect = None
+        self._sql = None
+        self._params = []
 
     @property
     def wheres(self):
@@ -628,13 +659,23 @@ class QuerySet(Expr):
             return self
         return self._distinct
 
-    def fields(self, *args):
+    @opt_checker(["reset", ])
+    def fields(self, *args, **opts):
+        args = list(args)
+        if opts.get("reset"):
+            self._group_by = ExprList().join(", ")
         if len(args):
             self = self.clone()
             if hasattr(args[0], '__iter__'):
-                self._fields = list(args[0])
-            else:
-                self._fields += args
+                self = self.fields(*args.pop(0))
+            if len(args):
+                for i, f in enumerate(args):
+                    if not isinstance(f, Expr):
+                        f = Field(f)
+                    if isinstance(f, Alias):
+                        f = ExprList(f.expr, Constant("AS"), f).join(" ")
+                    args[i] = f
+                self._fields.extend(args)
             return self
         return self._fields
 
@@ -662,16 +703,15 @@ class QuerySet(Expr):
         return self
 
     @opt_checker(["reset", ])
-    def group_by(self, *f_list, **opt):
+    def group_by(self, *args, **opts):
         self = self.clone()
-        if opt.get("reset"):
-            self._group_by = []
-        if len(f_list):
-            if hasattr(f_list[0], '__iter__'):
-                self._group_by = f_list[0]
+        if opts.get("reset"):
+            self._group_by = ExprList().join(", ")
+        if len(args):
+            if hasattr(args[0], '__iter__'):
+                self._group_by = ExprList(*args[0])
             else:
-                for f in f_list:
-                    self._group_by.append(f)
+                self._group_by.extend(args)
             return self
         return self._group_by
 
@@ -692,17 +732,17 @@ class QuerySet(Expr):
         return self
 
     @opt_checker(["desc", "reset", ])
-    def order_by(self, *f_list, **opt):
+    def order_by(self, *args, **opts):
         self = self.clone()
-        direct = "DESC" if opt.get("desc") else "ASC"
-        if opt.get("reset"):
-            self._order_by = []
-        if len(f_list):
-            if hasattr(f_list[0], '__iter__'):
-                self._order_by = f_list[0]
+        direct = Constant("DESC") if opts.get("desc") else Constant("ASC")
+        if opts.get("reset"):
+            self._order_by = ExprList().join(", ")
+        if len(args):
+            if hasattr(args[0], '__iter__'):
+                self._order_by = ExprList(*list(args[0]))
             else:
-                for f in f_list:
-                    self._order_by.append((f, direct, ))
+                for f in args:
+                    self._order_by.append(ExprList(f, direct).join(" "))
             return self
         return self._order_by
 
@@ -730,7 +770,7 @@ class QuerySet(Expr):
             sql = "LIMIT {0:d}".format(limit)
         if offset:
             sql = "{0} OFFSET {1:d}".format(sql, offset)
-        self._limit = sql
+        self._limit = Constant(sql)
         return self
 
     def __getitem__(self, key):
@@ -749,134 +789,169 @@ class QuerySet(Expr):
         return self.limit(offset, limit)
 
     @opt_checker(["distinct", "for_update"])
-    def count(self, *f_list, **opt):
+    def count(self, *args, **opts):
         self = self.clone()
-        sql = ["SELECT"]
-        params = []
-        default_count_distinct = self._default_count_distinct or self._distinct
-
-        if len(f_list) == 0:
-            f_list = self._group_by
-            default_count_distinct = True
-
-        if opt.get("distinct", default_count_distinct):
-            sql.append("COUNT(DISTINCT {0})".format(_gen_f_list(f_list, params, self._dialect)))
-        else:
-            sql.append("COUNT({0})".format(_gen_f_list(f_list, params, self._dialect)))
-
-        self._join_sql_part(sql, params, ["from", "where"])
-
-        if opt.get("for_update"):
-            sql.append("FOR UPDATE")
-
-        return " ".join(sql), params
+        self._action = "count"
+        if len(args):
+            self = self.fields(*args)
+        if opts.get("distinct"):
+            self = self.distinct(True)
+        if opts.get("for_update"):
+            self._for_update = True
+        return self.result()
 
     @opt_checker(["distinct", "for_update"])
-    def select_one(self, *items, **opt):
-        return self.limit(1).select(*items, **opt)
+    def select_one(self, *args, **opts):
+        return self.limit(1).select(*args, **opts)
 
     @opt_checker(["distinct", "for_update"])
-    def select(self, *f_list, **opt):
+    def select(self, *args, **opts):
         self = self.clone()
-        sql = ["SELECT"]
-        params = []
-        f_list = self._fields + list(f_list)
+        self._action = "select"
+        if len(args):
+            self = self.fields(*args)
+        if opts.get("distinct"):
+            self = self.distinct(True)
+        if opts.get("for_update"):
+            self._for_update = True
+        return self.result()
 
-        if opt.get("distinct", self._distinct):
-            sql.append("DISTINCT")
-        sql.append(_gen_f_list(f_list, params, self._dialect))
-
-        self._join_sql_part(sql, params, ["from", "where", "group", "having", "order", "limit"])
-
-        if opt.get("for_update"):
-            sql.append("FOR UPDATE")
-
-        return " ".join(sql), params
-
-    def insert(self, fv_dict, **opt):
-        self = self.clone()
-        return self.insert_many(fv_dict.keys(), ([fv_dict[k] for k in fv_dict.keys()], ), **opt)
-
-    @opt_checker(["ignore", "on_duplicate_key_update"])
-    def insert_many(self, f_list, v_list_set, **opt):
-        self = self.clone()
-        sql = ["INSERT"]
-        params = []
-
-        if opt.get("ignore"):
-            sql.append("IGNORE")
-        sql.append("INTO")
-
-        self._join_sql_part(sql, params, ["tables"])
-        sql.append("({0}) VALUES {1}".format(
-            _gen_f_list(f_list, params, self._dialect),
-            _gen_v_list_set(v_list_set, params))
+    def insert(self, fv_dict, **opts):
+        items = fv_dict.items()
+        return self.insert_many(
+            map(lambda x: x[0], items),
+            (map(lambda x: x[1], items), ),
+            **opts
         )
 
-        fv_dict = opt.get("on_duplicate_key_update")
-        if fv_dict:
-            sql.append("ON DUPLICATE KEY UPDATE")
-            sql.append(_gen_fv_dict(fv_dict, params, self._dialect))
-
-        return " ".join(sql), params
+    @opt_checker(["ignore", "on_duplicate_key_update"])
+    def insert_many(self, fields, values, **opts):
+        fields = list(fields)
+        for i, f in enumerate(fields):
+            if not isinstance(f, Expr):
+                fields[i] = Field(f)
+        self = self.fields(fields, reset=True)
+        self._action = "insert"
+        if opts.get("ignore"):
+            self._ignore = True
+        self._values = ExprList().join(", ")
+        for row in values:
+            self._values.append(ExprList(*row).join(", "))
+        if opts.get("on_duplicate_key_update"):
+            self._on_duplicate_key_update = ExprList().join(", ")
+            for f, v in opts.get("on_duplicate_key_update").iteritems():
+                if not isinstance(f, Expr):
+                    f = Field(f)
+                self._on_duplicate_key_update.append(ExprList(f, Constant("=="), v))
+        return self.result()
 
     @opt_checker(["ignore"])
-    def update(self, fv_dict, **opt):
+    def update(self, key_values, **opts):
         self = self.clone()
-        sql = ["UPDATE"]
-        params = []
-
-        if opt.get("ignore"):
-            sql.append("IGNORE")
-
-        self._join_sql_part(sql, params, ["tables"])
-
-        sql.append("SET")
-        sql.append(_gen_fv_dict(fv_dict, params, self._dialect))
-
-        self._join_sql_part(sql, params, ["where", "limit"])
-        return " ".join(sql), params
+        self._action = "update"
+        if opts.get("ignore"):
+            self._ignore = True
+        self._key_values = ExprList().join(", ")
+        for f, v in key_values.iteritems():
+            if not isinstance(f, Expr):
+                f = Field(f)
+            self._key_values.append(ExprList(f, Constant("=="), v))
+        return self.result()
 
     def delete(self):
         self = self.clone()
-        sql = ["DELETE"]
-        params = []
+        self._action = "delete"
+        return self.result()
 
-        self._join_sql_part(sql, params, ["from", "where"])
-        return " ".join(sql), params
-
-    def union_set(self):
+    def as_union(self):
         return UnionQuerySet(self)
 
-    def _join_sql_part(self, sql, params, join_list):
-        if "tables" in join_list and self._tables:
-            sql.append(sqlrepr(self._tables, self._dialect))
-            params.extend(sqlparams(self._tables))
-        if "from" in join_list and self._tables:
-            sql.extend(["FROM", sqlrepr(self._tables, self._dialect)])
-            params.extend(sqlparams(self._tables))
-        if "where" in join_list and self._wheres:
-            sql.extend(["WHERE", sqlrepr(self._wheres, self._dialect)])
-            params.extend(sqlparams(self._wheres))
-        if "group" in join_list and self._group_by:
-            sql.extend(["GROUP BY", _gen_f_list(self._group_by, params, self._dialect)])
-        if "having" in join_list and self._havings:
-            sql.extend(["HAVING", sqlrepr(self._havings, self._dialect)])
-            params.extend(sqlparams(self._havings))
-        if "order" in join_list and self._order_by:
-            order_by = []
-            for f, direct in self._order_by:
-                order_by.append("{0} {1}".format(sqlrepr(f, self._dialect), direct))
-                params.extend(sqlparams(f))
-            sql.extend(["ORDER BY", ", ".join(order_by)])
-        if "limit" in join_list and self._limit:
+    def execute(self):
+        return sqlrepr(self, self._dialect), sqlparams(self)  # as_sql()? compile()?
+
+    def result(self):
+        return self.execute()
+
+    def _sql_extend(self, sql, parts):
+        if "fields" in parts and self._fields:
+            sql.append(self._fields)
+        if "tables" in parts and self._tables:
+            sql.append(self._tables)
+        if "from" in parts and self._tables:
+            sql.extend([Constant("FROM"), self._tables])
+        if "where" in parts and self._wheres:
+            sql.extend([Constant("WHERE"), self._wheres])
+        if "group" in parts and self._group_by:
+            sql.extend([Constant("GROUP BY"), self._group_by])
+        if "having" in parts and self._havings:
+            sql.extend([Constant("HAVING"), self._havings])
+        if "order" in parts and self._order_by:
+            sql.extend([Constant("ORDER BY"), self._order_by])
+        if "limit" in parts and self._limit:
             sql.append(self._limit)
 
+    def _build_sql(self):
+        sql = ExprList().join(" ")
+
+        if self._action == "select":
+            sql.append(Constant("SELECT"))
+            if self._distinct:
+                sql.append(Constant("DISTINCT"))
+            self._sql_extend(sql, ["fields", "from", "where", "group", "having", "order", "limit", ])
+            if self._for_update:
+                sql.append(Constant("FOR UPDATE"))
+
+        elif self._action == "count":
+            sql.append(Constant("SELECT"))
+            count_distinct = self._distinct
+            fields = self._fields
+            if len(fields) == 0:
+                fields = self._group_by
+                count_distinct = True
+            if count_distinct:
+                fields = ExprList(Constant("COUNT")(Prefix("DISTINCT", fields))).join(", ")
+            else:
+                fields = ExprList(Constant("COUNT")(fields)).join(", ")
+            sql.append(fields)
+            self._sql_extend(sql, ["from", "where", ])
+            if self._for_update:
+                sql.append(Constant("FOR UPDATE"))
+
+        elif self._action == "insert":
+            sql.append(Constant("INSERT"))
+            if self._ignore:
+                sql.append(Constant("IGNORE"))
+            sql.append(Constant("INTO"))
+            self._sql_extend(sql, ["tables", ])
+            sql.append(Parentheses(self._fields))
+            sql.append(Constant("VALUES"))
+            for row in self._values:
+                sql.append(Parentheses(row))
+            if self._on_duplicate_key_update:
+                sql.append(Constant("ON DUPLICATE KEY UPDATE"))
+                sql.append(self._on_duplicate_key_update)
+
+        elif self._action == "update":
+            sql.append(Constant("UPDATE"))
+            if self._ignore:
+                sql.append(Constant("IGNORE"))
+            self._sql_extend(sql, ["tables"])
+            sql.append(Constant("SET"))
+            sql.append(self._key_values)
+            self._sql_extend(sql, ["where", "limit", ])
+
+        elif self._action == "delete":
+            sql.append(Constant("DELETE"))
+            self._sql_extend(sql, ["from", "where", ])
+        return sql
+
     def __sqlrepr__(self, dialect):
-        return self.dialect(dialect).select()[0]
+        sql = self._build_sql()
+        return sqlrepr(sql, dialect)
 
     def __params__(self):
-        return self.select()[1]
+        sql = self._build_sql()
+        return sqlparams(sql)
 
     # Aliases:
     columns = fields
@@ -886,73 +961,29 @@ class UnionQuerySet(QuerySet):
 
     def __init__(self, qs):
         super(UnionQuerySet, self).__init__()
-        self._union_parts = [(None, qs)]
+        self._union_list = ExprList(Parentheses(qs)).join(" ")
 
     def __mul__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_parts.append(("UNION DISTINCT", qs))
+        self._union_list.append(Prefix("UNION DISTINCT", Parentheses(qs)))
         return self
 
     def __add__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_parts.append(("UNION ALL", qs))
+        self._union_list.append(Prefix("UNION ALL", Parentheses(qs)))
         return self
 
-    def select(self):
-        self = self.clone()
-        sql = []
-        params = []
-        for union_type, part in self._union_parts:
-            if union_type:
-                sql.append(union_type)
-            part_sql, part_params = part.dialect(self._dialect).select()
-            sql.append("({0})".format(part_sql))
-            params.extend(part_params)
-        self._join_sql_part(sql, params, ["order", "limit"])
-        return " ".join(sql), params
-
-
-def _gen_f_list(f_list, params, dialect):
-    fields = []
-    for f in f_list:
-        if isinstance(f, Alias):
-            f = Condition("AS", f.expr, f)
-        fields.append(sqlrepr(f, dialect))
-        if params is not None:
-            params.extend(sqlparams(f))
-    fields = list(set(fields))
-    return ", ".join(fields)
-
-
-def _gen_v_list(v_list, params):
-    values = []
-    for v in v_list:
-        values.append(PLACEHOLDER)
-        params.append(v)
-    return "({0})".format(", ".join(values))
-
-
-def _gen_v_list_set(v_list_set, params):
-    return ", ".join([_gen_v_list(v_list, params) for v_list in v_list_set])
-
-
-def _gen_fv_dict(fv_dict, params, dialect):
-    sql = []
-    for f, v in fv_dict.items():
-        if isinstance(v, Expr):
-            sql.append("{0} = {1}".format(f, sqlrepr(v, dialect)))
-            params.extend(sqlparams(v))
-        else:
-            sql.append("{0} = {1}".format(f, PLACEHOLDER))
-            params.append(v)
-
-    return ", ".join(sql)
+    def _build_sql(self):
+        sql = ExprList().join(" ")
+        sql.append(self._union_list)
+        self._sql_extend(sql, ["order", "limit"])
+        return sql
 
 
 def placeholder_conditional(expr):
-    if not isinstance(expr, Expr):
+    if not isinstance(expr, (Expr, Table, TableJoin, )):
         expr = Placeholder(expr)
     return expr
 
@@ -1006,11 +1037,11 @@ if __name__ == "__main__":
     print "*******************************************"
     print "************   Single Query   *************"
     print "*******************************************"
-    print QS((T.base + T.grade).on((F.base__type == F.grade__item_type) & (F.base__type == 1)) + T.lottery).on(
+    print QS((T.base + T.grade).on((T.base.type == T.grade.item_type) & (F.base__type == 1)) + T.lottery).on(
         F.base__type == F.lottery__item_type
     ).where(
         (F.name == "name") & (F.status == 0) | (F.name == None)
-    ).group_by("base.type").having(F("count(*)") > 1).select(F.type, F.grade__grade, F.lottery__grade)
+    ).group_by(T.base.type).having(E("count(*)") > 1).select(F.type, F.grade__grade, F.lottery__grade)
 
     print
     print "*******************************************"
@@ -1042,7 +1073,7 @@ if __name__ == "__main__":
     print "==========================================="
 
     w = w & (F.base__status != [1, 2])
-    print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, "CASE 1 WHEN 1")
+    print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN 1"))
     print "==========================================="
 
     print QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN " + PLACEHOLDER, 'exp_value').as_("exp_result"))
@@ -1061,7 +1092,7 @@ if __name__ == "__main__":
     print qs.select(F.name, F.id)
     print "==========================================="
     qs.wheres = qs.wheres & ((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
-    print qs.select(F.user__name, F.address__street, "COUNT(*) AS count")
+    print qs.select(F.user__name, F.address__street, func.COUNT(Constant("*")).as_("count"))
     print "==========================================="
 
     print
@@ -1080,9 +1111,9 @@ if __name__ == "__main__":
     print "*******************************************"
     print "**********      Union Query      **********"
     print "*******************************************"
-    a = QS(T.item).where(F.status != -1).fields("type, name, img")
-    b = QS(T.gift).where(F.storage > 0).columns("type, name, img")
-    print (a.union_set() + b).order_by("type", "name", desc=True).limit(100, 10).select()
+    a = QS(T.item).where(T.item.status != -1).fields(T.item.type, T.item.name, T.item.img)
+    b = QS(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
+    print (a.as_union() + b).order_by("type", "name", desc=True).limit(100, 10).select()
 
     print
     print "*******************************************"
