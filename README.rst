@@ -67,9 +67,6 @@ usage eg:
     w = w & (F.base__status == 1)
     QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
 
-My improvement:
-----------------
-
 T.grade.item_type is equal to F.grade__item_type
 
 So,
@@ -105,9 +102,9 @@ For Django model
         class Meta:
             db_table = "grade"
 
-* T.grade is equal Grade.ss.table or simple Grade.ss.t
-* QS(T.grade) is equal Grade.ss.qs
-* [T.grade.id, T.grade.title, ...] is equal Grade.ss.get_fields()
+* Grade.ss.t (alias for Grade.ss.table) returns T.grade
+* Grade.ss.get_fields() returns [T.grade.id, T.grade.title, ...]
+* Grade.ss.qs returns QS(T.grade).fields(Grade.ss.get_fields())
 
 
 So,
@@ -126,11 +123,9 @@ How to execute?
 
 ::
     
-    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select("*"))
-    # or
-    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select(Grade.ss.get_fields()))
+    rows = Grade.objects.raw(*QS(T.grade).where(F.grade__item_type == 'type1').select(Grade.ss.get_fields()))
     # or simple
-    rows = Grade.objects.raw(*Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select())
+    rows = Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select()
 
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------

@@ -35,6 +35,11 @@ class AbstractFacade(object):
         raise NotImplementedError
 
     @property
+    def model(self):
+        """Returns table instance."""
+        return self._model
+
+    @property
     def table(self):
         """Returns table instance."""
         return self._table
@@ -67,6 +72,14 @@ class AbstractFacade(object):
 if SMARTSQL_USE:
     import smartsql
 
+    class DjQS(smartsql.QS):
+        """Query Set adapted for Django."""
+        def execute(self):
+            """Implementation of query execution"""
+            return self.django.model.objects.raw(
+                smartsql.sqlrepr(self), smartsql.sqlparams(self)
+            )
+
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
 
@@ -74,7 +87,9 @@ if SMARTSQL_USE:
             """Constructor"""
             self._model = model
             self._table = smartsql.Table(self._model._meta.db_table)
-            self._query_set = smartsql.QS(self.table).fields(self.get_fields())
+            self._table.django = self
+            self._query_set = DjQS(self.table).fields(self.get_fields())
+            self._query_set.django = self
 
         def get_fields(self, prefix=None):
             """Returns field list."""
