@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Forked from http://code.google.com/p/py-smart-sql-constructor/
+# Some ideas from http://code.google.com/p/py-smart-sql-constructor/
+# But the code fully another... It's not a fork anymore...
 import sys
 import copy
 

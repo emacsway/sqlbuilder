@@ -4,7 +4,7 @@ SQLBuilder
 
 Contains 2 separated SQLBuilders:
 
-1. Fork from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_ (modified).
+1. SmartSQL, my own lightweight library, with some ideas from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_, but it's not a fork.
 2. Extracted slightly `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ ORM to be used without the rest of the library (almost non-modified).
 
 Also, SQLBuilder allows to use
@@ -13,8 +13,7 @@ in Django projects.
 
 LICENSE:
 
-1. sqlbuilder/sqlobject/* license is LGPL (extracted from SQLObject).
-2. sqlbuilder/smartsql/* and rest files - license is BSD.
+ * License is BSD, except third files with license in it's directory, like sqlbuilder/sqlobject/*
 
 See also:
 
