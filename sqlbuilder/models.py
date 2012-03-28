@@ -99,10 +99,9 @@ if SMARTSQL_USE:
 
         def result(self):
             """Result"""
-            self.execute()
             if self._action in ('select', 'count', ) and self._result_cache is None:
                 return self
-            return self._result_cache
+            return self.execute()
 
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
