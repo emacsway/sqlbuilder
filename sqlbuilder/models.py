@@ -2,6 +2,7 @@ import re
 from django.conf import settings
 from django.db import connection, connections
 from django.db.models import Model
+from django.db.models.manager import Manager
 from django.db.models.query import RawQuerySet
 from django.utils.importlib import import_module
 
@@ -74,11 +75,34 @@ if SMARTSQL_USE:
 
     class DjQS(smartsql.QS):
         """Query Set adapted for Django."""
+        _result_cache = None
+
+        def __len__(self):
+            """Returns length or list."""
+            return len(self.execute())
+
+        def __iter__(self):
+            """Returns iterator."""
+            return iter(self.execute())
+
+        def __getitem__(self, key):
+            """Returns sliced self or item."""
+            return self.execute()[key]
+
         def execute(self):
             """Implementation of query execution"""
-            return self.django.model.objects.raw(
-                smartsql.sqlrepr(self), smartsql.sqlparams(self)
-            )
+            if self._result_cache is None:
+                self._result_cache = self.django.model.objects.raw(
+                    smartsql.sqlrepr(self), smartsql.sqlparams(self)
+                )
+            return self._result_cache
+
+        def result(self):
+            """Result"""
+            self.execute()
+            if self._action in ('select', 'count', ) and self._result_cache is None:
+                return self
+            return self._result_cache
 
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
@@ -247,72 +271,76 @@ except ImportError:
 # Fixing django.db.models.query.RawQuerySet
 
 
-def count(self):
-    """Returns count of rows"""
-    sql = self.query.sql
-    make_cache_if_need(self)
-    if getattr(self, '_result_cache', None) is not None:
-        return len(self._result_cache)
-    if not re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(?:LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
-        sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY[^%]+$""", re.I|re.U|re.S).sub(r'\1', sql)
-    sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
-    cursor = connections[self.query.using].cursor()
-    cursor.execute(sql, self.params)
-    row = cursor.fetchone()
-    return row[0]
+class PaginatedRawQuerySet(RawQuerySet):
+    """Extended RawQuerySet with pagination support"""
 
+    _result_cache = None
 
-def __getitem__(self, k):
-    """Returns sliced instance of self.__class__"""
-    sql = self.query.sql
-    offset = 0
-    limit = None
-    if isinstance(k, slice):
+    def count(self):
+        """Returns count of rows"""
+        sql = self.query.sql
+        self._make_cache_conditional()
+        if self._result_cache is not None:
+            return len(self._result_cache)
+        if not re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(?:LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
+            sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY[^%]+$""", re.I|re.U|re.S).sub(r'\1', sql)
+        sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
+        cursor = connections[self.query.using].cursor()
+        cursor.execute(sql, self.params)
+        row = cursor.fetchone()
+        return row[0]
+
+    def __len__(self):
+        """Returns count of rows"""
+        return self.count()
+
+    def __getitem__(self, k):
+        """Returns sliced instance of self.__class__"""
+        sql = self.query.sql
+        offset, limit = 0, None
+
+        if not isinstance(k, slice):
+            return list(self)[k]
+
         if k.start is not None:
             offset = int(k.start)
         if k.stop is not None:
             end = int(k.stop)
             limit = end - offset
-    else:
-        return list(self)[k]
-    if limit:
-        sql = u"{0} LIMIT {1:d}".format(sql, limit)
-    if offset:
-        sql = u"{0} OFFSET {1:d}".format(sql, offset)
-    new_cls = self.__class__(sql, model=self.model, query=None,
-                             params=self.params, translations=self.translations,
-                             using=self.db)
-    new_cls.sliced = True
-    new_cls.limit = limit
-    return new_cls
+        if limit:
+            sql = u"{0} LIMIT {1:d}".format(sql, limit)
+        if offset:
+            sql = u"{0} OFFSET {1:d}".format(sql, offset)
+        new_cls = self.__class__(
+            sql, model=self.model, query=None, params=self.params,
+            translations=self.translations, using=self.db
+        )
+        new_cls.sliced = True
+        new_cls.limit = limit
+        return new_cls
 
-__iter_origin__ = None
+    def _make_cache_conditional(self):
+        """Cache for small selections"""
+        if getattr(self, 'sliced', False) and getattr(self, 'limit', 0) < 300:
+            if self._result_cache is None:
+                self._result_cache = [v for v in super(PaginatedRawQuerySet, self).__iter__()]
+
+    def __iter__(self):
+        """Cache for small selections"""
+        self._make_cache_conditional()
+        if self._result_cache is not None:
+            for v in self._result_cache:
+                yield v
+        else:
+            for v in super(PaginatedRawQuerySet, self).__iter__():
+                yield v
 
 
-def make_cache_if_need(self):
-    """Cache for small selections"""
-    if getattr(self, 'sliced', False) and getattr(self, 'limit', 0) < 300:
-        if getattr(self, '_result_cache', None) is None:
-            self._result_cache = [v for v in __iter_origin__(self)]
-
-
-def __iter__(self):
-    """Cache for small selections"""
-    make_cache_if_need(self)
-    if getattr(self, '_result_cache', None) is not None:
-        for v in self._result_cache:
-            yield v
-    else:
-        for v in __iter_origin__(self):
-            yield v
+def raw(self, raw_query, params=None, *args, **kwargs):
+    return PaginatedRawQuerySet(raw_query=raw_query, model=self.model, params=params, using=self._db, *args, **kwargs)
 
 
 def patch_raw_query_set():
-    global __iter_origin__
-    if RawQuerySet.__getitem__ is not __getitem__:
-        RawQuerySet.count = RawQuerySet.__len__ = count
-        RawQuerySet.__getitem__ = __getitem__
-        __iter_origin__ = RawQuerySet.__iter__
-        RawQuerySet.__iter__ = __iter__
+    Manager.raw = raw
 
 patch_raw_query_set()
