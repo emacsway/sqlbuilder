@@ -75,7 +75,6 @@ if SMARTSQL_USE:
 
     class DjQS(smartsql.QS):
         """Query Set adapted for Django."""
-        _result_cache = None
 
         def __len__(self):
             """Returns length or list."""
@@ -98,11 +97,10 @@ if SMARTSQL_USE:
             return self.django.model.objects.raw(
                 smartsql.sqlrepr(self), smartsql.sqlparams(self)
             )
-            return self._result_cache
 
         def result(self):
             """Result"""
-            if self._action in ('select', 'count', ) and self._result_cache is None:
+            if self._action in ('select', 'count', ):
                 return self
             return self.execute()
 
