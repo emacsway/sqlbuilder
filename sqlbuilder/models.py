@@ -81,6 +81,10 @@ if SMARTSQL_USE:
             """Returns length or list."""
             return len(self.execute())
 
+        def count(self):
+            """Returns length or list."""
+            return len(self.execute())
+
         def __iter__(self):
             """Returns iterator."""
             return iter(self.execute())
@@ -91,10 +95,9 @@ if SMARTSQL_USE:
 
         def execute(self):
             """Implementation of query execution"""
-            if self._result_cache is None:
-                self._result_cache = self.django.model.objects.raw(
-                    smartsql.sqlrepr(self), smartsql.sqlparams(self)
-                )
+            return self.django.model.objects.raw(
+                smartsql.sqlrepr(self), smartsql.sqlparams(self)
+            )
             return self._result_cache
 
         def result(self):
