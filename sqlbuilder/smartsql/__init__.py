@@ -285,6 +285,13 @@ class ExprList(Expr):
     def pop(self, i):
         return self._args.pop(i)
 
+    def remove(self, x):
+        return self._args.remove(x)
+
+    def reset(self):
+        self._args = []
+        return self
+
     def __sqlrepr__(self, dialect):
         sqls = []
         for arg in self._args:
@@ -430,6 +437,10 @@ class Alias(Expr):
         return self._expr
 
 
+class Index(Alias):
+    pass
+
+
 class MetaTable(type):
     def __getattr__(cls, key):
         if key[0] == '_':
@@ -474,6 +485,18 @@ class Table(object):
     def on(self, c):
         return TableJoin(self).on(c)
 
+    @opt_checker(["reset", ])
+    def use_index(self, *args, **opts):
+        return TableJoin(self).use_index(*args, **opts)
+
+    @opt_checker(["reset", ])
+    def ignore_index(self, *args, **opts):
+        return TableJoin(self).ignore_index(*args, **opts)
+
+    @opt_checker(["reset", ])
+    def force_index(self, *args, **opts):
+        return TableJoin(self).force_index(*args, **opts)
+
     def __getattr__(self, name):
         if name[0] == '_':
             raise AttributeError
@@ -503,6 +526,9 @@ class Table(object):
     # Aliases:
     AS = as_
     ON = on
+    USE_INDEX = use_index
+    IGNORE_INDEX = ignore_index
+    FORCE_INDEX = force_index
 
 
 class TableAlias(Table):
@@ -536,6 +562,9 @@ class TableJoin(object):
         self._join_type = join_type
         self._on = on and parentheses_conditional(on) or on
         self._left = left
+        self._use_index = ExprList().join(", ")
+        self._ignore_index = ExprList().join(", ")
+        self._force_index = ExprList().join(", ")
 
     def __and__(self, obj):
         return self._add_join("INNER JOIN", obj)
@@ -570,18 +599,53 @@ class TableJoin(object):
         self._on = parentheses_conditional(c)
         return self
 
+    @opt_checker(["reset", ])
+    def change_index(self, index, *args, **opts):
+        if opts.get("reset"):
+            index.reset()
+        args = list(args)
+        if len(args):
+            if hasattr(args[0], '__iter__'):
+                self = self.change_index(index, *args.pop(0), reset=True)
+            if len(args):
+                for i, arg in enumerate(args):
+                    if isinstance(arg, basestring):
+                        args[i] = Index(arg, self._table)
+                index.extend(args)
+                return self
+        return index
+
+    @opt_checker(["reset", ])
+    def use_index(self, *args, **opts):
+        return self.change_index(self._use_index, *args, **opts)
+
+    @opt_checker(["reset", ])
+    def ignore_index(self, *args, **opts):
+        return self.change_index(self._ignore_index, *args, **opts)
+
+    @opt_checker(["reset", ])
+    def force_index(self, *args, **opts):
+        return self.change_index(self._force_index, *args, **opts)
+
     def __sqlrepr__(self, dialect):
-        sql = []
+        sql = ExprList().join(" ")
         if self._left is not None:
-            sql.append(sqlrepr(self._left, dialect))
+            sql.append(self._left)
         if self._join_type:
-            sql.append(self._join_type)
-        sql.append(sqlrepr(self._table, dialect))
+            sql.append(Constant(self._join_type))
+        sql.append(self._table)
         if self._alias is not None:
-            sql.extend(["AS", sqlrepr(self._alias, dialect)])
+            sql.extend([Constant("AS"), self._alias])
+        if dialect in ('mysql', ):
+            if self._use_index:
+                sql.extend([Constant("USE INDEX"), Parentheses(self._use_index)])
+            if self._ignore_index:
+                sql.extend([Constant("USE INDEX"), Parentheses(self._ignore_index)])
+            if self._force_index:
+                sql.extend([Constant("USE INDEX"), Parentheses(self._force_index)])
         if self._on is not None:
-            sql.extend(["ON", sqlrepr(self._on, dialect)])
-        return " ".join(sql)
+            sql.extend([Constant("ON"), self._on])
+        return sqlrepr(sql, dialect)
 
     def __params__(self):
         return sqlparams(self._left) + sqlparams(self._on)
@@ -597,6 +661,9 @@ class TableJoin(object):
 
     # Aliases:
     ON = on
+    USE_INDEX = use_index
+    IGNORE_INDEX = ignore_index
+    FORCE_INDEX = force_index
 
 
 class QuerySet(Expr):
@@ -605,6 +672,9 @@ class QuerySet(Expr):
 
         self._distinct = False
         self._fields = ExprList().join(", ")
+        if tables:
+            if not isinstance(tables, TableJoin):
+                tables = TableJoin(tables)
         self._tables = tables
         self._wheres = None
         self._havings = None
@@ -652,6 +722,8 @@ class QuerySet(Expr):
     def tables(self, t=None):
         if t:
             self = self.clone()
+            if not isinstance(t, TableJoin):
+                t = TableJoin(t)
             self._tables = t
             return self
         return self._tables
@@ -667,7 +739,7 @@ class QuerySet(Expr):
     def fields(self, *args, **opts):
         if opts.get("reset"):
             self = self.clone()
-            self._fields = ExprList().join(", ")
+            self._fields.reset()
         if len(args):
             self = self.clone()
             args = list(args)
@@ -711,12 +783,12 @@ class QuerySet(Expr):
     def group_by(self, *args, **opts):
         if opts.get("reset"):
             self = self.clone()
-            self._group_by = ExprList().join(", ")
+            self._group_by.reset()
         if len(args):
             self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
-                self._group_by = ExprList(*args.pop(0))
+                self = self.group_by(*args.pop(0), reset=True)
             if len(args):
                 self._group_by.extend(args)
             return self
@@ -743,12 +815,12 @@ class QuerySet(Expr):
         direct = Constant("DESC") if opts.get("desc") else Constant("ASC")
         if opts.get("reset"):
             self = self.clone()
-            self._order_by = ExprList().join(", ")
+            self._order_by.reset()
         if len(args):
             self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
-                self._order_by = ExprList(*args.pop(0))
+                self = self.order_by(*args.pop(0), reset=True)
             if len(args):
                 for f in args:
                     self._order_by.append(ExprList(f, direct).join(" "))

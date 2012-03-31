@@ -13,6 +13,37 @@ from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, f
 
 class TestSmartSQL(unittest.TestCase):
 
+    def test_index(self):
+        q = QS(T.tb.use_index('index1')).dialect('mysql')
+        self.assertEqual(
+            q.select('*'),
+            ('SELECT * FROM tb USE INDEX (index1)', [], )
+        )
+        q = q.tables(q.tables().use_index('index2'))
+        self.assertEqual(
+            q.select('*'),
+            ('SELECT * FROM tb USE INDEX (index1, index2)', [], )
+        )
+        q = q.tables(q.tables().use_index(['index3', 'index4']))
+        self.assertEqual(
+            q.select('*'),
+            ('SELECT * FROM index3, index4', [])
+        )
+        q = q.tables(q.tables().use_index('index5', 'index6', reset=True))
+        self.assertEqual(
+            q.select('*'),
+            ('SELECT * FROM index3, index4 USE INDEX (index5, index6)', [])
+        )
+        t1 = T.tb1
+        t2 = T.tb1.as_('al2')
+        q = QS(t1 & t2.use_index('index1', 'index2').on(t2.parent_id == t1.id)).dialect('mysql')
+        self.assertEqual(
+            q.select(t2.id),
+            ('SELECT al2.id FROM tb1 INNER JOIN tb1 AS al2 USE INDEX (index1, index2) ON (al2.parent_id = tb1.id)',
+ [], )
+        )
+
+
     def test_prefix(self):
         self.assertEqual(
             QS(T.tb).where(~T.tb.cl == 3).select('*'),
