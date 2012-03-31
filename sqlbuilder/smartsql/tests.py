@@ -43,7 +43,6 @@ class TestSmartSQL(unittest.TestCase):
  [], )
         )
 
-
     def test_prefix(self):
         self.assertEqual(
             QS(T.tb).where(~T.tb.cl == 3).select('*'),
