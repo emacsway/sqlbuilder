@@ -582,14 +582,16 @@ class TableJoin(object):
         return self._add_join("CROSS JOIN", obj)
 
     def _add_join(self, join_type, obj):
-        if not isinstance(obj, TableJoin):
+        if not isinstance(obj, TableJoin) or obj.left():
             obj = TableJoin(obj, left=self)
         obj = obj.left(self).join_type(join_type)
         return obj
 
-    def left(self, left):
-        self._left = left
-        return self
+    def left(self, left=None):
+        if left is not None:
+            self._left = left
+            return self
+        return self._left
 
     def join_type(self, join_type):
         self._join_type = join_type
@@ -598,6 +600,12 @@ class TableJoin(object):
     def on(self, c):
         self._on = parentheses_conditional(c)
         return self
+
+    def group(self):
+        return TableJoin(self)
+
+    def as_nested(self):
+        return self.group()
 
     @opt_checker(["reset", ])
     def change_index(self, index, *args, **opts):
@@ -633,7 +641,10 @@ class TableJoin(object):
             sql.append(self._left)
         if self._join_type:
             sql.append(Constant(self._join_type))
-        sql.append(self._table)
+        if isinstance(self._table, TableJoin):
+            sql.append(Parentheses(self._table))
+        else:
+            sql.append(self._table)
         if self._alias is not None:
             sql.extend([Constant("AS"), self._alias])
         if dialect in ('mysql', ):

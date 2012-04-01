@@ -13,6 +13,24 @@ from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, f
 
 class TestSmartSQL(unittest.TestCase):
 
+    def test_tested_join(self):
+        t1, t2, t3, t4 = T.t1, T.t2, T.t3, T.t4
+        self.assertEqual(
+            QS((t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id))).on(t3.t2_id == t2.id)).select(t1.id),
+            ('SELECT t1.id FROM t1 INNER JOIN t2 ON (t2.t1_id = t1.id) INNER JOIN (t3 INNER JOIN t4 ON (t4.t3_id = t3.id)) ON (t3.t2_id = t2.id)',
+ [], )
+        )
+        self.assertEqual(
+            QS(t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id)).as_nested().on(t3.t2_id == t2.id)).select(t1.id),
+            ('SELECT t1.id FROM t1 INNER JOIN t2 ON (t2.t1_id = t1.id) INNER JOIN (t3 INNER JOIN t4 ON (t4.t3_id = t3.id)) ON (t3.t2_id = t2.id)',
+ [], )
+        )
+        self.assertEqual(
+            QS((t1 & t2.on(t2.t1_id == t1.id)).group() & (t3 & t4.on(t4.t3_id == t3.id)).group().on(t3.t2_id == t2.id)).select(t1.id),
+            ('SELECT t1.id FROM (t1 INNER JOIN t2 ON (t2.t1_id = t1.id)) INNER JOIN (t3 INNER JOIN t4 ON (t4.t3_id = t3.id)) ON (t3.t2_id = t2.id)',
+ [], )
+        )
+
     def test_index(self):
         q = QS(T.tb.use_index('index1')).dialect('mysql')
         self.assertEqual(
