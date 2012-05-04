@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2011 Ivan Zakrevsky
-# Licensed under the terms of the BSD License (see LICENSE.txt)
+# Copyright (c) 2011 Ivan Zakrevsky and contributors.
 import os.path
 from setuptools import setup, find_packages
 import metadata
