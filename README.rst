@@ -13,7 +13,7 @@ in Django projects.
 
 LICENSE:
 
- * License is BSD, except third files with license in it's directory, like sqlbuilder/sqlobject/*
+ * License is GPLv3+, except third files with license in it's directory, like sqlbuilder/sqlobject/*
 
 See also:
 
