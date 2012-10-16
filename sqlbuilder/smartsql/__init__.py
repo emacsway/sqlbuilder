@@ -1,8 +1,14 @@
+from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
 # Some ideas from http://code.google.com/p/py-smart-sql-constructor/
 # But the code fully another... It's not a fork anymore...
 import sys
 import copy
+
+try:
+    str = unicode  # Python 2.* compatible
+except NameError:
+    pass
 
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"
@@ -46,7 +52,7 @@ sql_dialects = SqlDialects()
 def opt_checker(k_list):
     def new_deco(func):
         def new_func(self, *args, **opt):
-            for k, v in opt.items():
+            for k, v in list(opt.items()):
                 if k not in k_list:
                     raise TypeError("Not implemented option: {0}".format(k))
             return func(self, *args, **opt)
@@ -186,7 +192,7 @@ class Expr(object):
         """Returns self.between()"""
         if isinstance(key, slice):
             start = key.start or 0
-            end = key.stop or sys.maxint
+            end = key.stop or sys.maxsize
             return Between(self, start, end)
         else:
             return self.__eq__(key)
@@ -197,14 +203,16 @@ class Expr(object):
     def __params__(self):
         return self._params or []
 
-    def __str__(self):
-        return sqlrepr(self)
+    def __bytes__(self):
+        return sqlrepr(self).encode('utf-8')
 
-    def __unicode__(self):
+    def __str__(self):
         return sqlrepr(self)
 
     def __repr__(self):
         return sqlrepr(self)
+
+    __hash__ = None
 
     # Aliases:
     AS = as_
@@ -264,7 +272,7 @@ class ExprList(Expr):
     def __getitem__(self, key):
         if isinstance(key, slice):
             start = key.start or 0
-            end = key.stop or sys.maxint
+            end = key.stop or sys.maxsize
             return self._args[start:end]
         else:
             return self._args[key]
@@ -280,7 +288,7 @@ class ExprList(Expr):
         return self._args.insert(i, prepare_expr(x))
 
     def extend(self, L):
-        return self._args.extend(map(prepare_expr, L))
+        return self._args.extend(list(map(prepare_expr, L)))
 
     def pop(self, i):
         return self._args.pop(i)
@@ -410,13 +418,14 @@ class MetaField(type):
         return f
 
 
-class Field(Expr):
-    __metaclass__ = MetaField
-
+class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
     def __init__(self, name, prefix=None):
         self._name = name
 
-        if isinstance(prefix, basestring):
+        if isinstance(prefix, bytes):
+            prefix = str(prefix)
+
+        if isinstance(prefix, str):
             prefix = Table(prefix)
         self._prefix = prefix
 
@@ -458,9 +467,7 @@ class MetaTable(type):
         return table
 
 
-class Table(object):
-    __metaclass__ = MetaTable
-
+class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     def __init__(self, name):
         self._name = name
 
@@ -514,10 +521,10 @@ class Table(object):
     def __params__(self):
         return []
 
-    def __str__(self):
-        return sqlrepr(self)
+    def __bytes__(self):
+        return sqlrepr(self).encode('utf-8')
 
-    def __unicode__(self):
+    def __str__(self):
         return sqlrepr(self)
 
     def __repr__(self):
@@ -617,7 +624,9 @@ class TableJoin(object):
                 self = self.change_index(index, *args.pop(0), reset=True)
             if len(args):
                 for i, arg in enumerate(args):
-                    if isinstance(arg, basestring):
+                    if isinstance(arg, bytes):
+                        arg = str(arg)
+                    if isinstance(arg, str):
                         args[i] = Index(arg, self._table)
                 index.extend(args)
                 return self
@@ -661,10 +670,10 @@ class TableJoin(object):
     def __params__(self):
         return sqlparams(self._left) + sqlparams(self._on)
 
-    def __str__(self):
-        return sqlrepr(self)
+    def __bytes__(self):
+        return sqlrepr(self).encode('utf-8')
 
-    def __unicode__(self):
+    def __str__(self):
         return sqlrepr(self)
 
     def __repr__(self):
@@ -909,10 +918,10 @@ class QuerySet(Expr):
         return self.result()
 
     def insert(self, fv_dict, **opts):
-        items = fv_dict.items()
+        items = list(fv_dict.items())
         return self.insert_many(
-            map(lambda x: x[0], items),
-            (map(lambda x: x[1], items), ),
+            [x[0] for x in items],
+            ([x[1] for x in items], ),
             **opts
         )
 
@@ -931,7 +940,7 @@ class QuerySet(Expr):
             self._values.append(ExprList(*row).join(", "))
         if opts.get("on_duplicate_key_update"):
             self._on_duplicate_key_update = ExprList().join(", ")
-            for f, v in opts.get("on_duplicate_key_update").iteritems():
+            for f, v in opts.get("on_duplicate_key_update").items():
                 if not isinstance(f, Expr):
                     f = Field(f)
                 self._on_duplicate_key_update.append(ExprList(f, Constant("=="), v))
@@ -944,7 +953,7 @@ class QuerySet(Expr):
         if opts.get("ignore"):
             self._ignore = True
         self._key_values = ExprList().join(", ")
-        for f, v in key_values.iteritems():
+        for f, v in key_values.items():
             if not isinstance(f, Expr):
                 f = Field(f)
             self._key_values.append(ExprList(f, Constant("=="), v))
@@ -1075,7 +1084,7 @@ class UnionQuerySet(QuerySet):
 
 
 def placeholder_conditional(expr):
-    if not isinstance(expr, (Expr, Table, TableJoin, )):
+    if not isinstance(expr, (Expr, Table, TableJoin )):
         expr = Placeholder(expr)
     return expr
 
@@ -1122,3 +1131,18 @@ def sqlparams(obj):
 T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
 const = ConstantSpace()
 func = const
+
+# Python 2.* compatible
+try:
+    unicode
+except NameError:
+    pass
+else:
+    Expr.__unicode__ = Expr.__str__
+    Expr.__str__ = Expr.__bytes__
+
+    Table.__unicode__ = Table.__str__
+    Table.__str__ = Table.__bytes__
+
+    TableJoin.__unicode__ = TableJoin.__str__
+    TableJoin.__str__ = TableJoin.__bytes__

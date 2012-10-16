@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import re
 from django.conf import settings
 from django.db import connection, connections
@@ -71,7 +72,7 @@ class AbstractFacade(object):
 
 
 if SMARTSQL_USE:
-    import smartsql
+    from . import smartsql
 
     class DjQS(smartsql.QS):
         """Query Set adapted for Django."""
@@ -134,7 +135,7 @@ if SMARTSQL_USE:
     setattr(Model, SMARTSQL_ALIAS, ss)
 
 if SQLOBJECT_USE:
-    import sqlobject
+    from . import sqlobject
 
     SQLOBJECT_DIALECTS = {
         'sqlite3': 'sqlite',
@@ -284,7 +285,7 @@ class PaginatedRawQuerySet(RawQuerySet):
             return len(self._result_cache)
         if not re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(?:LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
             sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY[^%]+$""", re.I|re.U|re.S).sub(r'\1', sql)
-        sql = u"SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
+        sql = "SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
         cursor = connections[self.query.using].cursor()
         cursor.execute(sql, self.params)
         row = cursor.fetchone()
@@ -308,9 +309,9 @@ class PaginatedRawQuerySet(RawQuerySet):
             end = int(k.stop)
             limit = end - offset
         if limit:
-            sql = u"{0} LIMIT {1:d}".format(sql, limit)
+            sql = "{0} LIMIT {1:d}".format(sql, limit)
         if offset:
-            sql = u"{0} OFFSET {1:d}".format(sql, offset)
+            sql = "{0} OFFSET {1:d}".format(sql, offset)
         new_cls = self.__class__(
             sql, model=self.model, query=None, params=self.params,
             translations=self.translations, using=self.db
