@@ -1138,11 +1138,6 @@ try:
 except NameError:
     pass
 else:
-    Expr.__unicode__ = Expr.__str__
-    Expr.__str__ = Expr.__bytes__
-
-    Table.__unicode__ = Table.__str__
-    Table.__str__ = Table.__bytes__
-
-    TableJoin.__unicode__ = TableJoin.__str__
-    TableJoin.__str__ = TableJoin.__bytes__
+    for cls in (Expr, Table, TableJoin, ):
+        cls.__unicode__ = cls.__str__
+        cls.__str__ = cls.__bytes__
