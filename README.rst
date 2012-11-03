@@ -15,12 +15,6 @@ LICENSE:
 
  * License is BSD, except third files with license in it's directory, like sqlbuilder/sqlobject/*
 
-See also:
-
-  * http://ivan.allindustry.net/blog/2011/02/13/django-plyusy-i-minusy/ (Russian)
-  * http://ivan.allindustry.net/blog/2012/02/11/django-improved-sqlbuilder/ (Russian)
-  * http://ivan.allindustry.net/en/blog/2012/02/11/django-improved-sqlbuilder/ (English)
-
 Short manual for sqlbuilder.smartsql
 =====================================
 
