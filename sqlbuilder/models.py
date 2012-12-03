@@ -111,7 +111,21 @@ if SMARTSQL_USE:
         def __init__(self, model):
             """Constructor"""
             self._model = model
-            self._table = smartsql.Table(self._model._meta.db_table)
+
+            if hasattr(self._model.objects, 'localize_fieldname'):
+
+                class MlTable(smartsql.Table):
+                    def __getattr__(self, name):
+                        if name[0] == '_':
+                            raise AttributeError
+                        parts = name.split('__')
+                        parts[0] = self.django.model.objects.localize_fieldname(parts[0])
+                        return super(MlTable, self).__getattr__('__'.join(parts))
+
+                self._table = MlTable(self._model._meta.db_table)
+            else:
+                self._table = smartsql.Table(self._model._meta.db_table)
+
             self._table.django = self
             self._query_set = DjQS(self.table).fields(self.get_fields())
             self._query_set.django = self
