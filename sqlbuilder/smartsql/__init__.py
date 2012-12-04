@@ -11,7 +11,7 @@ except NameError:
     pass
 
 DEFAULT_DIALECT = 'postgres'
-PLACEHOLDER = "%s"
+PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 
 
 class SqlDialects(object):
