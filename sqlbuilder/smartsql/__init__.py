@@ -12,6 +12,7 @@ except NameError:
 
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
+LOOKUP_SEP = '__'
 
 
 class SqlDialects(object):
@@ -401,7 +402,7 @@ class MetaField(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        parts = key.split("__", 2)
+        parts = key.split(LOOKUP_SEP, 2)
         name = parts[0]
         prefix = None
         alias = None
@@ -454,7 +455,7 @@ class MetaTable(type):
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
-        parts = key.split("__", 1)
+        parts = key.split(LOOKUP_SEP, 1)
         name = parts[0]
         alias = None
 
@@ -507,7 +508,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     def __getattr__(self, name):
         if name[0] == '_':
             raise AttributeError
-        parts = name.split('__')
+        parts = name.split(LOOKUP_SEP, 1)
         name = parts.pop(0)
         alias = parts.pop(0) if len(parts) else None
         f = Field(name, self)
