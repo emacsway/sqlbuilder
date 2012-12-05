@@ -105,27 +105,31 @@ if SMARTSQL_USE:
                 return self
             return self.execute()
 
+    class DjTable(smartsql.Table):
+        """Table class for using in Django"""
+        def __getattr__(self, name):
+            """Added some django specific functional."""
+            m = self.django.model
+            if name[0] == '_':
+                raise AttributeError
+            parts = name.split(smartsql.LOOKUP_SEP, 1)
+            # django-multilingual-ext support
+            if hasattr(m.objects, 'localize_fieldname'):
+                parts[0] = m.objects.localize_fieldname(parts[0])
+            # model attributes support
+            if parts[0] == 'pk':
+                parts[0] = m._meta.pk.column
+            elif parts[0] in m._meta.get_all_field_names():
+                parts[0] = m._meta.get_field(parts[0]).column
+            return super(DjTable, self).__getattr__('__'.join(parts))
+
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
 
         def __init__(self, model):
             """Constructor"""
             self._model = model
-
-            if hasattr(self._model.objects, 'localize_fieldname'):
-
-                class MlTable(smartsql.Table):
-                    def __getattr__(self, name):
-                        if name[0] == '_':
-                            raise AttributeError
-                        parts = name.split('__')
-                        parts[0] = self.django.model.objects.localize_fieldname(parts[0])
-                        return super(MlTable, self).__getattr__('__'.join(parts))
-
-                self._table = MlTable(self._model._meta.db_table)
-            else:
-                self._table = smartsql.Table(self._model._meta.db_table)
-
+            self._table = DjTable(self._model._meta.db_table)
             self._table.django = self
             self._query_set = DjQS(self.table).fields(self.get_fields())
             self._query_set.django = self
