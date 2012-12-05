@@ -18,64 +18,65 @@ LICENSE:
 Short manual for sqlbuilder.smartsql
 =====================================
 
-table: "T.base" stand for "base", "T.base__a" stand for "base AS a"
+table:
 
-field: "F.id" stand for "id", "F.base__id" stand for "base.id"
+* "T.base" stand for "base",
+* "T.base__a" or "T.base.as_('a')" stand for "base AS a"
 
-table operator: "*" stand for "JOIN", "+" stand for "LEFT JOIN"
+field:
 
-condition operator: "&" stand for "AND", "|" stand for "OR"
+* "F.id" stand for "id",
+* "F.base__id" or "T.base.id" stand for "base.id"
+* "F.base__id__pk" or "F.base__id.as_('pk)" or "T.base.id__pk" or "T.base.id.as_('pk')" stand for "base.id AS pk"
+
+table operator:
+
+* "&" stand for "INNER JOIN"
+* "+" stand for "LEFT OUTER JOIN"
+* "-" stand for "RIGHT OUTER JOIN"
+* "|" stand for "FULL OUTER JOIN"
+* "*" stand for "RIGHT OUTER JOIN"
+
+condition operator:
+
+* "&" stand for "AND"
+* "|" stand for "OR"
 
 usage eg:
 
 ::
 
     QS(T.base + T.grade + T.lottery).on(
-        (F.base__type == F.grade__item_type) & (F.base__type == 1),
-        F.base__type == F.lottery__item_type
+        (T.base.type == T.grade.item_type) & (T.base.type == 1),
+        T.base.type == T.lottery.item_type
+    ).fields(
+        T.base.type, T.grade.grade, T.lottery.grade
     ).where(
-        (F.name == "name") & (F.status == 0) | (F.name == None)
-    ).select(F.type, F.grade__grade, F.lottery__grade)
+        (T.base.name == "name") & (T.base.status == 0) | (T.base.name == None)
+    ).select()
 
     # step by step
 
     t = T.grade
     QS(t).select(F.name)
 
-    t = (t * T.base).on(F.grade__item_type == F.base__type)
-    QS(t).select(F.grade__name, F.base__img)
+    t = (t * T.base).on(T.grade.item_type == T.base.type)
+    QS(t).select(T.grade.name, T.base.img)
 
-    t = (t + T.lottery).on(F.base__type == F.lottery__item_type)
-    QS(t).select(F.grade__name, F.base__img, F.lottery__price)
+    t = (t + T.lottery).on(T.base.type == T.lottery.item_type)
+    QS(t).select(T.grade.name, T.base.img, T.lottery.price)
 
-    w = (F.base__type == 1)
-    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = (T.base.type == 1)
+    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
 
-    w = w & (F.grade__status == 0)
-    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = w & (T.grade.status == 0)
+    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
 
-    w = w | (F.lottery__item_type == None)
-    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
+    w = w | (T.lottery.item_type == None)
+    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
 
-    w = w & (F.base__status == 1)
-    QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price)
-
-T.grade.item_type is equal to F.grade__item_type
-
-So,
-
-::
-
-    t = T.grade
-    t = (t * T.base).on(F.grade__item_type == F.base__type)
-
-is equal to:
-
-::
-
-    t1 = T.grade
-    t2 = T.base
-    t = (t1 * t2).on(t1.item_type == t2.type)
+    w = w & (T.base.status == 1)
+    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
 
 Django integration.
 =====================
@@ -99,12 +100,11 @@ For Django model
 * Grade.ss.get_fields() returns [T.grade.id, T.grade.title, ...]
 * Grade.ss.qs returns QS(T.grade).fields(Grade.ss.get_fields())
 
-
 So,
 
 ::
 
-    QS(T.grade).where(F.grade__item_type == 'type1')
+    QS(T.grade).where(T.grade.item_type == 'type1')
 
 is equal to:
 
@@ -116,7 +116,7 @@ How to execute?
 
 ::
     
-    rows = Grade.objects.raw(*QS(T.grade).where(F.grade__item_type == 'type1').select(Grade.ss.get_fields()))
+    rows = Grade.objects.raw(*QS(T.grade).where(T.grade.item_type == 'type1').select(Grade.ss.get_fields()))
     # or simple
     rows = Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select()
 
