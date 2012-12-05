@@ -27,7 +27,7 @@ field:
 
 * "F.id" stand for "id",
 * "F.base__id" or "T.base.id" stand for "base.id"
-* "F.base__id__pk" or "F.base__id.as_('pk)" or "T.base.id__pk" or "T.base.id.as_('pk')" stand for "base.id AS pk"
+* "F.base__id__pk" or "F.base__id.as_('pk')" or "T.base.id__pk" or "T.base.id.as_('pk')" stand for "base.id AS pk"
 
 table operator:
 
@@ -82,7 +82,6 @@ Django integration.
 =====================
 
 Simple add "sqlbuilder" to your INSTALLED_APPS.
-
 
 Integration sqlbuilder.smartsql to Django
 ------------------------------------------
