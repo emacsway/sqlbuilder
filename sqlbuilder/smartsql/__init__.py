@@ -7,8 +7,12 @@ import copy
 
 try:
     str = unicode  # Python 2.* compatible
+    str_types = ()
+    string_types = (basestring,)
+    integer_types = (int, long)
 except NameError:
-    pass
+    string_types = (str,)
+    integer_types = (int,)
 
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
@@ -423,10 +427,7 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
     def __init__(self, name, prefix=None):
         self._name = name
 
-        if isinstance(prefix, bytes):
-            prefix = str(prefix)
-
-        if isinstance(prefix, str):
+        if isinstance(prefix, string_types):
             prefix = Table(prefix)
         self._prefix = prefix
 
@@ -625,9 +626,7 @@ class TableJoin(object):
                 self = self.change_index(index, *args.pop(0), reset=True)
             if len(args):
                 for i, arg in enumerate(args):
-                    if isinstance(arg, bytes):
-                        arg = str(arg)
-                    if isinstance(arg, str):
+                    if isinstance(arg, string_types):
                         args[i] = Index(arg, self._table)
                 index.extend(args)
                 return self
