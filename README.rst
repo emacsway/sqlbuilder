@@ -35,7 +35,7 @@ table operator:
 * "+" stand for "LEFT OUTER JOIN"
 * "-" stand for "RIGHT OUTER JOIN"
 * "|" stand for "FULL OUTER JOIN"
-* "*" stand for "RIGHT OUTER JOIN"
+* "*" stand for "CROSS JOIN"
 
 condition operator:
 
