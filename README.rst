@@ -126,15 +126,15 @@ Example of usage sqlbuilder.sqlobject in Django:
 
 ::
 
-    from sqlbuilder.sqlobject import Select, LIKE, sqlrepr
+    from sqlbuilder.sqlobject import Select, sqlrepr
     from sqlbuilder.models import SQLOBJECT_DIALECT
 
     # Address is subclass of django.db.models.Model
-    s = Select([Address.so.t.name, Address.so.t.state], where=LIKE(Address.so.name, "%ian%"))
+    s = Select([Address.so.t.name, Address.so.t.state], where=Address.so.name.startswith("sun"))
     # or
-    s = Address.so.qs.newItems(Address.so.get_fields())
+    s = Address.so.qs.newItems(Address.so.get_fields()).filter(Address.so.name.startswith("sun"))
     # or simple
-    s = Address.so.qs
+    s = Address.so.qs.filter(Address.so.name.startswith("sun"))
 
     rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
 
