@@ -38,7 +38,7 @@ class AbstractFacade(object):
 
     @property
     def model(self):
-        """Returns table instance."""
+        """Returns Django model instance."""
         return self._model
 
     @property
@@ -61,7 +61,7 @@ class AbstractFacade(object):
 
     @property
     def qs(self):
-        """Sets query set."""
+        """Returns query set."""
         return self.get_query_set()
 
     # Aliases
@@ -74,7 +74,16 @@ class AbstractFacade(object):
 if SMARTSQL_USE:
     from . import smartsql
 
-    class DjQS(smartsql.QS):
+    SMARTSQL_DIALECTS = {
+        'sqlite3': 'sqlite',
+        'mysql': 'mysql',
+        'postgresql': 'postgres',
+        'postgresql_psycopg2': 'postgres',
+        'postgis': 'postgres',
+        'oracle': 'oracle',
+    }
+
+    class QS(smartsql.QS):
         """Query Set adapted for Django."""
 
         def __len__(self):
@@ -93,10 +102,22 @@ if SMARTSQL_USE:
             """Returns sliced self or item."""
             return self.execute()[key]
 
+        def dialect(self):
+            #engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
+            engine = connections.databases[self.model.objects.db]['ENGINE'].rsplit('.')[-1]
+            return SMARTSQL_DIALECTS[engine]
+
+        def sqlrepr(self):
+            return smartsql.sqlrepr(self, self.dialect())
+
+        def sqlparams(self):
+            return smartsql.sqlparams(self)
+
         def execute(self):
             """Implementation of query execution"""
-            return self.django.model.objects.raw(
-                smartsql.sqlrepr(self), smartsql.sqlparams(self)
+            return self.model.objects.raw(
+                self.sqlrepr(),
+                self.sqlparams()
             )
 
         def result(self):
@@ -105,11 +126,30 @@ if SMARTSQL_USE:
                 return self
             return self.execute()
 
-    class DjTable(smartsql.Table):
-        """Table class for using in Django"""
+    class Table(smartsql.Table):
+        """Table class for Django model"""
+
+        def __init__(self, model, *args, **kwargs):
+            """Constructor"""
+            super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
+            self.model = model
+            self.qs = kwargs.pop('query_set', QS(self).fields(self.get_fields()))
+            self.qs.base_table = self
+            self.qs.model = self.model
+
+        def get_fields(self, prefix=None):
+            """Returns field list."""
+            if prefix is None:
+                prefix = self
+            result = []
+            for f in self.model._meta.fields:
+                if f.column:
+                    result.append(smartsql.Field(f.column, prefix))
+            return result
+
         def __getattr__(self, name):
             """Added some django specific functional."""
-            m = self.django.model
+            m = self.model
             if name[0] == '_':
                 raise AttributeError
             parts = name.split(smartsql.LOOKUP_SEP, 1)
@@ -121,7 +161,7 @@ if SMARTSQL_USE:
                 parts[0] = m._meta.pk.column
             elif parts[0] in m._meta.get_all_field_names():
                 parts[0] = m._meta.get_field(parts[0]).column
-            return super(DjTable, self).__getattr__('__'.join(parts))
+            return super(Table, self).__getattr__('__'.join(parts))
 
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
@@ -129,20 +169,20 @@ if SMARTSQL_USE:
         def __init__(self, model):
             """Constructor"""
             self._model = model
-            self._table = DjTable(self._model._meta.db_table)
-            self._table.django = self
-            self._query_set = DjQS(self.table).fields(self.get_fields())
-            self._query_set.django = self
+            self._table = Table(model)
 
         def get_fields(self, prefix=None):
             """Returns field list."""
-            if prefix is None:
-                prefix = self._table
-            result = []
-            for f in self._model._meta.fields:
-                if f.column:
-                    result.append(smartsql.Field(f.column, prefix))
-            return result
+            return self._table.get_fields(prefix)
+
+        def set_query_set(self, query_set):
+            """Sets query set."""
+            self._table.qs = query_set
+            return self
+
+        def get_query_set(self):
+            """Returns query set."""
+            return self._table.qs
 
     @classproperty
     def ss(cls):
