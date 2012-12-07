@@ -2,18 +2,16 @@
 SQLBuilder
 ===========
 
-Contains 2 separated SQLBuilders:
+SmartSQL - lightweight sql builder.
 
-1. SmartSQL, my own lightweight library, with some ideas from `py-smart-sql-constructor <http://code.google.com/p/py-smart-sql-constructor/>`_, but it's not a fork anymore...
-2. Extracted slightly `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ ORM to be used without the rest of the library (almost non-modified).
+You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/evotech/autumn>`_.
 
-Also, SQLBuilder allows to use
-`sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_
-in Django projects.
+SQLBuilder integration to Django also allows to use external sqlbuilders, like `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ or `sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_.
+
 
 LICENSE:
 
-* License is BSD, except third files with license in it's directory, like sqlbuilder/sqlobject/*
+* License is BSD
 
 Short manual for sqlbuilder.smartsql
 =====================================
@@ -122,19 +120,20 @@ How to execute?
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------
 
-Example of usage sqlbuilder.sqlobject in Django:
+Integration sqlobject to Django:
 
 ::
 
-    from sqlbuilder.sqlobject import Select, sqlrepr
+    from sqlobject.sqlbuilder import Select, sqlrepr
     from sqlbuilder.models import SQLOBJECT_DIALECT
 
     # Address is subclass of django.db.models.Model
-    s = Select([Address.so.t.name, Address.so.t.state], where=Address.so.name.startswith("sun"))
+    t = Address.so.t
+    s = Select([t.name, t.state], where=t.name.startswith("sun"))
     # or
-    s = Address.so.qs.newItems(Address.so.get_fields()).filter(Address.so.name.startswith("sun"))
+    s = Address.so.qs.newItems(Address.so.get_fields()).filter(t.name.startswith("sun"))
     # or simple
-    s = Address.so.qs.filter(Address.so.name.startswith("sun"))
+    s = Address.so.qs.filter(t.name.startswith("sun"))
 
     rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
 

@@ -192,8 +192,10 @@ if SMARTSQL_USE:
 
     setattr(Model, SMARTSQL_ALIAS, ss)
 
-if SQLOBJECT_USE:
-    from . import sqlobject
+try:
+    if not SQLOBJECT_USE:
+        raise ImportError
+    import sqlobject.sqlbuilder
 
     SQLOBJECT_DIALECTS = {
         'sqlite3': 'sqlite',
@@ -218,8 +220,8 @@ if SQLOBJECT_USE:
         def __init__(self, model):
             """Constructor"""
             self._model = model
-            self._table = sqlobject.Table(self._model._meta.db_table)
-            self._query_set = sqlobject.Select(
+            self._table = sqlobject.sqlbuilder.Table(self._model._meta.db_table)
+            self._query_set = sqlobject.sqlbuilder.Select(
                 items=self.get_fields(),
                 staticTables=[self.table, ]
             )
@@ -241,6 +243,9 @@ if SQLOBJECT_USE:
         return getattr(cls, '_{0}'.format(SQLOBJECT_ALIAS))
 
     setattr(Model, SQLOBJECT_ALIAS, so)
+
+except ImportError:
+    pass
 
 try:
     if not SQLALCHEMY_USE:
