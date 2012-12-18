@@ -133,7 +133,7 @@ if SMARTSQL_USE:
             """Constructor"""
             super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
             self.model = model
-            self.qs = kwargs.pop('query_set', QS(self).fields(self.get_fields()))
+            self.qs = kwargs.pop('qs', QS(self).fields(self.get_fields()))
             self.qs.base_table = self
             self.qs.model = self.model
 
