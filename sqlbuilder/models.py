@@ -6,6 +6,7 @@ from django.db.models import Model
 from django.db.models.manager import Manager
 from django.db.models.query import RawQuerySet
 from django.utils.importlib import import_module
+from .signals import field_conversion
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
 SMARTSQL_USE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE', True)
@@ -153,14 +154,36 @@ if SMARTSQL_USE:
             if name[0] == '_':
                 raise AttributeError
             parts = name.split(smartsql.LOOKUP_SEP, 1)
+
+            # Why do not to use responses, what returned by Signal.send()?
+            # In current way we can attach additional information to result
+            # and pass it between signal's handlers.
+            result = {'field': parts[0], }
+            field_conversion.send(sender=self, result=result, field=parts[0], model=m)
+            parts[0] = result['field']
+
             # django-multilingual-ext support
+            if 'modeltranslation' in settings.INSTALLED_APPS:
+                from modeltranslation.translator import translator, NotRegistered
+                from modeltranslation.utils import get_language, build_localized_fieldname
+            else:
+                translator = None
+            if translator:
+                try:
+                    trans_opts = translator.get_options_for_model(m)
+                    if parts[0] in trans_opts.fields:
+                        parts[0] = build_localized_fieldname(parts[0], get_language())
+                except NotRegistered:
+                    pass
             if hasattr(m.objects, 'localize_fieldname'):
                 parts[0] = m.objects.localize_fieldname(parts[0])
+
             # model attributes support
             if parts[0] == 'pk':
                 parts[0] = m._meta.pk.column
             elif parts[0] in m._meta.get_all_field_names():
                 parts[0] = m._meta.get_field(parts[0]).column
+
             return super(Table, self).__getattr__('__'.join(parts))
 
     class SmartSQLFacade(AbstractFacade):
