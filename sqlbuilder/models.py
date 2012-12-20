@@ -157,7 +157,7 @@ if SMARTSQL_USE:
 
             # Why do not to use responses, what returned by Signal.send()?
             # In current way we can attach additional information to result
-            # and pass it between signal's handlers.
+            # mutable variable and pass it between signal's handlers.
             result = {'field': parts[0], }
             field_conversion.send(sender=self, result=result, field=parts[0], model=m)
             parts[0] = result['field']
