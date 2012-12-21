@@ -184,7 +184,7 @@ if SMARTSQL_USE:
             elif parts[0] in m._meta.get_all_field_names():
                 parts[0] = m._meta.get_field(parts[0]).column
 
-            return super(Table, self).__getattr__('__'.join(parts))
+            return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
 
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
