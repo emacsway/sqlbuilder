@@ -190,6 +190,9 @@ class Expr(object):
     def like(self, other):
         return Condition("LIKE", self, other)
 
+    def ilike(self, other):
+        return Condition("ILIKE", self, other)
+
     def between(self, start, end):
         return Between(self, start, end)
 
