@@ -8,6 +8,15 @@ from django.db.models.query import RawQuerySet
 from django.utils.importlib import import_module
 from .signals import field_conversion
 
+try:
+    str = unicode  # Python 2.* compatible
+    str_types = ()
+    string_types = (basestring,)
+    integer_types = (int, long)
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
+
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
 SMARTSQL_USE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE', True)
 # Old compatible
@@ -89,21 +98,46 @@ if SMARTSQL_USE:
     class QS(smartsql.QS):
         """Query Set adapted for Django."""
 
+        _cache = None
+
+        def clone(self):
+            self = super(QS, self).clone()
+            self._cache = None
+            return self
+
+        def fill_cache(self):
+            if self._cache is None:
+                self._cache = list(self.iterator())
+            return self
+
         def __len__(self):
             """Returns length or list."""
-            return len(self.execute())
+            self.fill_cache()
+            return len(self._cache)
 
         def count(self):
             """Returns length or list."""
-            return len(self.execute())
+            if self._cache is not None:
+                return len(self._cache)
+            return self.order_by(reset=True).execute().count()
+
+        def iterator(self):
+            return self.execute().iterator()
 
         def __iter__(self):
             """Returns iterator."""
-            return iter(self.execute())
+            self.fill_cache()
+            return iter(self._cache)
 
         def __getitem__(self, key):
             """Returns sliced self or item."""
-            return self.execute()[key]
+            if self._cache:
+                return self._cache[key]
+            if isinstance(key, integer_types):
+                self = self.clone()
+                self = super(QS, self).__getitem__(key)
+                return list(self)[0]
+            return super(QS, self).__getitem__(key)
 
         def dialect(self):
             #engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
@@ -366,17 +400,16 @@ except ImportError:
 class PaginatedRawQuerySet(RawQuerySet):
     """Extended RawQuerySet with pagination support"""
 
-    _result_cache = None
+    _cache = None
 
     def count(self):
         """Returns count of rows"""
         sql = self.query.sql
-        self._make_cache_conditional()
-        if self._result_cache is not None:
-            return len(self._result_cache)
+        if self._cache is not None:
+            return len(self._cache)
         if not re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)(?:LIMIT|OFFSET).+$""", re.I|re.U|re.S).match(sql):
             sql = re.compile(r"""^((?:"(?:[^"\\]|\\"|\\\\)*"|'(?:[^'\\]|\\'|\\\\)*'|/\*.*?\*/|--[^\n]*\n|[^"'\\])+)ORDER BY[^%]+$""", re.I|re.U|re.S).sub(r'\1', sql)
-        sql = "SELECT COUNT(1) as c FROM ({0}) as t".format(sql)
+        sql = "SELECT COUNT(1) as count_value FROM ({0}) as count_list".format(sql)
         cursor = connections[self.query.using].cursor()
         cursor.execute(sql, self.params)
         row = cursor.fetchone()
@@ -384,7 +417,8 @@ class PaginatedRawQuerySet(RawQuerySet):
 
     def __len__(self):
         """Returns count of rows"""
-        return self.count()
+        self.fill_cache()
+        return len(self._cache)
 
     def __getitem__(self, k):
         """Returns sliced instance of self.__class__"""
@@ -411,21 +445,19 @@ class PaginatedRawQuerySet(RawQuerySet):
         new_cls.limit = limit
         return new_cls
 
-    def _make_cache_conditional(self):
+    def fill_cache(self):
         """Cache for small selections"""
-        if getattr(self, 'sliced', False) and getattr(self, 'limit', 0) < 300:
-            if self._result_cache is None:
-                self._result_cache = [v for v in super(PaginatedRawQuerySet, self).__iter__()]
+        if self._cache is None:
+            self._cache = list(self.iterator())
+        return self
+
+    def iterator(self):
+        return super(PaginatedRawQuerySet, self).__iter__()
 
     def __iter__(self):
         """Cache for small selections"""
-        self._make_cache_conditional()
-        if self._result_cache is not None:
-            for v in self._result_cache:
-                yield v
-        else:
-            for v in super(PaginatedRawQuerySet, self).__iter__():
-                yield v
+        self.fill_cache()
+        return iter(self._cache)
 
 
 def raw(self, raw_query, params=None, *args, **kwargs):
