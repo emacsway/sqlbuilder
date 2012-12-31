@@ -10,6 +10,8 @@ from .signals import field_conversion
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
 SMARTSQL_USE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE', True)
+# Old compatible
+SMARTSQL_USE_FACADE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE_FACADE', False)
 
 SQLOBJECT_ALIAS = getattr(settings, 'SQLBUILDER_SQLOBJECT_ALIAS', 'so')
 SQLOBJECT_USE = getattr(settings, 'SQLBUILDER_SQLOBJECT_USE', True)
@@ -210,7 +212,10 @@ if SMARTSQL_USE:
     @classproperty
     def ss(cls):
         if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
-            setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSQLFacade(cls))
+            if not SMARTSQL_USE_FACADE:
+                setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), Table(cls))
+            else:
+                setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSQLFacade(cls))
         return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
 
     setattr(Model, SMARTSQL_ALIAS, ss)
