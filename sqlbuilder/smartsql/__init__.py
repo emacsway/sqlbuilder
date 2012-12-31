@@ -763,7 +763,9 @@ class QuerySet(Expr):
         if opts.get("reset"):
             self = self.clone()
             self._fields.reset()
-        if len(args):
+            if not args:
+                return self
+        if args:
             self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
@@ -807,7 +809,9 @@ class QuerySet(Expr):
         if opts.get("reset"):
             self = self.clone()
             self._group_by.reset()
-        if len(args):
+            if not args:
+                return self
+        if args:
             self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
@@ -839,7 +843,9 @@ class QuerySet(Expr):
         if opts.get("reset"):
             self = self.clone()
             self._order_by.reset()
-        if len(args):
+            if not args:
+                return self
+        if args:
             self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
