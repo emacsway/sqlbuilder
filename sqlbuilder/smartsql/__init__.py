@@ -1093,7 +1093,7 @@ class UnionQuerySet(QuerySet):
 
 
 def placeholder_conditional(expr):
-    if not isinstance(expr, (Expr, Table, TableJoin )):
+    if not isinstance(expr, (Expr, Table, TableJoin)):
         expr = Placeholder(expr)
     return expr
 
@@ -1150,3 +1150,6 @@ else:
     for cls in (Expr, Table, TableJoin, ):
         cls.__unicode__ = cls.__str__
         cls.__str__ = cls.__bytes__
+
+from .dialects import register_dialects
+register_dialects()
