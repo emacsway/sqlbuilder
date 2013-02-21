@@ -652,7 +652,7 @@ class TableJoin(object):
             sql.append(self._left)
         if self._join_type:
             sql.append(Constant(self._join_type))
-        if isinstance(self._table, TableJoin):
+        if isinstance(self._table, (TableJoin, QuerySet)):
             sql.append(Parentheses(self._table))
         else:
             sql.append(self._table)
@@ -670,7 +670,7 @@ class TableJoin(object):
         return sqlrepr(sql, dialect)
 
     def __params__(self):
-        return sqlparams(self._left) + sqlparams(self._on)
+        return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on)
 
     def __bytes__(self):
         return sqlrepr(self).encode('utf-8')
@@ -971,6 +971,9 @@ class QuerySet(Expr):
         self = self.clone()
         self._action = "delete"
         return self.result()
+
+    def as_table(self, alias):
+        return TableAlias(alias, self)
 
     def as_union(self):
         return UnionQuerySet(self)

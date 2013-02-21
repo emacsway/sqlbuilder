@@ -166,6 +166,13 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT tb.cl AS al FROM tb WHERE (al = %s)', [5, ], )
         )
 
+    def test_qs_as_alias(self):
+        t1 = QS(T.tb).where(T.tb.cl == 5).fields(T.tb.cl).as_table('t1')
+        self.assertEqual(
+            QS(t1).where(t1.cl == 5).select(t1.cl),
+            ('SELECT t1.cl FROM (SELECT tb.cl FROM tb WHERE (tb.cl = %s)) AS t1 WHERE (t1.cl = %s)', [5, 5, ], )
+        )
+
     def test_complex(self):
         self.assertEqual(
             QS((T.base + T.grade).on((T.base.type == T.grade.item_type) & (F.base__type == 1)) + T.lottery).on(
