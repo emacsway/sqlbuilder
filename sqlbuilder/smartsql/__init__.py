@@ -26,10 +26,13 @@ class SqlDialects(object):
         """Constructor, initial registry."""
         self._registry = {}
 
-    def register(self, dialect, cls, sqlrepr_callback):
+    def register(self, dialect, cls):
         """Registers callbacks."""
-        ns = self._registry.setdefault(dialect, {})
-        ns[cls] = sqlrepr_callback
+        def decorator(sqlrepr_callback):
+            ns = self._registry.setdefault(dialect, {})
+            ns[cls] = sqlrepr_callback
+            return sqlrepr_callback
+        return decorator
 
     def sqlrepr(self, dialect, cls):
         ns = self._registry.setdefault(dialect, {})
@@ -1153,5 +1156,4 @@ else:
         cls.__unicode__ = cls.__str__
         cls.__str__ = cls.__bytes__
 
-from .dialects import register_dialects
-register_dialects()
+from . import dialects
