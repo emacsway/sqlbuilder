@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 # But the code fully another... It's not a fork anymore...
 import sys
 import copy
+from functools import partial
 
 try:
     str = unicode  # Python 2.* compatible
@@ -437,9 +438,9 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
         self._prefix = prefix
 
     def __sqlrepr__(self, dialect):
-        sql = self._name
+        sql = self._name == '*' and self._name or qn(self._name, dialect)
         if self._prefix is not None:
-            sql = ".".join((sqlrepr(self._prefix, dialect), sql, ))
+            sql = ".".join((qn(self._prefix, dialect), sql, ))
         return sql
 
 
@@ -452,6 +453,8 @@ class Alias(Expr):
     def expr(self):
         return self._expr
 
+    def __sqlrepr__(self, dialect):
+        return qn(self._sql, dialect)
 
 class Index(Alias):
     pass
@@ -523,7 +526,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         return f
 
     def __sqlrepr__(self, dialect):
-        return self._name
+        return qn(self._name, dialect)
 
     def __params__(self):
         return []
@@ -558,7 +561,7 @@ class TableAlias(Table):
         return TableAlias(alias, self._table)
 
     def __sqlrepr__(self, dialect):
-        return self._alias
+        return qn(self._alias, dialect)
 
     # Aliases:
     AS = as_
@@ -635,7 +638,7 @@ class TableJoin(object):
                         args[i] = Index(arg, self._table)
                 index.extend(args)
                 return self
-        return index
+        return self
 
     @opt_checker(["reset", ])
     def use_index(self, *args, **opts):
@@ -1097,6 +1100,25 @@ class UnionQuerySet(QuerySet):
         return sql
 
 
+class Name(object):
+    def __init__(self, name=None):
+        self._name = name
+
+    def __call__(self, name, dialect):
+        self._name = name
+        return sqlrepr(self, dialect)
+
+    def _sqlrepr_base(self, q, dialect):
+        if hasattr(self._name, '__sqlrepr__'):
+            return sqlrepr(self._name, dialect)
+        if '.' in self._name:
+            return '.'.join(map(partial(qn, dialect=dialect), self._name.split('.')))
+        return '{0}{1}{0}'.format(q, self._name.replace(q, ''))
+
+    def __sqlrepr__(self, dialect):
+        return self._sqlrepr_base('"', dialect)
+
+
 def placeholder_conditional(expr):
     if not isinstance(expr, (Expr, Table, TableJoin)):
         expr = Placeholder(expr)
@@ -1145,6 +1167,7 @@ def sqlparams(obj):
 T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
 const = ConstantSpace()
 func = const
+qn = Name()
 
 # Python 2.* compatible
 try:
