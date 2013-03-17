@@ -970,7 +970,7 @@ class QuerySet(Expr):
         for f, v in key_values.items():
             if not isinstance(f, Expr):
                 f = Field(f)
-            self._key_values.append(ExprList(f, Constant("=="), v))
+            self._key_values.append(ExprList(f, Constant("="), v))
         return self.result()
 
     def delete(self):
