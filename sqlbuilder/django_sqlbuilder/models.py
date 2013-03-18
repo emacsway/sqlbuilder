@@ -83,7 +83,7 @@ class AbstractFacade(object):
 
 
 if SMARTSQL_USE:
-    from . import smartsql
+    from .. import smartsql
 
     SMARTSQL_DIALECTS = {
         'sqlite3': 'sqlite',
