@@ -143,11 +143,11 @@ if SMARTSQL_USE:
             engine = connections.databases[self.model.objects.db]['ENGINE'].rsplit('.')[-1]
             return SMARTSQL_DIALECTS[engine]
 
-        def sqlrepr(self):
-            return smartsql.sqlrepr(self, self.dialect())
+        def sqlrepr(self, expr=None):
+            return smartsql.sqlrepr(expr or self, self.dialect())
 
-        def sqlparams(self):
-            return smartsql.sqlparams(self)
+        def sqlparams(self, expr=None):
+            return smartsql.sqlparams(expr or self)
 
         def execute(self):
             """Implementation of query execution"""
