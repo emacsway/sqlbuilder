@@ -3,23 +3,21 @@
 # Copyright (c) 2011 Ivan Zakrevsky and contributors.
 import os.path
 from setuptools import setup, find_packages
-import metadata
 
-app_name = metadata.name
-version = metadata.version
+app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 
 setup(
     name = app_name,
-    version = version,
+    version = '0.7.1',
 
     packages = find_packages(),
 
     author = "Ivan Zakrevsky",
     author_email = "ivzak@yandex.ru",
-    description = "SQLBuilder",
+    description = "SmartSQL - lightweight sql builder.",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
     license = "BSD License",
-    keywords = "SQL",
+    keywords = "SQL database",
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
