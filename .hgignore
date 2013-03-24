@@ -13,3 +13,4 @@
 ^\.search/
 ^dist/
 ^sqlbuilder.egg-info/
+^build/
