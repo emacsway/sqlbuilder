@@ -11,3 +11,5 @@
 ^\.settings/
 .autosave$
 ^\.search/
+^dist/
+^sqlbuilder.egg-info/

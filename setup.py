@@ -27,5 +27,6 @@ setup(
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
+    # test_suite='sqlbuilder.smartsql.tests',
     url = "https://bitbucket.org/evotech/{0}".format(app_name),
 )
