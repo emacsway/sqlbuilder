@@ -79,7 +79,7 @@ usage eg:
 Django integration.
 =====================
 
-Simple add "sqlbuilder" to your INSTALLED_APPS.
+Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
 Integration sqlbuilder.smartsql to Django
 ------------------------------------------
@@ -163,8 +163,8 @@ Example of usage sqlalchemy.sql in Django:
 
 Paginator
 ==========
-django.db.models.query.RawQuerySet `does not supports __len__() and __getitem__()
-<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_ methods,
+django.db.models.query.RawQuerySet `indexing and slicing are not performed at the database level
+<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_,
 so it can cause problems with pagination.
 
 For this reason, SQLBuilder fixes this issue.

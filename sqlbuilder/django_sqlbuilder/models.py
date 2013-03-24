@@ -18,8 +18,6 @@ except NameError:
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
 SMARTSQL_USE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE', True)
-# Old compatible
-SMARTSQL_USE_FACADE = getattr(settings, 'SQLBUILDER_SMARTSQL_USE_FACADE', False)
 
 SQLOBJECT_ALIAS = getattr(settings, 'SQLBUILDER_SQLOBJECT_ALIAS', 'so')
 SQLOBJECT_USE = getattr(settings, 'SQLBUILDER_SQLOBJECT_USE', True)
@@ -242,34 +240,10 @@ if SMARTSQL_USE:
         def model(self):
             return self.table.model
 
-    class SmartSQLFacade(AbstractFacade):
-        """Abstract facade for Django integration"""
-
-        def __init__(self, model):
-            """Constructor"""
-            self._model = model
-            self._table = Table(model)
-
-        def get_fields(self, prefix=None):
-            """Returns field list."""
-            return self._table.get_fields(prefix)
-
-        def set_query_set(self, query_set):
-            """Sets query set."""
-            self._table.qs = query_set
-            return self
-
-        def get_query_set(self):
-            """Returns query set."""
-            return self._table.qs
-
     @classproperty
     def ss(cls):
         if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
-            if not SMARTSQL_USE_FACADE:
-                setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), Table(cls))
-            else:
-                setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), SmartSQLFacade(cls))
+            setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), Table(cls))
         return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
 
     setattr(Model, SMARTSQL_ALIAS, ss)
