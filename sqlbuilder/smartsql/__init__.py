@@ -29,10 +29,10 @@ class SqlDialects(object):
 
     def register(self, dialect, cls):
         """Registers callbacks."""
-        def decorator(sqlrepr_callback):
+        def decorator(func):
             ns = self._registry.setdefault(dialect, {})
-            ns[cls] = sqlrepr_callback
-            return sqlrepr_callback
+            ns[cls] = func
+            return func
         return decorator
 
     def sqlrepr(self, dialect, cls):
@@ -68,6 +68,12 @@ def opt_checker(k_list):
         new_func.__doc__ = func.__doc__
         return new_func
     return new_deco
+
+
+def same(name):
+    def deco(self, *a, **kw):
+        return getattr(self, name)(*a, **kw)
+    return deco
 
 
 class Error(Exception):
@@ -226,11 +232,11 @@ class Expr(object):
     __hash__ = None
 
     # Aliases:
-    AS = as_
-    IN = in_
-    NOT_IN = not_in
-    LIKE = like
-    BETWEEN = between
+    AS = same('as_')
+    IN = same('in_')
+    NOT_IN = same('not_in')
+    LIKE = same('like')
+    BETWEEN = same('between')
 
 
 class Condition(Expr):
@@ -541,11 +547,11 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         return sqlrepr(self)
 
     # Aliases:
-    AS = as_
-    ON = on
-    USE_INDEX = use_index
-    IGNORE_INDEX = ignore_index
-    FORCE_INDEX = force_index
+    AS = same('as_')
+    ON = same('on')
+    USE_INDEX = same('use_index')
+    IGNORE_INDEX = same('ignore_index')
+    FORCE_INDEX = same('force_index')
 
 
 class TableAlias(Table):
@@ -558,13 +564,10 @@ class TableAlias(Table):
         return self._table
 
     def as_(self, alias):
-        return TableAlias(alias, self._table)
+        return type(self)(alias, self._table)
 
     def __sqlrepr__(self, dialect):
         return qn(self._alias, dialect)
-
-    # Aliases:
-    AS = as_
 
 
 class TableJoin(object):
@@ -688,10 +691,10 @@ class TableJoin(object):
         return sqlrepr(self)
 
     # Aliases:
-    ON = on
-    USE_INDEX = use_index
-    IGNORE_INDEX = ignore_index
-    FORCE_INDEX = force_index
+    ON = same('on')
+    USE_INDEX = same('use_index')
+    IGNORE_INDEX = same('ignore_index')
+    FORCE_INDEX = same('force_index')
 
 
 class QuerySet(Expr):
@@ -1072,7 +1075,7 @@ class QuerySet(Expr):
         return sqlparams(sql)
 
     # Aliases:
-    columns = fields
+    columns = same('fields')
 
 
 class UnionQuerySet(QuerySet):
