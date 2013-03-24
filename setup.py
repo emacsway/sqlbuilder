@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2011 Ivan Zakrevsky and contributors.
+# Copyright (c) 2011-2013 Ivan Zakrevsky and contributors.
 import os.path
 from setuptools import setup, find_packages
 
