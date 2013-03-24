@@ -81,9 +81,6 @@ Django integration.
 
 Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
-Integration sqlbuilder.smartsql to Django
-------------------------------------------
-
 For Django model
 
 ::
@@ -113,9 +110,23 @@ How to execute?
 
 ::
     
-    rows = Grade.objects.raw(*QS(T.grade).where(T.grade.item_type == 'type1').select(Grade.ss.get_fields()))
-    # or simple
     rows = Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select()
+    # Also is possible
+    rows = Grade.objects.raw(*QS(T.grade).where(T.grade.item_type == 'type1').select(Grade.ss.get_fields()))
+
+Paginator
+==========
+django.db.models.query.RawQuerySet `indexing and slicing are not performed at the database level
+<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_,
+so it can cause problems with pagination.
+
+For this reason, SQLBuilder fixes this issue.
+
+
+
+
+Integration of third-party sqlbuilders.
+========================================
 
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------
@@ -160,11 +171,3 @@ Example of usage sqlalchemy.sql in Django:
     rows = User.objects.raw(unicode(sc), sc.params)
     for row in rows:
         print row
-
-Paginator
-==========
-django.db.models.query.RawQuerySet `indexing and slicing are not performed at the database level
-<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_,
-so it can cause problems with pagination.
-
-For this reason, SQLBuilder fixes this issue.
