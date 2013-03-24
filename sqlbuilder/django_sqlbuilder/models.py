@@ -162,6 +162,18 @@ if SMARTSQL_USE:
                 return self
             return self.execute()
 
+        def as_union(self):
+            return UnionQuerySet(self)
+
+
+    class UnionQuerySet(smartsql.UnionQuerySet, QS):
+        """Union query class"""
+        def __init__(self, qs):
+            super(UnionQuerySet, self).__init__(qs)
+            self.model = qs.model
+            self.using = qs.using
+            self.base_table = qs.base_table
+
     class Table(smartsql.Table):
         """Table class for Django model"""
 
@@ -220,6 +232,15 @@ if SMARTSQL_USE:
                 parts[0] = m._meta.get_field(parts[0]).column
 
             return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
+
+        def as_(self, alias):
+            return TableAlias(alias, self)
+
+    class TableAlias(smartsql.TableAlias, Table):
+        """Table alias class"""
+        @property
+        def model(self):
+            return self.table.model
 
     class SmartSQLFacade(AbstractFacade):
         """Abstract facade for Django integration"""
