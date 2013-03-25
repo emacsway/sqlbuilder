@@ -104,13 +104,13 @@ is equal to:
 
 ::
 
-    Grade.ss.qs.where(Grade.ss.t.item_type == 'type1')
+    Grade.ss.qs.where(Grade.ss.item_type == 'type1')
 
 How to execute?
 
 ::
     
-    rows = Grade.ss.qs.where(Grade.ss.t.item_type == 'type1').select()
+    rows = Grade.ss.qs.where(Grade.ss.item_type == 'type1').select()
     # Also is possible
     rows = Grade.objects.raw(*QS(T.grade).where(T.grade.item_type == 'type1').select(Grade.ss.get_fields()))
 
