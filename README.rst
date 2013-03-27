@@ -130,10 +130,6 @@ Integration sqlobject to Django:
 Integration sqlalchemy.sql to Django
 -------------------------------------
 
-SQLBuilder library does not contains
-`sqlalchemy.sql`_,
-so, you need to install additionally sqlalchemy to your Python environment.
-
 Example of usage sqlalchemy.sql in Django:
 
 ::
