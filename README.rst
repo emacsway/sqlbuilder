@@ -81,38 +81,17 @@ Django integration.
 
 Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
-For Django model
-
 ::
 
-    class Grade(django.db.models.Model):
-        # ...
-        class Meta:
-            db_table = "grade"
+    ta = Author.ss
+    tb = Book.ss
+    qs = tb.qs
 
-* Grade.ss.t (alias for Grade.ss.table) returns T.grade
-* Grade.ss.get_fields() returns [T.grade.id, T.grade.title, ...]
-* Grade.ss.qs returns QS(T.grade).fields(Grade.ss.get_fields())
-
-So,
-
-::
-
-    QS(T.grade).where(T.grade.item_type == 'type1')
-
-is equal to:
-
-::
-
-    Grade.ss.qs.where(Grade.ss.item_type == 'type1')
-
-How to execute?
-
-::
-    
-    rows = Grade.ss.qs.where(Grade.ss.item_type == 'type1').select()
-    # Also is possible
-    rows = Grade.objects.raw(*QS(T.grade).where(T.grade.item_type == 'type1').select(Grade.ss.get_fields()))
+    object_list = qs.tables(
+        qs.tables() & ta.on(tb.author_id == ta.id)
+    ).where(
+        (ta.first_name != 'James') & (ta.last_name != 'Joyce')
+    )[:10]
 
 Paginator
 ==========
@@ -125,8 +104,8 @@ For this reason, SQLBuilder fixes this issue.
 
 
 
-Integration of third-party sqlbuilders.
-========================================
+Integration of third-party sqlbuilders (deprecated, will be removed).
+======================================================================
 
 Integration sqlbuilder.sqlobject to Django
 -------------------------------------------
