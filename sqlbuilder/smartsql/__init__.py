@@ -345,9 +345,15 @@ class Concat(ExprList):
         self._ws = None
 
     def ws(self, sep):
-        self._ws = sep
+        self._ws = prepare_expr(sep)
         return self
-    
+
+    def __params__(self):
+        params = []
+        params.extend(sqlparams(self._ws))
+        params.extend(super(Concat, self).__params__())
+        return params
+
     def __sqlrepr__(self, dialect):
         value = super(Concat, self).__sqlrepr__(dialect)
         if self._ws:

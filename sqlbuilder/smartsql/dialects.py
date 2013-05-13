@@ -35,7 +35,7 @@ def name_sqlrepr(self, dialect):
 
 @sql_dialects.register('mysql', Concat)
 def name_sqlrepr(self, dialect):
-    value = self.join(', ').__sqlrepr__(dialect)
+    value = super(Concat, self.join(', ')).__sqlrepr__(dialect)
     if self._ws:
         return "CONCAT_WS({0}, {1})".format(self._ws, value)
     return "CONCAT({0})".format(value)

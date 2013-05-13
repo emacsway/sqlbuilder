@@ -156,20 +156,20 @@ class TestSmartSQL(unittest.TestCase):
 
     def test_concat(self):
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2)).select('*'),
-            ('SELECT * FROM "tb" WHERE "tb"."cl" || %s || %s || %s || "tb"."cl2"', [1, 2, 'str'], )
+            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
+            ('SELECT * FROM "tb" WHERE ("tb"."cl" || %s || %s || %s || "tb"."cl2" <> %s)', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2)).select('*'),
-            ('SELECT * FROM "tb" WHERE concat_ws( + , "tb"."cl" || %s || %s || %s || "tb"."cl2")', [1, 2, 'str'], )
+            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
+            ('SELECT * FROM "tb" WHERE (concat_ws(%s, "tb"."cl" || %s || %s || %s || "tb"."cl2") <> %s)', [' + ', 1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2)).dialect('mysql').select('*'),
-            ('SELECT * FROM `tb` WHERE CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`)', [1, 2, 'str'], )
+            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').dialect('mysql').select('*'),
+            ('SELECT * FROM `tb` WHERE (CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2)).dialect('mysql').select('*'),
-            ('SELECT * FROM `tb` WHERE CONCAT_WS( + , concat_ws( + , `tb`.`cl`, %s, %s, %s, `tb`.`cl2`))', [1, 2, 'str'], )
+            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').dialect('mysql').select('*'),
+            ('SELECT * FROM `tb` WHERE (CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [' + ', 1, 2, 'str', 'str2'], )
         )
 
     def test_alias(self):
