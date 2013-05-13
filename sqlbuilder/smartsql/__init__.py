@@ -205,6 +205,12 @@ class Expr(object):
     def between(self, start, end):
         return Between(self, start, end)
 
+    def concat(self, *args):
+        return Concat(self, *args)
+
+    def concat_ws(self, sep, *args):
+        return Concat(self, *args).ws(sep)
+
     def __getitem__(self, key):
         """Returns self.between()"""
         if isinstance(key, slice):
@@ -330,6 +336,23 @@ class ExprList(Expr):
         for arg in self._args:
             params.extend(sqlparams(arg))
         return params
+
+
+class Concat(ExprList):
+    def __init__(self, *args):
+        super(Concat, self).__init__(*args)
+        self._sep = ' || '
+        self._ws = None
+
+    def ws(self, sep):
+        self._ws = sep
+        return self
+    
+    def __sqlrepr__(self, dialect):
+        value = super(Concat, self).__sqlrepr__(dialect)
+        if self._ws:
+            return "concat_ws({0}, {1})".format(self._ws, value)
+        return value
 
 
 class Placeholder(Expr):

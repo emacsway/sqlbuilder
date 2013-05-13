@@ -154,6 +154,24 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT * FROM "tb" WHERE "tb"."cl" BETWEEN "tb"."cl2" AND "tb"."cl3"', [], )
         )
 
+    def test_concat(self):
+        self.assertEqual(
+            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2)).select('*'),
+            ('SELECT * FROM "tb" WHERE "tb"."cl" || %s || %s || %s || "tb"."cl2"', [1, 2, 'str'], )
+        )
+        self.assertEqual(
+            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2)).select('*'),
+            ('SELECT * FROM "tb" WHERE concat_ws( + , "tb"."cl" || %s || %s || %s || "tb"."cl2")', [1, 2, 'str'], )
+        )
+        self.assertEqual(
+            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2)).dialect('mysql').select('*'),
+            ('SELECT * FROM `tb` WHERE CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`)', [1, 2, 'str'], )
+        )
+        self.assertEqual(
+            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2)).dialect('mysql').select('*'),
+            ('SELECT * FROM `tb` WHERE CONCAT_WS( + , concat_ws( + , `tb`.`cl`, %s, %s, %s, `tb`.`cl2`))', [1, 2, 'str'], )
+        )
+
     def test_alias(self):
         self.assertEqual(
             QS(T.tb).where(A('al') == 5).select(F.tb__cl__al),
