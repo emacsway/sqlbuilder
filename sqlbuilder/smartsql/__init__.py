@@ -196,6 +196,24 @@ class Expr(object):
             other = ExprList(*other).join(", ")
         return ExprList(self, Constant("NOT IN"), Parentheses(other)).join(" ")
 
+    def startswith(self, other):
+        return self.like(Concat(other, '%'))
+
+    def istartswith(self, other):
+        return self.ilike(Concat(other, '%'))
+
+    def contains(self, other):
+        return self.like(Concat('%', other, '%'))
+
+    def icontains(self, other):
+        return self.ilike(Concat('%', other, '%'))
+
+    def endswith(self, other):
+        return self.like(Concat('%', other))
+
+    def iendswith(self, other):
+        return self.ilike(Concat('%', other))
+
     def like(self, other):
         return Condition("LIKE", self, other)
 
@@ -210,6 +228,12 @@ class Expr(object):
 
     def concat_ws(self, sep, *args):
         return Concat(self, *args).ws(sep)
+
+    def distinct(self):
+        return Prefix("DISTINCT", self)
+
+    def count(self):
+        return Constant("COUNT")(self)
 
     def __getitem__(self, key):
         """Returns self.between()"""
@@ -516,20 +540,23 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     def __init__(self, name):
         self._name = name
 
-    def __and__(self, obj):
+    def inner_join(self, obj):
         return TableJoin(self).__and__(obj)
 
-    def __add__(self, obj):
+    def left_join(self, obj):
         return TableJoin(self).__add__(obj)
 
-    def __sub__(self, obj):
+    def right_join(self, obj):
         return TableJoin(self).__sub__(obj)
 
-    def __or__(self, obj):
+    def full_join(self, obj):
         return TableJoin(self).__or__(obj)
 
-    def __mul__(self, obj):
+    def cross_join(self, obj):
         return TableJoin(self).__mul__(obj)
+
+    def join(self, join_type, obj):
+        return TableJoin(self).join(join_type, obj)
 
     def as_(self, alias):
         return TableAlias(alias, self)
@@ -576,6 +603,11 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         return sqlrepr(self)
 
     # Aliases:
+    __and__ = same('inner_join')
+    __add__ = same('left_join')
+    __sub__ = same('right_join')
+    __or__ = same('full_join')
+    __mul__ = same('cross_join')
     AS = same('as_')
     ON = same('on')
     USE_INDEX = same('use_index')
@@ -615,22 +647,22 @@ class TableJoin(object):
         self._ignore_index = ExprList().join(", ")
         self._force_index = ExprList().join(", ")
 
-    def __and__(self, obj):
-        return self._add_join("INNER JOIN", obj)
+    def inner_join(self, obj):
+        return self.join("INNER JOIN", obj)
 
-    def __add__(self, obj):
-        return self._add_join("LEFT OUTER JOIN", obj)
+    def left_join(self, obj):
+        return self.join("LEFT OUTER JOIN", obj)
 
-    def __sub__(self, obj):
-        return self._add_join("RIGHT OUTER JOIN", obj)
+    def right_join(self, obj):
+        return self.join("RIGHT OUTER JOIN", obj)
 
-    def __or__(self, obj):
-        return self._add_join("FULL OUTER JOIN", obj)
+    def full_join(self, obj):
+        return self.join("FULL OUTER JOIN", obj)
 
-    def __mul__(self, obj):
-        return self._add_join("CROSS JOIN", obj)
+    def cross_join(self, obj):
+        return self.join("CROSS JOIN", obj)
 
-    def _add_join(self, join_type, obj):
+    def join(self, join_type, obj):
         if not isinstance(obj, TableJoin) or obj.left():
             obj = TableJoin(obj, left=self)
         obj = obj.left(self).join_type(join_type)
@@ -720,6 +752,11 @@ class TableJoin(object):
         return sqlrepr(self)
 
     # Aliases:
+    __and__ = same('inner_join')
+    __add__ = same('left_join')
+    __sub__ = same('right_join')
+    __or__ = same('full_join')
+    __mul__ = same('cross_join')
     ON = same('on')
     USE_INDEX = same('use_index')
     IGNORE_INDEX = same('ignore_index')

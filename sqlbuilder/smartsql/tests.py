@@ -16,7 +16,7 @@ class TestSmartSQL(unittest.TestCase):
 
     maxDiff = None
 
-    def test_tested_join(self):
+    def test_nested_join(self):
         t1, t2, t3, t4 = T.t1, T.t2, T.t3, T.t4
         self.assertEqual(
             QS((t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id))).on(t3.t2_id == t2.id)).select(t1.id),
