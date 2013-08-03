@@ -679,6 +679,8 @@ class TableJoin(object):
         return self
 
     def on(self, c):
+        if self._on is not None:
+            self = TableJoin(self)
         self._on = parentheses_conditional(c)
         return self
 
