@@ -687,9 +687,6 @@ class TableJoin(object):
     def group(self):
         return TableJoin(self)
 
-    def as_nested(self):
-        return self.group()
-
     @opt_checker(["reset", ])
     def change_index(self, index, *args, **opts):
         if opts.get("reset"):
@@ -754,6 +751,7 @@ class TableJoin(object):
         return sqlrepr(self)
 
     # Aliases:
+    as_nested = same('group')
     __and__ = same('inner_join')
     __add__ = same('left_join')
     __sub__ = same('right_join')
