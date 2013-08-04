@@ -18,7 +18,7 @@ except NameError:
     string_types = (str,)
     integer_types = (int,)
 
-SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 'ss')
+SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 's')
 SMARTSQL_DIALECTS = {
     'sqlite3': 'sqlite',
     'mysql': 'mysql',
@@ -190,12 +190,19 @@ class TableAlias(smartsql.TableAlias, Table):
 
 
 @classproperty
-def ss(cls):
+def s(cls):
     if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
         setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), Table(cls))
     return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
 
-setattr(Model, SMARTSQL_ALIAS, ss)
+
+@classproperty
+def ss(cls):
+    smartsql.warn('Model.ss', 'Model.{0}'.format(SMARTSQL_ALIAS), 4)
+    return getattr(cls, SMARTSQL_ALIAS)
+
+setattr(Model, SMARTSQL_ALIAS, s)
+setattr(Model, 'ss', ss)
 
 
 # Fixing django.db.models.query.RawQuerySet,

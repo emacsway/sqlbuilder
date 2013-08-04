@@ -44,10 +44,11 @@ usage eg:
 
 ::
 
-    QS(T.base + T.grade + T.lottery).on(
-        (T.base.type == T.grade.item_type) & (T.base.type == 1),
+    QS(((T.base + T.grade).on(
+        (T.base.type == T.grade.item_type) & (T.base.type == 1)
+    ) + T.lottery).on(
         T.base.type == T.lottery.item_type
-    ).fields(
+    )).fields(
         T.base.type, T.grade.grade, T.lottery.grade
     ).where(
         (T.base.name == "name") & (T.base.status == 0) | (T.base.name == None)
@@ -83,8 +84,8 @@ Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
 ::
 
-    ta = Author.ss
-    tb = Book.ss
+    ta = Author.s
+    tb = Book.s
     qs = tb.qs
 
     object_list = qs.tables(

@@ -5,6 +5,7 @@ from __future__ import absolute_import, unicode_literals
 import sys
 import copy
 from functools import partial
+import warnings
 
 try:
     str = unicode  # Python 2.* compatible
@@ -915,7 +916,7 @@ class QuerySet(Expr):
         self = self.clone()
         if not isinstance(self._tables, TableJoin):
             raise Error("Can't set on without join table")
-        self._tables.on(c)
+        self._tables = self._tables.on(c)
         return self
 
     def where(self, c):
@@ -1297,6 +1298,14 @@ def sqlparams(obj):
     if hasattr(obj, '__params__'):
         return list(obj.__params__())
     return []
+
+
+def warn(old, new, stacklevel=3):
+    warnings.warn(
+        "{0} is deprecated. Use {1} instead".format(old, new),
+        PendingDeprecationWarning,
+        stacklevel=stacklevel
+    )
 
 T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
 const = ConstantSpace()
