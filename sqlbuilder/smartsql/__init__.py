@@ -23,6 +23,9 @@ class SqlDialects(object):
     """
     Stores all dialect representations
     """
+
+    __slots__ = ('_registry', )
+
     def __init__(self):
         """Constructor, initial registry."""
         self._registry = {}
@@ -82,8 +85,7 @@ class Error(Exception):
 
 class Expr(object):
 
-    _sql = None
-    _params = None
+    __slots__ = ('_sql', '_params')
 
     def __init__(self, sql, *params):
         self._sql = sql
@@ -245,10 +247,10 @@ class Expr(object):
             return self.__eq__(key)
 
     def __sqlrepr__(self, dialect):
-        return self._sql or ""
+        return getattr(self, '_sql', "")
 
     def __params__(self):
-        return self._params or []
+        return getattr(self, '_params', [])
 
     def __bytes__(self):
         return sqlrepr(self).encode('utf-8')
@@ -270,6 +272,9 @@ class Expr(object):
 
 
 class Condition(Expr):
+
+    __slots__ = ('_op', '_expr1', '_expr2')
+
     def __init__(self, op, expr1, expr2):
         self._op = op.upper()
         if expr1 is not None:
@@ -294,6 +299,8 @@ class Condition(Expr):
 
 
 class ExprList(Expr):
+
+    __slots__ = ('_sep', '_args')
 
     def __init__(self, *args):
         self._sep = " "
@@ -361,8 +368,16 @@ class ExprList(Expr):
             params.extend(sqlparams(arg))
         return params
 
+    def __copy__(self):
+        dup = copy.copy(super(ExprList, self))
+        dup._args = dup._args[:]
+        return dup
+
 
 class Concat(ExprList):
+
+    __slots__ = ('_sep', '_args', '_ws')
+
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
         self._sep = ' || '
@@ -386,11 +401,16 @@ class Concat(ExprList):
 
 
 class Placeholder(Expr):
+
+    __slots__ = ('_sql', '_params')
+
     def __init__(self, *params):
         super(Placeholder, self).__init__(PLACEHOLDER, *params)
 
 
 class Parentheses(Expr):
+
+    __slots__ = ('_expr', )
 
     def __init__(self, expr):
         self._expr = expr
@@ -404,6 +424,8 @@ class Parentheses(Expr):
 
 class Prefix(Expr):
 
+    __slots__ = ('_prefix', '_expr', )
+
     def __init__(self, prefix, expr):
         self._prefix = prefix
         self._expr = prepare_expr(expr)
@@ -416,6 +438,8 @@ class Prefix(Expr):
 
 
 class Between(Expr):
+
+    __slots__ = ('_expr', '_start', '_end')
 
     def __init__(self, expr, start, end):
         self._expr = prepare_expr(expr)
@@ -436,6 +460,8 @@ class Between(Expr):
 
 class Callable(Expr):
 
+    __slots__ = ('_expr', '_args')
+
     def __init__(self, expr, *args):
         self._expr = expr
         self._args = ExprList(*args).join(", ")
@@ -448,6 +474,9 @@ class Callable(Expr):
 
 
 class Constant(Expr):
+
+    __slots__ = ('_const', '_params')
+
     def __init__(self, const):
         self._const = const.upper()
         self._params = []
@@ -460,7 +489,10 @@ class Constant(Expr):
         return self._const
 
 
-class ConstantSpace:
+class ConstantSpace(object):
+
+    __slots__ = ()
+
     def __getattr__(self, attr):
         if attr.startswith('__'):
             raise AttributeError
@@ -489,6 +521,9 @@ class MetaField(type):
 
 
 class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
+
+    __slots__ = ('_name', )
+
     def __init__(self, name, prefix=None):
         self._name = name
 
@@ -504,6 +539,9 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
 
 
 class Alias(Expr):
+
+    __slots__ = ('_expr', )
+
     def __init__(self, alias, expr=None):
         self._expr = expr
         super(Alias, self).__init__(alias)
@@ -537,6 +575,9 @@ class MetaTable(type):
 
 
 class Table(MetaTable(bytes("NewBase"), (object, ), {})):
+
+    __slots__ = ('_name', )
+
     def __init__(self, name):
         self._name = name
 
@@ -616,6 +657,9 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
 
 
 class TableAlias(Table):
+
+    __slots__ = ('_table', '_alias')
+
     def __init__(self, alias, table):
         self._table = table
         self._alias = alias
@@ -632,6 +676,8 @@ class TableAlias(Table):
 
 
 class TableJoin(object):
+
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_use_index', '_ignore_index', '_force_index', )
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
@@ -714,6 +760,12 @@ class TableJoin(object):
     @opt_checker(["reset", ])
     def force_index(self, *args, **opts):
         return self.change_index(self._force_index, *args, **opts)
+
+    def __copy__(self):
+        dup = copy.copy(super(TableJoin, self))
+        for a in ['_use_index', '_ignore_index', '_force_index', ]:
+            setattr(dup, a, copy.copy(getattr(dup, a, None)))
+        return dup
 
     def __sqlrepr__(self, dialect):
         sql = ExprList().join(" ")
@@ -807,7 +859,11 @@ class QuerySet(Expr):
         self._havings = cs
 
     def clone(self):
-        return copy.deepcopy(self)
+        # return copy.deepcopy(self)
+        dup = copy.copy(super(QuerySet, self))
+        for a in ['_fields', '_tables', '_group_by', '_order_by', '_values', '_key_values', ]:
+            setattr(dup, a, copy.copy(getattr(dup, a, None)))
+        return dup
 
     def dialect(self, dialect=None):
         if dialect is not None:
@@ -1142,6 +1198,7 @@ class QuerySet(Expr):
 
     # Aliases:
     columns = same('fields')
+    __copy__ = same('clone')
 
 
 class UnionQuerySet(QuerySet):
@@ -1168,8 +1225,16 @@ class UnionQuerySet(QuerySet):
         self._sql_extend(sql, ["order", "limit"])
         return sql
 
+    def clone(self):
+        self = super(UnionQuerySet, self).clone()
+        self._union_list = copy.copy(self._union_list)
+        return self
+
 
 class Name(object):
+
+    __slots = ('_name', )
+
     def __init__(self, name=None):
         self._name = name
 
