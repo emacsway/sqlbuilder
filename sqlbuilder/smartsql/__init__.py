@@ -84,17 +84,9 @@ class Error(Exception):
     pass
 
 
-class Expr(object):
+class Comparable(object):
 
-    __slots__ = ('_sql', '_params')
-
-    def __init__(self, sql, *params):
-        self._sql = sql
-        self._params = []
-        params = list(params)
-        if len(params) and hasattr(params[0], '__iter__'):
-            self._params.extend(params.pop(0))
-        self._params.extend(params)
+    __slots__ = ()
 
     def __eq__(self, other):
         if other is None:
@@ -247,6 +239,28 @@ class Expr(object):
         else:
             return self.__eq__(key)
 
+    __hash__ = None
+
+    # Aliases:
+    AS = same('as_')
+    IN = same('in_')
+    NOT_IN = same('not_in')
+    LIKE = same('like')
+    BETWEEN = same('between')
+
+
+class Expr(Comparable):
+
+    __slots__ = ('_sql', '_params')
+
+    def __init__(self, sql, *params):
+        self._sql = sql
+        self._params = []
+        params = list(params)
+        if len(params) and hasattr(params[0], '__iter__'):
+            self._params.extend(params.pop(0))
+        self._params.extend(params)
+
     def __sqlrepr__(self, dialect):
         return getattr(self, '_sql', "")
 
@@ -261,15 +275,6 @@ class Expr(object):
 
     def __repr__(self):
         return sqlrepr(self)
-
-    __hash__ = None
-
-    # Aliases:
-    AS = same('as_')
-    IN = same('in_')
-    NOT_IN = same('not_in')
-    LIKE = same('like')
-    BETWEEN = same('between')
 
 
 class Condition(Expr):
@@ -476,14 +481,12 @@ class Callable(Expr):
 
 class Constant(Expr):
 
-    __slots__ = ('_const', '_params')
+    __slots__ = ('_const', )
 
     def __init__(self, const):
         self._const = const.upper()
-        self._params = []
 
     def __call__(self, *args):
-        self = copy.deepcopy(self)
         return Callable(self, *args)
 
     def __sqlrepr__(self, dialect):
@@ -501,6 +504,7 @@ class ConstantSpace(object):
 
 
 class MetaField(type):
+
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
@@ -523,7 +527,7 @@ class MetaField(type):
 
 class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
 
-    __slots__ = ('_name', )
+    __slots__ = ('_name', '_prefix')
 
     def __init__(self, name, prefix=None):
         self._name = name
@@ -541,7 +545,7 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
 
 class Alias(Expr):
 
-    __slots__ = ('_expr', )
+    __slots__ = ('_expr', '_sql')
 
     def __init__(self, alias, expr=None):
         self._expr = expr
