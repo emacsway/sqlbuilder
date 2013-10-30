@@ -135,7 +135,7 @@ class Table(smartsql.Table):
         if prefix is None:
             prefix = self
         result = []
-        for f in self.model._meta.fields:
+        for f in self.model._meta.local_fields:
             if f.column:
                 result.append(smartsql.Field(f.column, prefix))
         return result
