@@ -230,6 +230,12 @@ class Comparable(object):
     def count(self):
         return Constant("COUNT")(self)
 
+    def asc(self):
+        return Suffix(self, "ASC")
+
+    def desc(self):
+        return Suffix(self, "DESC")
+
     def __getitem__(self, key):
         """Returns self.between()"""
         if isinstance(key, slice):
@@ -443,6 +449,21 @@ class Prefix(Expr):
         return sqlparams(self._expr)
 
 
+class Suffix(Expr):
+
+    __slots__ = ('_suffix', '_expr', )
+
+    def __init__(self, expr, suffix):
+        self._suffix = suffix
+        self._expr = prepare_expr(expr)
+
+    def __sqlrepr__(self, dialect):
+        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._suffix)
+
+    def __params__(self):
+        return sqlparams(self._expr)
+
+
 class Between(Expr):
 
     __slots__ = ('_expr', '_start', '_end')
@@ -557,6 +578,7 @@ class Alias(Expr):
 
     def __sqlrepr__(self, dialect):
         return qn(self._sql, dialect)
+
 
 class Index(Alias):
     pass
@@ -972,7 +994,7 @@ class QuerySet(Expr):
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
-        direct_all = Constant("DESC") if opts.get("desc") else Constant("ASC")
+        direct = "DESC" if opts.get("desc") else "ASC"
         if opts.get("reset"):
             self = self.clone()
             self._order_by.reset()
@@ -985,10 +1007,9 @@ class QuerySet(Expr):
                 self = self.order_by(*args.pop(0), reset=True)
             if len(args):
                 for f in args:
-                    direct = direct_all
-                    if isinstance(f, Prefix) and f._prefix == "-":
-                        f, direct = f._expr, Constant("DESC")
-                    self._order_by.append(ExprList(f, direct).join(" "))
+                    if not (isinstance(f, Suffix) and f._suffix in ("ASC", "DESC")):
+                        f = Suffix(f, direct)
+                    self._order_by.append(f)
             return self
         return self._order_by
 

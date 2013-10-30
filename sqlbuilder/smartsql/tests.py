@@ -211,7 +211,11 @@ class TestSmartSQL(unittest.TestCase):
             (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
         )
         self.assertEqual(
-            QS(T.tb).fields(T.tb.id).order_by(-T.tb.id).select(),
+            QS(T.tb).fields(T.tb.id).order_by(T.tb.id.asc()).select(),
+            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
+        )
+        self.assertEqual(
+            QS(T.tb).fields(T.tb.id).order_by(T.tb.id.desc()).select(),
             (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
         self.assertEqual(
@@ -219,7 +223,7 @@ class TestSmartSQL(unittest.TestCase):
             (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
         self.assertEqual(
-            QS(T.tb).fields(T.tb.id).order_by(-T.tb.id, desc=True).select(),
+            QS(T.tb).fields(T.tb.id).order_by(T.tb.id.desc(), desc=True).select(),
             (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
 
