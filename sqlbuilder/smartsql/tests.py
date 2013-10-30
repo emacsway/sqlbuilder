@@ -205,6 +205,24 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "t1"."cl" FROM (SELECT "tb"."cl" FROM "tb" WHERE ("tb"."cl" = %s)) AS "t1" WHERE ("t1"."cl" = %s)', [5, 5, ], )
         )
 
+    def test_order_by(self):
+        self.assertEqual(
+            QS(T.tb).fields(T.tb.id).order_by(T.tb.id).select(),
+            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
+        )
+        self.assertEqual(
+            QS(T.tb).fields(T.tb.id).order_by(-T.tb.id).select(),
+            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+        )
+        self.assertEqual(
+            QS(T.tb).fields(T.tb.id).order_by(T.tb.id, desc=True).select(),
+            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+        )
+        self.assertEqual(
+            QS(T.tb).fields(T.tb.id).order_by(-T.tb.id, desc=True).select(),
+            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+        )
+
     def test_complex(self):
         self.assertEqual(
             QS((T.base + T.grade).on((T.base.type == T.grade.item_type) & (F.base__type == 1)) + T.lottery).on(

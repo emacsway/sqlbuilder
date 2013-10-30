@@ -909,8 +909,6 @@ class QuerySet(Expr):
                 for i, f in enumerate(args):
                     if not isinstance(f, Expr):
                         f = Field(f)
-                    if isinstance(f, Alias):
-                        f = ExprList(f.expr, Constant("AS"), f).join(" ")
                     args[i] = f
                 self._fields.extend(args)
             return self
@@ -974,7 +972,7 @@ class QuerySet(Expr):
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
-        direct = Constant("DESC") if opts.get("desc") else Constant("ASC")
+        direct_all = Constant("DESC") if opts.get("desc") else Constant("ASC")
         if opts.get("reset"):
             self = self.clone()
             self._order_by.reset()
@@ -987,6 +985,9 @@ class QuerySet(Expr):
                 self = self.order_by(*args.pop(0), reset=True)
             if len(args):
                 for f in args:
+                    direct = direct_all
+                    if isinstance(f, Prefix) and f._prefix == "-":
+                        f, direct = f._expr, Constant("DESC")
                     self._order_by.append(ExprList(f, direct).join(" "))
             return self
         return self._order_by
@@ -1122,7 +1123,12 @@ class QuerySet(Expr):
 
     def _sql_extend(self, sql, parts):
         if "fields" in parts and self._fields:
-            sql.append(self._fields)
+            fields = ExprList().join(", ")
+            for f in self._fields:
+                if isinstance(f, Alias):
+                    f = ExprList(f.expr, Constant("AS"), f).join(" ")
+                fields.append(f)
+            sql.append(fields)
         if "tables" in parts and self._tables:
             sql.append(self._tables)
         if "from" in parts and self._tables:
