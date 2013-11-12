@@ -191,9 +191,10 @@ class TableAlias(smartsql.TableAlias, Table):
 
 @classproperty
 def s(cls):
-    if getattr(cls, '_{0}'.format(SMARTSQL_ALIAS), None) is None:
-        setattr(cls, '_{0}'.format(SMARTSQL_ALIAS), Table(cls))
-    return getattr(cls, '_{0}'.format(SMARTSQL_ALIAS))
+    a = '_{0}'.format(SMARTSQL_ALIAS)
+    if a not in cls.__dict__:
+        setattr(cls, a, Table(cls))
+    return getattr(cls, a)
 
 
 @classproperty
