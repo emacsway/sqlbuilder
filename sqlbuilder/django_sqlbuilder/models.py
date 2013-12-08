@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 import re
+import collections
 from django.conf import settings
 from django.db import connection, connections
 from django.db.models import Model
@@ -42,6 +43,12 @@ class QS(smartsql.QS):
     """Query Set adapted for Django."""
 
     _cache = None
+    model = None
+
+    def __init__(self, tables=None):
+        super(QS, self).__init__(tables=tables)
+        if isinstance(tables, (Table, TableAlias)):
+            self.model = tables.model
 
     def clone(self):
         self = super(QS, self).clone()
@@ -115,20 +122,28 @@ class UnionQuerySet(smartsql.UnionQuerySet, QS):
     def __init__(self, qs):
         super(UnionQuerySet, self).__init__(qs)
         self.model = qs.model
-        self.using = qs.using
-        self.base_table = qs.base_table
 
 
 class Table(smartsql.Table):
     """Table class for Django model"""
 
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model, qs=None, *args, **kwargs):
         """Constructor"""
         super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
         self.model = model
-        self.qs = kwargs.pop('qs', QS(self).fields(self.get_fields()))
-        self.qs.base_table = self
-        self.qs.model = self.model
+        self._qs = qs
+
+    def _get_qs(self):
+        if isinstance(self._qs, collections.Callable):
+            self._qs = self._qs(self)
+        elif self._qs is None:
+            self._qs = QS(self).fields(self.get_fields())
+        return self._qs.clone()
+
+    def _set_qs(self, val):
+        self._qs = val
+
+    qs = property(_get_qs, _set_qs)
 
     def get_fields(self, prefix=None):
         """Returns field list."""
