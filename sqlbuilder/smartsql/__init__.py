@@ -79,14 +79,7 @@ class Comparable(object):
     __slots__ = ()
 
     def _c(op, inv=False):
-        # return lambda self, other: Condition(op, self, other) if not inv else lambda self, other: Condition(op, other, self)
-        if not inv:
-            def f(self, other):
-                return Condition(op, self, other)
-        else:
-            def f(self, other):
-                return Condition(op, other, self)
-        return f
+        return (lambda self, other: Condition(op, self, other)) if not inv else (lambda self, other: Condition(op, other, self))
 
     __add__ = _c("+")
     __radd__ = _c("+", 1)
@@ -554,6 +547,15 @@ class Index(Alias):
 
 
 class MetaTable(type):
+
+    def __new__(cls, name, bases, attrs):
+        def _f(attr):
+            return lambda self, *a, **kw: getattr(TableJoin(self), attr)(*a, **kw)
+
+        for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'use_index', 'ignore_index', 'force_index']:
+            attrs[a] = _f(a)
+        return type.__new__(cls, name, bases, attrs)
+
     def __getattr__(cls, key):
         if key[0] == '_':
             raise AttributeError
@@ -577,41 +579,8 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     def __init__(self, name):
         self._name = name
 
-    def inner_join(self, obj):
-        return TableJoin(self).inner_join(obj)
-
-    def left_join(self, obj):
-        return TableJoin(self).left_join(obj)
-
-    def right_join(self, obj):
-        return TableJoin(self).right_join(obj)
-
-    def full_join(self, obj):
-        return TableJoin(self).full_join(obj)
-
-    def cross_join(self, obj):
-        return TableJoin(self).cross_join(obj)
-
-    def join(self, join_type, obj):
-        return TableJoin(self).join(join_type, obj)
-
     def as_(self, alias):
         return TableAlias(alias, self)
-
-    def on(self, c):
-        return TableJoin(self).on(c)
-
-    @opt_checker(["reset", ])
-    def use_index(self, *args, **opts):
-        return TableJoin(self).use_index(*args, **opts)
-
-    @opt_checker(["reset", ])
-    def ignore_index(self, *args, **opts):
-        return TableJoin(self).ignore_index(*args, **opts)
-
-    @opt_checker(["reset", ])
-    def force_index(self, *args, **opts):
-        return TableJoin(self).force_index(*args, **opts)
 
     def __getattr__(self, name):
         if name[0] == '_':
@@ -690,24 +659,13 @@ class TableJoin(object):
         self._force_index = ExprList().join(", ")
 
     def _j(j):
-        def f(self, obj):
-            return self.join(j, obj)
-        return f
+        return lambda self, obj: self.join(j, obj)
 
-    def inner_join(self, obj):
-        return self.join("INNER JOIN", obj)
-
-    def left_join(self, obj):
-        return self.join("LEFT OUTER JOIN", obj)
-
-    def right_join(self, obj):
-        return self.join("RIGHT OUTER JOIN", obj)
-
-    def full_join(self, obj):
-        return self.join("FULL OUTER JOIN", obj)
-
-    def cross_join(self, obj):
-        return self.join("CROSS JOIN", obj)
+    inner_join = _j("INNER JOIN")
+    left_join = _j("LEFT OUTER JOIN")
+    right_join = _j("RIGHT OUTER JOIN")
+    full_join = _j("FULL OUTER JOIN")
+    cross_join = _j("CROSS JOIN")
 
     def join(self, join_type, obj):
         if not isinstance(obj, TableJoin) or obj.left():
@@ -750,15 +708,12 @@ class TableJoin(object):
                 return self
         return self
 
-    @opt_checker(["reset", ])
     def use_index(self, *args, **opts):
         return self.change_index(self._use_index, *args, **opts)
 
-    @opt_checker(["reset", ])
     def ignore_index(self, *args, **opts):
         return self.change_index(self._ignore_index, *args, **opts)
 
-    @opt_checker(["reset", ])
     def force_index(self, *args, **opts):
         return self.change_index(self._force_index, *args, **opts)
 
