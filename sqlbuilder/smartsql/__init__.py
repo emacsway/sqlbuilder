@@ -270,7 +270,7 @@ class Expr(Comparable):
         return sqlrepr(self)
 
     def __repr__(self):
-        return sqlrepr(self)
+        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
 
 
 class Condition(Expr):
@@ -658,7 +658,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         return sqlrepr(self)
 
     def __repr__(self):
-        return sqlrepr(self)
+        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
 
     # Aliases:
     __and__ = same('inner_join')
@@ -817,7 +817,7 @@ class TableJoin(object):
         return sqlrepr(self)
 
     def __repr__(self):
-        return sqlrepr(self)
+        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
 
     # Aliases:
     as_nested = same('group')
