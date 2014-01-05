@@ -78,49 +78,49 @@ class Comparable(object):
 
     __slots__ = ()
 
-    def __eq__(self, other):
-        if other is None:
-            return Condition("IS", self, Constant("NULL"))
-        if hasattr(other, '__iter__'):
-            return self.in_(other)
-        return Condition("=", self, other)
+    def _c(op, inv=False):
+        # return lambda self, other: Condition(op, self, other) if not inv else lambda self, other: Condition(op, other, self)
+        if not inv:
+            def f(self, other):
+                return Condition(op, self, other)
+        else:
+            def f(self, other):
+                return Condition(op, other, self)
+        return f
 
-    def __ne__(self, other):
-        if other is None:
-            return Condition("IS NOT", self, Constant("NULL"))
-        if hasattr(other, '__iter__'):
-            return self.not_in(other)
-        return Condition("<>", self, other)
+    __add__ = _c("+")
+    __radd__ = _c("+", 1)
+    __sub__ = _c("-")
+    __rsub__ = _c("-", 1)
+    __mul__ = _c("*")
+    __rmul__ = _c("*", 1)
+    __div__ = _c("/")
+    __rdiv__ = _c("/", 1)
+    __and__ = _c("AND")
+    __rand__ = _c("AND", 1)
+    __or__ = _c("OR")
+    __ror__ = _c("OR", 1)
+    __gt__ = _c(">")
+    __lt__ = _c("<")
+    __ge__ = _c(">=")
+    __le__ = _c("<=")
+    like = _c("LIKE")
+    ilike = _c("ILIKE")
 
-    def __add__(self, other):
-        return Condition("+", self, other)
-
-    def __radd__(self, other):
-        return Condition("+", other, self)
-
-    def __sub__(self, other):
-        return Condition("-", self, other)
-
-    def __rsub__(self, other):
-        return Condition("-", other, self)
-
-    def __mul__(self, other):
-        return Condition("*", self, other)
-
-    def __rmul__(self, other):
-        return Condition("*", other, self)
-
-    def __div__(self, other):
-        return Condition("/", self, other)
-
-    def __rdiv__(self, other):
-        return Condition("/", other, self)
+    def _p(op):
+        return lambda self: Prefix(op, self)
 
     def __pos__(self):
         return Prefix("+", self)
 
     def __neg__(self):
         return Prefix("-", self)
+
+    def __invert__(self):
+        return Prefix("NOT", self)
+
+    def distinct(self):
+        return Prefix("DISTINCT", self)
 
     def __pow__(self, other):
         return Constant("POW")(self, other)
@@ -137,32 +137,22 @@ class Comparable(object):
     def __rmod__(self, other):
         return Constant("MOD")(other, self)
 
-    def __and__(self, other):
-        return Condition("AND", self, other)
+    def count(self):
+        return Constant("COUNT")(self)
 
-    def __or__(self, other):
-        return Condition("OR", self, other)
+    def __eq__(self, other):
+        if other is None:
+            return Condition("IS", self, Constant("NULL"))
+        if hasattr(other, '__iter__'):
+            return self.in_(other)
+        return Condition("=", self, other)
 
-    def __rand__(self, other):
-        return Condition("AND", other, self)
-
-    def __ror__(self, other):
-        return Condition("OR", other, self)
-
-    def __invert__(self):
-        return Prefix("NOT", self)
-
-    def __gt__(self, other):
-        return Condition(">", self, other)
-
-    def __lt__(self, other):
-        return Condition("<", self, other)
-
-    def __ge__(self, other):
-        return Condition(">=", self, other)
-
-    def __le__(self, other):
-        return Condition("<=", self, other)
+    def __ne__(self, other):
+        if other is None:
+            return Condition("IS NOT", self, Constant("NULL"))
+        if hasattr(other, '__iter__'):
+            return self.not_in(other)
+        return Condition("<>", self, other)
 
     def as_(self, alias):
         return Alias(alias, self)
@@ -199,12 +189,6 @@ class Comparable(object):
     def iendswith(self, other):
         return self.ilike(Concat('%', other))
 
-    def like(self, other):
-        return Condition("LIKE", self, other)
-
-    def ilike(self, other):
-        return Condition("ILIKE", self, other)
-
     def between(self, start, end):
         return Between(self, start, end)
 
@@ -213,12 +197,6 @@ class Comparable(object):
 
     def concat_ws(self, sep, *args):
         return Concat(self, *args).ws(sep)
-
-    def distinct(self):
-        return Prefix("DISTINCT", self)
-
-    def count(self):
-        return Constant("COUNT")(self)
 
     def asc(self):
         return Suffix(self, "ASC")
@@ -242,6 +220,7 @@ class Comparable(object):
     IN = same('in_')
     NOT_IN = same('not_in')
     LIKE = same('like')
+    ILIKE = same('ilike')
     BETWEEN = same('between')
 
 
@@ -270,7 +249,7 @@ class Expr(Comparable):
         return sqlrepr(self)
 
     def __repr__(self):
-        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
+        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
 
 
 class Condition(Expr):
@@ -599,19 +578,19 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         self._name = name
 
     def inner_join(self, obj):
-        return TableJoin(self).__and__(obj)
+        return TableJoin(self).inner_join(obj)
 
     def left_join(self, obj):
-        return TableJoin(self).__add__(obj)
+        return TableJoin(self).left_join(obj)
 
     def right_join(self, obj):
-        return TableJoin(self).__sub__(obj)
+        return TableJoin(self).right_join(obj)
 
     def full_join(self, obj):
-        return TableJoin(self).__or__(obj)
+        return TableJoin(self).full_join(obj)
 
     def cross_join(self, obj):
-        return TableJoin(self).__mul__(obj)
+        return TableJoin(self).cross_join(obj)
 
     def join(self, join_type, obj):
         return TableJoin(self).join(join_type, obj)
@@ -658,7 +637,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         return sqlrepr(self)
 
     def __repr__(self):
-        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
+        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
 
     # Aliases:
     __and__ = same('inner_join')
@@ -709,6 +688,11 @@ class TableJoin(object):
         self._use_index = ExprList().join(", ")
         self._ignore_index = ExprList().join(", ")
         self._force_index = ExprList().join(", ")
+
+    def _j(j):
+        def f(self, obj):
+            return self.join(j, obj)
+        return f
 
     def inner_join(self, obj):
         return self.join("INNER JOIN", obj)
@@ -817,7 +801,7 @@ class TableJoin(object):
         return sqlrepr(self)
 
     def __repr__(self):
-        return "<{0}: {1}>".format(type(self).__name__, sqlrepr(self))
+        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
 
     # Aliases:
     as_nested = same('group')
