@@ -260,7 +260,7 @@ class TestSmartSQL(unittest.TestCase):
         now = datetime.datetime.now()
         w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= now)
         self.assertEqual(
-            QS(t).where(w).select_one(F.grade__name, F.base__img, F.lottery__price),
+            QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price),
             ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND "grade"."status" IN (%s, %s)) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT 1', [1, 0, 1, '2009-01-01', now, ], )
         )
         w = w & (F.base__status != [1, 2])
@@ -339,7 +339,7 @@ class TestSmartSQL(unittest.TestCase):
         vl = (("garfield", "male", 0, 1), ("superwoman", "female", 0, 10))
         self.assertEqual(
             QS(T.user).insert_many(fl, vl, on_duplicate_key_update={"age": E("age + VALUES(age)")}),
-            ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s) (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" == (age + VALUES(age))', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
+            ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s) (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" = (age + VALUES(age))', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
         )
 
     def test_update(self):

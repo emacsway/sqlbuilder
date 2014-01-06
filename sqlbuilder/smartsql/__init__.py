@@ -909,7 +909,7 @@ class QuerySet(Expr):
             for f, v in opts.get("on_duplicate_key_update").items():
                 if not isinstance(f, Expr):
                     f = Field(f)
-                self._on_duplicate_key_update.append(ExprList(f, Constant("=="), v))
+                self._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
         return self.result()
 
     @opt_checker(["ignore"])
