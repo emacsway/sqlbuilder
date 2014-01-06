@@ -1181,8 +1181,7 @@ def default_dialect(dialect=None):
 
 def sqlrepr(obj, dialect=None):
     """Renders query set"""
-    if dialect is None:
-        dialect = DEFAULT_DIALECT
+    dialect = dialect or DEFAULT_DIALECT
     callback = sql_dialects.sqlrepr(dialect, obj.__class__)
     if callback is not None:
         return callback(obj, dialect)
