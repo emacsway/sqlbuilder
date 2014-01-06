@@ -84,6 +84,21 @@ class Comparable(object):
     def _p(op):
         return lambda self: Prefix(op, self)
 
+    def _l(mask, ci=False, inv=False):
+        a = 'like'
+        if ci:
+            a = 'i' + a
+        if inv:
+            a = 'r' + a
+        def f(self, other):
+            args = [other]
+            if 4 & mask:
+                args.insert(0, '%')
+            if 1 & mask:
+                args.append('%')
+            return getattr(self, a)(Concat(*args))
+        return f
+
     __add__ = _c("+")
     __radd__ = _c("+", 1)
     __sub__ = _c("-")
@@ -102,6 +117,8 @@ class Comparable(object):
     __le__ = _c("<=")
     like = _c("LIKE")
     ilike = _c("ILIKE")
+    rlike = _c("LIKE", 1)
+    rilike = _c("ILIKE", 1)
 
     __pos__ = _p("+")
     __neg__ = _p("-")
@@ -114,6 +131,19 @@ class Comparable(object):
     __rmod__ = _ca("MOD", 1)
     __abs__ = _ca("ABS")
     count = _ca("COUNT")
+
+    startswith = _l(1)
+    istartswith = _l(1, 1)
+    contains = _l(5)
+    icontains = _l(5, 1)
+    endswith = _l(4)
+    iendswith = _l(4, 1)
+    rstartswith = _l(1, 0, 1)
+    ristartswith = _l(1, 1, 1)
+    rcontains = _l(5, 0, 1)
+    ricontains = _l(5, 1, 1)
+    rendswith = _l(4, 0, 1)
+    riendswith = _l(4, 1, 1)
 
     def __eq__(self, other):
         if other is None:
@@ -145,24 +175,6 @@ class Comparable(object):
                 raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
         return ExprList(self, Constant("NOT IN"), Parentheses(other)).join(" ")
-
-    def startswith(self, other):
-        return self.like(Concat(other, '%'))
-
-    def istartswith(self, other):
-        return self.ilike(Concat(other, '%'))
-
-    def contains(self, other):
-        return self.like(Concat('%', other, '%'))
-
-    def icontains(self, other):
-        return self.ilike(Concat('%', other, '%'))
-
-    def endswith(self, other):
-        return self.like(Concat('%', other))
-
-    def iendswith(self, other):
-        return self.ilike(Concat('%', other))
 
     def between(self, start, end):
         return Between(self, start, end)
