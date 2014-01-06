@@ -379,6 +379,11 @@ class Parentheses(Expr):
         return sqlparams(self._expr)
 
 
+class OmitParentheses(Parentheses):
+    def __sqlrepr__(self, dialect):
+        return sqlrepr(self._expr, dialect)
+
+
 class Prefix(Expr):
 
     __slots__ = ('_prefix', '_expr', )
@@ -507,17 +512,13 @@ class Alias(Expr):
         return qn(self._sql, dialect)
 
 
-class Index(Alias):
-    pass
-
-
 class MetaTable(type):
 
     def __new__(cls, name, bases, attrs):
         def _f(attr):
             return lambda self, *a, **kw: getattr(TableJoin(self), attr)(*a, **kw)
 
-        for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'use_index', 'ignore_index', 'force_index']:
+        for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
             attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
 
@@ -582,7 +583,7 @@ class TableAlias(Table):
 
 class TableJoin(object):
 
-    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_use_index', '_ignore_index', '_force_index', )
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', )
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
@@ -594,9 +595,7 @@ class TableJoin(object):
         self._join_type = join_type
         self._on = on and parentheses_conditional(on) or on
         self._left = left
-        self._use_index = ExprList().join(", ")
-        self._ignore_index = ExprList().join(", ")
-        self._force_index = ExprList().join(", ")
+        self._hint = None
 
     def _j(j):
         return lambda self, obj: self.join(j, obj)
@@ -632,34 +631,15 @@ class TableJoin(object):
     def group(self):
         return TableJoin(self)
 
-    @opt_checker(["reset", ])
-    def change_index(self, index, *args, **opts):
-        if opts.get("reset"):
-            index.reset()
-        args = list(args)
-        if len(args):
-            if hasattr(args[0], '__iter__'):
-                self = self.change_index(index, *args.pop(0), reset=True)
-            if len(args):
-                for i, arg in enumerate(args):
-                    if isinstance(arg, string_types):
-                        args[i] = Index(arg, self._table)
-                index.extend(args)
-                return self
+    def hint(self, expr):
+        if isinstance(expr, string_types):
+            expr = Expr(expr)
+        self._hint = OmitParentheses(expr)
         return self
-
-    def use_index(self, *args, **opts):
-        return self.change_index(self._use_index, *args, **opts)
-
-    def ignore_index(self, *args, **opts):
-        return self.change_index(self._ignore_index, *args, **opts)
-
-    def force_index(self, *args, **opts):
-        return self.change_index(self._force_index, *args, **opts)
 
     def __copy__(self):
         dup = copy.copy(super(TableJoin, self))
-        for a in ['_use_index', '_ignore_index', '_force_index', ]:
+        for a in ['_hint', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
@@ -675,19 +655,14 @@ class TableJoin(object):
             sql.append(self._table)
         if self._alias is not None:
             sql.extend([Constant("AS"), self._alias])
-        if dialect in ('mysql', ):
-            if self._use_index:
-                sql.extend([Constant("USE INDEX"), Parentheses(self._use_index)])
-            if self._ignore_index:
-                sql.extend([Constant("USE INDEX"), Parentheses(self._ignore_index)])
-            if self._force_index:
-                sql.extend([Constant("USE INDEX"), Parentheses(self._force_index)])
         if self._on is not None:
             sql.extend([Constant("ON"), self._on])
+        if self._hint is not None:
+            sql.append(self._hint)
         return sqlrepr(sql, dialect)
 
     def __params__(self):
-        return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on)
+        return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on) + sqlparams(self._hint)
 
     as_nested = same('group')
     __and__ = same('inner_join')
@@ -786,6 +761,7 @@ class QuerySet(Expr):
         return self._fields
 
     def on(self, c):
+        # TODO: Remove?
         self = self.clone()
         if not isinstance(self._tables, TableJoin):
             raise Error("Can't set on without join table")
@@ -1059,9 +1035,7 @@ def placeholder_conditional(expr):
 
 
 def parentheses_conditional(expr):
-    if isinstance(expr, (Condition, QuerySet)):
-        return Parentheses(expr)
-    if expr.__class__ == Expr:
+    if isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
         return Parentheses(expr)
     return expr
 
