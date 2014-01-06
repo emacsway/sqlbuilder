@@ -28,11 +28,9 @@ class SqlDialects(object):
     __slots__ = ('_registry', )
 
     def __init__(self):
-        """Constructor, initial registry."""
         self._registry = {}
 
     def register(self, dialect, cls):
-        """Registers callbacks."""
         def decorator(func):
             ns = self._registry.setdefault(dialect, {})
             ns[cls] = func
@@ -81,6 +79,12 @@ class Comparable(object):
     def _c(op, inv=False):
         return (lambda self, other: Condition(op, self, other)) if not inv else (lambda self, other: Condition(op, other, self))
 
+    def _ca(op, inv=False):
+        return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
+
+    def _p(op):
+        return lambda self: Prefix(op, self)
+
     __add__ = _c("+")
     __radd__ = _c("+", 1)
     __sub__ = _c("-")
@@ -100,38 +104,17 @@ class Comparable(object):
     like = _c("LIKE")
     ilike = _c("ILIKE")
 
-    def _p(op):
-        return lambda self: Prefix(op, self)
+    __pos__ = _p("+")
+    __neg__ = _p("-")
+    __invert__ = _p("NOT")
+    distinct = _p("DISTINCT")
 
-    def __pos__(self):
-        return Prefix("+", self)
-
-    def __neg__(self):
-        return Prefix("-", self)
-
-    def __invert__(self):
-        return Prefix("NOT", self)
-
-    def distinct(self):
-        return Prefix("DISTINCT", self)
-
-    def __pow__(self, other):
-        return Constant("POW")(self, other)
-
-    def __rpow__(self, other):
-        return Constant("POW")(other, self)
-
-    def __abs__(self):
-        return Constant("ABS")(self)
-
-    def __mod__(self, other):
-        return Constant("MOD")(self, other)
-
-    def __rmod__(self, other):
-        return Constant("MOD")(other, self)
-
-    def count(self):
-        return Constant("COUNT")(self)
+    __pow__ = _ca("POW")
+    __rpow__ = _ca("POW", 1)
+    __mod__ = _ca("MOD")
+    __rmod__ = _ca("MOD", 1)
+    __abs__ = _ca("ABS")
+    count = _ca("COUNT")
 
     def __eq__(self, other):
         if other is None:
@@ -1231,9 +1214,7 @@ def parentheses_conditional(expr):
 def prepare_expr(expr):
     if expr is None:
         return Constant("NULL")
-    expr = placeholder_conditional(expr)
-    expr = parentheses_conditional(expr)
-    return expr
+    return parentheses_conditional(placeholder_conditional(expr))
 
 
 def default_dialect(dialect=None):
