@@ -202,13 +202,6 @@ class Comparable(object):
 
     __hash__ = None
 
-    AS = same('as_')
-    IN = same('in_')
-    NOT_IN = same('not_in')
-    LIKE = same('like')
-    ILIKE = same('ilike')
-    BETWEEN = same('between')
-
 
 class Expr(Comparable):
 
@@ -556,11 +549,6 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     __sub__ = same('right_join')
     __or__ = same('full_join')
     __mul__ = same('cross_join')
-    AS = same('as_')
-    ON = same('on')
-    USE_INDEX = same('use_index')
-    IGNORE_INDEX = same('ignore_index')
-    FORCE_INDEX = same('force_index')
 
 
 class TableAlias(Table):
@@ -693,10 +681,6 @@ class TableJoin(object):
     __sub__ = same('right_join')
     __or__ = same('full_join')
     __mul__ = same('cross_join')
-    ON = same('on')
-    USE_INDEX = same('use_index')
-    IGNORE_INDEX = same('ignore_index')
-    FORCE_INDEX = same('force_index')
 
 
 class QuerySet(Expr):
