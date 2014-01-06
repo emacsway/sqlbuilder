@@ -23,9 +23,6 @@ LOOKUP_SEP = '__'
 
 
 class SqlDialects(object):
-    """
-    Stores all dialect representations
-    """
 
     __slots__ = ('_registry', )
 
@@ -302,16 +299,15 @@ class ExprList(Expr):
 
     def __sqlrepr__(self, dialect):
         sqls = []
-        for arg in self._args:
-            sql = sqlrepr(arg, dialect)
-            # Some actions here if need
+        for a in self._args:
+            sql = sqlrepr(a, dialect)
             sqls.append(sql)
         return self._sep.join(sqls)
 
     def __params__(self):
         params = []
-        for arg in self._args:
-            params.extend(sqlparams(arg))
+        for a in self._args:
+            params.extend(sqlparams(a))
         return params
 
     def __copy__(self):
@@ -319,6 +315,24 @@ class ExprList(Expr):
         dup._args = dup._args[:]
         return dup
 
+
+class FieldList(ExprList):
+
+    __slots__ = ()
+
+    def _build(self):
+        sql = ExprList().join(self._sep)
+        for a in self._args:
+            if isinstance(a, Alias):
+                a = ExprList(a._expr, Constant("AS"), a).join(" ")
+            sql.append(a)
+        return sql
+
+    def __sqlrepr__(self, dialect):
+        return sqlrepr(self._build(), dialect)
+
+    def __params__(self):
+        return sqlparams(self._build())
 
 class Concat(ExprList):
 
@@ -688,7 +702,7 @@ class QuerySet(Expr):
     def __init__(self, tables=None):
 
         self._distinct = False
-        self._fields = ExprList().join(", ")
+        self._fields = FieldList().join(", ")
         if tables:
             if not isinstance(tables, TableJoin):
                 tables = TableJoin(tables)
@@ -880,11 +894,7 @@ class QuerySet(Expr):
 
     def insert(self, fv_dict, **opts):
         items = list(fv_dict.items())
-        return self.insert_many(
-            [x[0] for x in items],
-            ([x[1] for x in items], ),
-            **opts
-        )
+        return self.insert_many([x[0] for x in items], ([x[1] for x in items], ), **opts)
 
     @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, fields, values, **opts):
@@ -939,12 +949,7 @@ class QuerySet(Expr):
 
     def _sql_extend(self, sql, parts):
         if "fields" in parts and self._fields:
-            fields = ExprList().join(", ")
-            for f in self._fields:
-                if isinstance(f, Alias):
-                    f = ExprList(f._expr, Constant("AS"), f).join(" ")
-                fields.append(f)
-            sql.append(fields)
+            sql.append(self._fields)
         if "tables" in parts and self._tables:
             sql.append(self._tables)
         if "from" in parts and self._tables:
@@ -1116,7 +1121,7 @@ def sqlrepr(obj, dialect=None):
 
 
 def sqlparams(obj):
-    """Renders query set"""
+    """Returns query set params"""
     if hasattr(obj, '__params__'):
         return list(obj.__params__())
     return []
