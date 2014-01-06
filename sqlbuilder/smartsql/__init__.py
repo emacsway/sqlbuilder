@@ -224,12 +224,8 @@ class Condition(Expr):
 
     def __init__(self, op, expr1, expr2):
         self._op = op.upper()
-        if expr1 is not None:
-            expr1 = prepare_expr(expr1)
-        if expr2 is not None:
-            expr2 = prepare_expr(expr2)
-        self._expr1 = expr1
-        self._expr2 = expr2
+        self._expr1 = None if expr1 is None else prepare_expr(expr1)
+        self._expr2 = None if expr2 is None else prepare_expr(expr2)
 
     def __sqlrepr__(self, dialect):
         s1 = sqlrepr(self._expr1, dialect)
@@ -279,8 +275,7 @@ class ExprList(Expr):
             return self._args[key]
 
     def __iter__(self):
-        for a in self._args:
-            yield a
+        return iter(self._args)
 
     def append(self, x):
         return self._args.append(prepare_expr(x))
