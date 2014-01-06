@@ -191,7 +191,6 @@ class Comparable(object):
 
     __hash__ = None
 
-    # Aliases:
     AS = same('as_')
     IN = same('in_')
     NOT_IN = same('not_in')
@@ -217,15 +216,6 @@ class Expr(Comparable):
 
     def __params__(self):
         return getattr(self, '_params', [])
-
-    def __bytes__(self):
-        return sqlrepr(self).encode('utf-8')
-
-    def __str__(self):
-        return sqlrepr(self)
-
-    def __repr__(self):
-        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
 
 
 class Condition(Expr):
@@ -582,16 +572,6 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
     def __params__(self):
         return []
 
-    def __bytes__(self):
-        return sqlrepr(self).encode('utf-8')
-
-    def __str__(self):
-        return sqlrepr(self)
-
-    def __repr__(self):
-        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
-
-    # Aliases:
     __and__ = same('inner_join')
     __add__ = same('left_join')
     __sub__ = same('right_join')
@@ -732,16 +712,6 @@ class TableJoin(object):
     def __params__(self):
         return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on)
 
-    def __bytes__(self):
-        return sqlrepr(self).encode('utf-8')
-
-    def __str__(self):
-        return sqlrepr(self)
-
-    def __repr__(self):
-        return "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
-
-    # Aliases:
     as_nested = same('group')
     __and__ = same('inner_join')
     __add__ = same('left_join')
@@ -1140,7 +1110,6 @@ class QuerySet(Expr):
         sql = self._build_sql()
         return sqlparams(sql)
 
-    # Aliases:
     columns = same('fields')
     __copy__ = same('clone')
 
@@ -1253,13 +1222,11 @@ const = ConstantSpace()
 func = const
 qn = Name()
 
-# Python 2.* compatible
-try:
-    unicode
-except NameError:
-    pass
-else:
-    for cls in (Expr, Table, TableJoin, ):
+for cls in (Expr, Table, TableJoin, ):
+    cls.__bytes__ = lambda self: sqlrepr(self).encode('utf-8')
+    cls.__str__ = lambda self: sqlrepr(self)
+    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
+    if str is unicode:
         cls.__unicode__ = cls.__str__
         cls.__str__ = cls.__bytes__
 
