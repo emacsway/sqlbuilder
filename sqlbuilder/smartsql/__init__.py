@@ -341,10 +341,7 @@ class Concat(ExprList):
         return self
 
     def __params__(self):
-        params = []
-        params.extend(sqlparams(self._ws))
-        params.extend(super(Concat, self).__params__())
-        return params
+        return sqlparams(self._ws) + super(Concat, self).__params__()
 
     def __sqlrepr__(self, dialect):
         value = super(Concat, self).__sqlrepr__(dialect)
@@ -455,8 +452,6 @@ class ConstantSpace(object):
     __slots__ = ()
 
     def __getattr__(self, attr):
-        if attr.startswith('__'):
-            raise AttributeError
         return Constant(attr)
 
 
@@ -466,13 +461,9 @@ class MetaField(type):
         if key[0] == '_':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 2)
-        prefix = alias = None
-        name = parts[0]
-        if len(parts) > 1:
-            prefix, name = parts[:2]
-        if len(parts) > 2:
-            alias = parts[2]
-
+        prefix, name, alias = parts + [None] * (3 - len(parts))
+        if name is None:
+            prefix, name = name, prefix
         f = cls(name, prefix)
         if alias is not None:
             f = f.as_(alias)
@@ -527,12 +518,7 @@ class MetaTable(type):
         if key[0] == '_':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
-        name = parts[0]
-        alias = None
-
-        if len(parts) > 1:
-            alias = parts[1]
-
+        name, alias = parts + [None] * (2 - len(parts))
         table = cls(name)
         if alias is not None:
             table = table.as_(alias)
@@ -553,9 +539,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         if name[0] == '_':
             raise AttributeError
         parts = name.split(LOOKUP_SEP, 1)
-        name, alias = name.split(LOOKUP_SEP, 1) + [None for i in range(2 - len(parts))]
-        name = parts.pop(0)
-        alias = parts.pop(0) if len(parts) else None
+        name, alias = parts + [None] * (2 - len(parts))
         f = Field(name, self)
         if alias is not None:
             f = f.as_(alias)
@@ -1184,11 +1168,7 @@ def sqlparams(obj):
 
 
 def warn(old, new, stacklevel=3):
-    warnings.warn(
-        "{0} is deprecated. Use {1} instead".format(old, new),
-        PendingDeprecationWarning,
-        stacklevel=stacklevel
-    )
+    warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
 T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
 func = const = ConstantSpace()
