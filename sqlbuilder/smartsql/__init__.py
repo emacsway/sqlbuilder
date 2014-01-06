@@ -769,18 +769,12 @@ class QuerySet(Expr):
 
     def where(self, c):
         self = self.clone()
-        if self._wheres is None:
-            self._wheres = c
-        else:
-            self._wheres = self._wheres & c
+        self._wheres = c if self._wheres is None else self._wheres & c
         return self
 
     def or_where(self, c):
         self = self.clone()
-        if self._wheres is None:
-            self._wheres = c
-        else:
-            self._wheres = self._wheres | c
+        self._wheres = c if self._wheres is None else self._wheres | c
         return self
 
     @opt_checker(["reset", ])
@@ -802,18 +796,12 @@ class QuerySet(Expr):
 
     def having(self, c):
         self = self.clone()
-        if self._havings is None:
-            self._havings = c
-        else:
-            self._havings = self._havings & c
+        self._havings = c if self._havings is None else self._havings & c
         return self
 
     def or_having(self, c):
         self = self.clone()
-        if self._havings is None:
-            self._havings = c
-        else:
-            self._havings = self._havings | c
+        self._havings = c if self._havings is None else self._havings | c
         return self
 
     @opt_checker(["desc", "reset", ])
@@ -839,23 +827,13 @@ class QuerySet(Expr):
 
     def limit(self, *args, **kwargs):
         self = self.clone()
-        limit = None
-        offset = 0
-
-        if len(args) == 1:
-            limit = args[0]
-        elif len(args) == 2:
-            offset = args[0]
-            limit = args[1]
-        if len(args) > 2:
-            raise Error("Too many arguments for limit.")
-
-        if len(args) == 0:
-            if 'limit' in kwargs:
-                limit = kwargs['limit']
-            if 'offset' in kwargs:
-                offset = kwargs['offset']
-
+        if args:
+            if len(args) < 2:
+                args = (0,) + args
+            offset, limit = args
+        else:
+            limit = kwargs.get('limit')
+            offset = kwargs.get('offset', 0)
         sql = ""
         if limit:
             sql = "LIMIT {0:d}".format(limit)
@@ -865,18 +843,11 @@ class QuerySet(Expr):
         return self
 
     def __getitem__(self, key):
-        """Returns self.limit()"""
-        offset = 0
-        limit = None
         if isinstance(key, slice):
-            if key.start is not None:
-                offset = int(key.start)
-            if key.stop is not None:
-                end = int(key.stop)
-                limit = end - offset
+            offset = key.start or 0
+            limit = key.stop - offset if key.stop else None
         else:
-            offset = key
-            limit = 1
+            offset, limit = key, 1
         return self.limit(offset, limit)
 
     @opt_checker(["distinct", "for_update"])
