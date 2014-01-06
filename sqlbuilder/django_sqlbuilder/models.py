@@ -200,7 +200,7 @@ class TableAlias(smartsql.TableAlias, Table):
     """Table alias class"""
     @property
     def model(self):
-        return self.table.model
+        return self._table.model
 
 
 @classproperty
