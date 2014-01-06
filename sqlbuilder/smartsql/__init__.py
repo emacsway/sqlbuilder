@@ -505,10 +505,6 @@ class Alias(Expr):
         self._expr = expr
         super(Alias, self).__init__(alias)
 
-    @property
-    def expr(self):
-        return self._expr
-
     def __sqlrepr__(self, dialect):
         return qn(self._sql, dialect)
 
@@ -557,6 +553,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         if name[0] == '_':
             raise AttributeError
         parts = name.split(LOOKUP_SEP, 1)
+        name, alias = name.split(LOOKUP_SEP, 1) + [None for i in range(2 - len(parts))]
         name = parts.pop(0)
         alias = parts.pop(0) if len(parts) else None
         f = Field(name, self)
@@ -590,10 +587,6 @@ class TableAlias(Table):
         self._table = table
         self._alias = alias
 
-    @property
-    def table(self):
-        return self._table
-
     def as_(self, alias):
         return type(self)(alias, self._table)
 
@@ -607,7 +600,7 @@ class TableJoin(object):
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
-            self._table = table_or_alias.table
+            self._table = table_or_alias._table
             self._alias = table_or_alias
         else:
             self._table = table_or_alias
@@ -749,24 +742,7 @@ class QuerySet(Expr):
         self._sql = None
         self._params = []
 
-    @property
-    def wheres(self):
-        return self._wheres
-
-    @wheres.setter
-    def wheres(self, cs):
-        self._wheres = cs
-
-    @property
-    def havings(self):
-        return self._havings
-
-    @havings.setter
-    def havings(self, cs):
-        self._havings = cs
-
     def clone(self):
-        # return copy.deepcopy(self)
         dup = copy.copy(super(QuerySet, self))
         for a in ['_fields', '_tables', '_group_by', '_order_by', '_values', '_key_values', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
@@ -828,7 +804,7 @@ class QuerySet(Expr):
         if self._wheres is None:
             self._wheres = c
         else:
-            self.wheres = self.wheres & c
+            self._wheres = self._wheres & c
         return self
 
     def or_where(self, c):
@@ -836,7 +812,7 @@ class QuerySet(Expr):
         if self._wheres is None:
             self._wheres = c
         else:
-            self.wheres = self.wheres | c
+            self._wheres = self._wheres | c
         return self
 
     @opt_checker(["reset", ])
@@ -861,7 +837,7 @@ class QuerySet(Expr):
         if self._havings is None:
             self._havings = c
         else:
-            self.havings = self.havings & c
+            self._havings = self._havings & c
         return self
 
     def or_having(self, c):
@@ -869,7 +845,7 @@ class QuerySet(Expr):
         if self._havings is None:
             self._havings = c
         else:
-            self.havings = self.havings | c
+            self._havings = self._havings | c
         return self
 
     @opt_checker(["desc", "reset", ])
@@ -1027,7 +1003,7 @@ class QuerySet(Expr):
             fields = ExprList().join(", ")
             for f in self._fields:
                 if isinstance(f, Alias):
-                    f = ExprList(f.expr, Constant("AS"), f).join(" ")
+                    f = ExprList(f._expr, Constant("AS"), f).join(" ")
                 fields.append(f)
             sql.append(fields)
         if "tables" in parts and self._tables:

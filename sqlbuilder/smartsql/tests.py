@@ -286,15 +286,15 @@ class TestSmartSQL(unittest.TestCase):
             qs.select(F.user__name, F.address__street),
             ('SELECT "user"."name", "address"."street" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id")', [], )
         )
-        qs.wheres = qs.wheres & (F.id == 1)
+        qs = qs.where(F.id == 1)
         self.assertEqual(
             qs.select(F.name, F.id),
-            ('SELECT "name", "id" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE (("id" = %s))', [1, ], )
+            ('SELECT "name", "id" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE ("id" = %s)', [1, ], )
         )
-        qs.wheres = qs.wheres & ((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
+        qs = qs.where((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
         self.assertEqual(
             qs.select(F.user__name, F.address__street, func.COUNT(Constant("*")).as_("count")),
-            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE ((("id" = %s)) AND ("address"."city_id" IN (%s, %s) OR (address.city_id IS NULL)))', [1, 111, 112, ], )
+            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE (("id" = %s) AND ("address"."city_id" IN (%s, %s) OR (address.city_id IS NULL)))', [1, 111, 112, ], )
         )
 
     def test_subquery(self):
