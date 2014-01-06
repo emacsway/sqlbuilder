@@ -699,6 +699,18 @@ class TableJoin(object):
 
 class QuerySet(Expr):
 
+    _clauses = (
+        ('fields', None, '_fields'),
+        ('tables', None, '_tables'),
+        ('from', 'FROM', '_tables'),
+        ('where', 'WHERE', '_wheres'),
+        ('group', 'GROUP BY', '_group_by'),
+        ('having', 'HAVING', '_havings'),
+        ('order', 'ORDER BY', '_order_by'),
+        ('limit', None, '_limit')
+    )
+
+
     def __init__(self, tables=None):
 
         self._distinct = False
@@ -948,22 +960,11 @@ class QuerySet(Expr):
         return self.execute()
 
     def _sql_extend(self, sql, parts):
-        if "fields" in parts and self._fields:
-            sql.append(self._fields)
-        if "tables" in parts and self._tables:
-            sql.append(self._tables)
-        if "from" in parts and self._tables:
-            sql.extend([Constant("FROM"), self._tables])
-        if "where" in parts and self._wheres:
-            sql.extend([Constant("WHERE"), self._wheres])
-        if "group" in parts and self._group_by:
-            sql.extend([Constant("GROUP BY"), self._group_by])
-        if "having" in parts and self._havings:
-            sql.extend([Constant("HAVING"), self._havings])
-        if "order" in parts and self._order_by:
-            sql.extend([Constant("ORDER BY"), self._order_by])
-        if "limit" in parts and self._limit:
-            sql.append(self._limit)
+        for key, clause, attr in self._clauses:
+            if key in parts and getattr(self, attr):
+                if clause:
+                    sql.append(Constant(clause))
+                sql.append(getattr(self, attr))
 
     def _build_sql(self):
         sql = ExprList().join(" ")
