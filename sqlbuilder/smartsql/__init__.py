@@ -976,22 +976,6 @@ class QuerySet(Expr):
             if self._for_update:
                 sql.append(Constant("FOR UPDATE"))
 
-        elif self._action == "count":
-            sql.append(Constant("SELECT"))
-            count_distinct = self._distinct
-            fields = self._fields
-            if len(fields) == 0:
-                fields = self._group_by
-                count_distinct = True
-            if count_distinct:
-                fields = ExprList(Constant("COUNT")(Prefix("DISTINCT", fields))).join(", ")
-            else:
-                fields = ExprList(Constant("COUNT")(fields)).join(", ")
-            sql.append(fields)
-            self._sql_extend(sql, ["from", "where", ])
-            if self._for_update:
-                sql.append(Constant("FOR UPDATE"))
-
         elif self._action == "insert":
             sql.append(Constant("INSERT"))
             if self._ignore:

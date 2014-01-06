@@ -257,10 +257,6 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "grade"."name" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ("base"."type" = %s) FOR UPDATE', [1, ], )
         )
         w = w & (F.grade__status == [0, 1])
-        self.assertEqual(
-            QS(t).where(w).group_by(F.grade__name, F.base__img).count(),
-            ('SELECT COUNT(DISTINCT "grade"."name", "base"."img") FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (("base"."type" = %s) AND "grade"."status" IN (%s, %s))', [1, 0, 1, ], )
-        )
         now = datetime.datetime.now()
         w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= now)
         self.assertEqual(
