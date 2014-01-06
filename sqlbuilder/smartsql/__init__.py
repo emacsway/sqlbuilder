@@ -4,8 +4,8 @@ from __future__ import absolute_import, unicode_literals
 # But the code fully another... It's not a fork anymore...
 import sys
 import copy
-from functools import partial
 import warnings
+from functools import partial, wraps
 
 try:
     str = unicode  # Python 2.* compatible
@@ -33,41 +33,38 @@ class SqlDialects(object):
         self._registry = {}
 
     def register(self, dialect, cls):
-        def decorator(func):
-            ns = self._registry.setdefault(dialect, {})
-            ns[cls] = func
+        def deco(func):
+            self._registry.setdefault(dialect, {})[cls] = func
             return func
-        return decorator
+        return deco
 
     def sqlrepr(self, dialect, cls):
         ns = self._registry.setdefault(dialect, {})
         for t in cls.mro():
-            if t in ns:  # Looking for registered dialect
-                return ns[t]
-            elif '__sqlrepr__' in t.__dict__:  # Looking for __sqlrepr__ directly in class, except parent classes
-                return t.__sqlrepr__
+            r = ns.get(t, t.__dict__.get('__sqlrepr__'))
+            if r:
+                return r
         return None
 
 sql_dialects = SqlDialects()
 
 
 def opt_checker(k_list):
-    def new_deco(func):
+    def new_deco(f):
+        @wraps(f)
         def new_func(self, *args, **opt):
             for k, v in list(opt.items()):
                 if k not in k_list:
                     raise TypeError("Not implemented option: {0}".format(k))
-            return func(self, *args, **opt)
-
-        new_func.__doc__ = func.__doc__
+            return f(self, *args, **opt)
         return new_func
     return new_deco
 
 
 def same(name):
-    def deco(self, *a, **kw):
+    def f(self, *a, **kw):
         return getattr(self, name)(*a, **kw)
-    return deco
+    return f
 
 
 class Error(Exception):
@@ -406,12 +403,7 @@ class Between(Expr):
         self._end = prepare_expr(end)
 
     def __sqlrepr__(self, dialect):
-        sqls = [
-            sqlrepr(self._expr, dialect),
-            sqlrepr(self._start, dialect),
-            sqlrepr(self._end, dialect),
-        ]
-        return "{0} BETWEEN {1} AND {2}".format(*sqls)
+        return "{0} BETWEEN {1} AND {2}".format(sqlrepr(self._expr, dialect), sqlrepr(self._start, dialect), sqlrepr(self._end, dialect))
 
     def __params__(self):
         return sqlparams(self._expr) + sqlparams(self._start) + sqlparams(self._end)
@@ -462,13 +454,10 @@ class MetaField(type):
         if key[0] == '_':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 2)
+        prefix = alias = None
         name = parts[0]
-        prefix = None
-        alias = None
-
         if len(parts) > 1:
-            prefix = parts[0]
-            name = parts[1]
+            prefix, name = parts[:2]
         if len(parts) > 2:
             alias = parts[2]
 
