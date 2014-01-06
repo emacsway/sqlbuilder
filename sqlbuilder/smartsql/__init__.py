@@ -1204,8 +1204,7 @@ def warn(old, new, stacklevel=3):
     )
 
 T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
-const = ConstantSpace()
-func = const
+func = const = ConstantSpace()
 qn = Name()
 
 for cls in (Expr, Table, TableJoin, ):
