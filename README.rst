@@ -2,12 +2,9 @@
 SQLBuilder
 ===========
 
-SmartSQL - lightweight sql builder.
+SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 34 Kb.
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/evotech/autumn>`_.
-
-SQLBuilder integration to Django also allows to use external sqlbuilders, like `SQLBuilder from SQLObject <http://sqlobject.org/SQLBuilder.html>`_ or `sqlalchemy.sql <http://docs.sqlalchemy.org/en/latest/core/expression_api.html>`_.
-
 
 LICENSE:
 
@@ -16,66 +13,94 @@ LICENSE:
 Short manual for sqlbuilder.smartsql
 =====================================
 
-table:
+table::
 
-* "T.base" stand for "base",
-* "T.base__a" or "T.base.as_('a')" stand for "base AS a"
+    In [9]: T.book
+    Out[9]: <Table: "book", []>
 
-field:
+    In [10]: T.book__a
+    Out[10]: <TableAlias: "a", []>
 
-* "F.id" stand for "id",
-* "F.base__id" or "T.base.id" stand for "base.id"
-* "F.base__id__pk" or "F.base__id.as_('pk')" or "T.base.id__pk" or "T.base.id.as_('pk')" stand for "base.id AS pk"
+    In [11]: T.book.as_('a')
+    Out[11]: <TableAlias: "a", []>
 
-table operator:
+field::
 
-* "&" stand for "INNER JOIN"
-* "+" stand for "LEFT OUTER JOIN"
-* "-" stand for "RIGHT OUTER JOIN"
-* "|" stand for "FULL OUTER JOIN"
-* "*" stand for "CROSS JOIN"
+    In [13]: T.book.name
+    Out[13]: <Field: "book"."name", []>
 
-condition operator:
+    In [14]: T.book.name.as_('a')
+    Out[14]: <Alias: "a", []>
 
-* "&" stand for "AND"
-* "|" stand for "OR"
+    In [15]: F.book__name
+    Out[15]: <Field: "book"."name", []>
 
-usage eg:
+    In [16]: F.book__name__a
+    Out[16]: <Alias: "a", []>
 
-::
+    In [17]: F.book__name.as_('a')
+    Out[17]: <Alias: "a", []>
 
-    QS(((T.base + T.grade).on(
-        (T.base.type == T.grade.item_type) & (T.base.type == 1)
-    ) + T.lottery).on(
-        T.base.type == T.lottery.item_type
-    )).fields(
-        T.base.type, T.grade.grade, T.lottery.grade
+
+table operator::
+
+    In [4]: (T.book & T.author).on(T.book.author_id == T.author.id)
+    Out[4]: <TableJoin: "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+    In [5]: (T.book + T.author).on(T.book.author_id == T.author.id)
+    Out[5]: <TableJoin: "book" LEFT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+    In [6]: (T.book - T.author).on(T.book.author_id == T.author.id)
+    Out[6]: <TableJoin: "book" RIGHT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+    In [7]: (T.book | T.author).on(T.book.author_id == T.author.id)
+    Out[7]: <TableJoin: "book" FULL OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+    In [8]: (T.book * T.author).on(T.book.author_id == T.author.id)
+    Out[8]: <TableJoin: "book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+condition operator::
+
+    In [19]: (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
+    Out[19]: <Condition: ("author"."first_name" <> %s) AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+
+    In [20]: (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
+    Out[20]: <Condition: ("author"."first_name" <> %s) OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+
+    In [21]: T.author.last_name.startswith('Sm')
+    Out[21]: <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
+
+    In [22]: T.author.last_name.istartswith('Sm')
+    Out[22]: <Condition: "author"."last_name" ILIKE %s || %s, ['Sm', u'%']>
+
+    In [23]: T.author.last_name.contains('Sm')
+    Out[23]: <Condition: "author"."last_name" LIKE %s || %s || %s, [u'%', 'Sm', u'%']>
+
+    In [24]: T.author.last_name.icontains('Sm')
+    Out[24]: <Condition: "author"."last_name" ILIKE %s || %s || %s, [u'%', 'Sm', u'%']>
+
+    In [25]: T.author.last_name.endswith('Sm')
+    Out[25]: <Condition: "author"."last_name" LIKE %s || %s, [u'%', 'Sm']>
+
+    In [26]: T.author.last_name.iendswith('Sm')
+    Out[26]: <Condition: "author"."last_name" ILIKE %s || %s, [u'%', 'Sm']>
+
+    In [27]: T.author.age.between(20, 30)
+    Out[27]: <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
+
+
+usage eg::
+
+    In [31]: QS().tables(
+        (T.book & T.author).on(T.book.author_id == T.author.id)
+    ).columns(
+        T.book.name, T.author.first_name, T.author.last_name
     ).where(
-        (T.base.name == "name") & (T.base.status == 0) | (T.base.name == None)
-    ).select()
+        (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
+    )[20:30]
+    Out[31]: <QuerySet: SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE (("author"."first_name" <> %s) AND ("author"."last_name" <> %s)) LIMIT 10 OFFSET 20, ['Tom', 'Smith']>
 
-    # step by step
 
-    t = T.grade
-    QS(t).select(F.name)
-
-    t = (t * T.base).on(T.grade.item_type == T.base.type)
-    QS(t).select(T.grade.name, T.base.img)
-
-    t = (t + T.lottery).on(T.base.type == T.lottery.item_type)
-    QS(t).select(T.grade.name, T.base.img, T.lottery.price)
-
-    w = (T.base.type == 1)
-    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
-
-    w = w & (T.grade.status == 0)
-    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
-
-    w = w | (T.lottery.item_type == None)
-    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
-
-    w = w & (T.base.status == 1)
-    QS(t).where(w).select(T.grade.name, T.base.img, T.lottery.price)
 
 Django integration.
 =====================
@@ -84,14 +109,10 @@ Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
 ::
 
-    ta = Author.s
-    tb = Book.s
-    qs = tb.qs
-
-    object_list = qs.tables(
-        qs.tables() & ta.on(tb.author_id == ta.id)
+    object_list = Book.s.qs.tables(
+        (Book.s & Author.s).on(Book.s.author == Author.s.pk)
     ).where(
-        (ta.first_name != 'James') & (ta.last_name != 'Joyce')
+        (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
     )[:10]
 
 Paginator
@@ -101,49 +122,3 @@ django.db.models.query.RawQuerySet `indexing and slicing are not performed at th
 so it can cause problems with pagination.
 
 For this reason, SQLBuilder fixes this issue.
-
-
-
-
-Integration of third-party sqlbuilders (deprecated, will be removed).
-======================================================================
-
-Integration sqlbuilder.sqlobject to Django
--------------------------------------------
-
-Integration sqlobject to Django:
-
-::
-
-    from sqlobject.sqlbuilder import Select, sqlrepr
-    from sqlbuilder.models import SQLOBJECT_DIALECT
-
-    # Address is subclass of django.db.models.Model
-    t = Address.so.t
-    s = Select([t.name, t.state], where=t.name.startswith("sun"))
-    # or
-    s = Address.so.qs.newItems(Address.so.get_fields()).filter(t.name.startswith("sun"))
-    # or simple
-    s = Address.so.qs.filter(t.name.startswith("sun"))
-
-    rows = Address.objects.raw(sqlrepr(s, SQLOBJECT_DIALECT))
-
-Integration sqlalchemy.sql to Django
--------------------------------------
-
-Example of usage sqlalchemy.sql in Django:
-
-::
-
-    from sqlalchemy.sql import select, table
-    from sqlbuilder.models import SQLALCHEMY_DIALECT
-    
-    # User, Profile is subclasses of django.db.models.Model
-    dialect = User.sa.dialect  # or SQLALCHEMY_DIALECT
-    u = User.sa.t  # or table('user')
-    p = Profile.sa.t  # or table('profile')
-    s = select(['*']).select_from(u.join(p, u.vc.id==p.vc.user_id)).where(p.vc.gender == u'M')
-    sc = s.compile(dialect=dialect)
-    rows = User.objects.raw(unicode(sc), sc.params)
-    for row in rows:
-        print row

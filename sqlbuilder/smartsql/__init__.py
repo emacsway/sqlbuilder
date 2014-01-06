@@ -9,9 +9,11 @@ import warnings
 
 try:
     str = unicode  # Python 2.* compatible
+    PY3 = False
     string_types = (basestring,)
     integer_types = (int, long)
 except NameError:
+    PY3 = True
     string_types = (str,)
     integer_types = (int,)
 
@@ -1221,7 +1223,7 @@ for cls in (Expr, Table, TableJoin, ):
     cls.__bytes__ = lambda self: sqlrepr(self).encode('utf-8')
     cls.__str__ = lambda self: sqlrepr(self)
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
-    if str is unicode:
+    if not PY3:
         cls.__unicode__ = cls.__str__
         cls.__str__ = cls.__bytes__
 

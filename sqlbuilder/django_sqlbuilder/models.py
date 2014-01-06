@@ -2,11 +2,10 @@ from __future__ import absolute_import, unicode_literals
 import re
 import collections
 from django.conf import settings
-from django.db import connection, connections
+from django.db import connections
 from django.db.models import Model
 from django.db.models.manager import Manager
 from django.db.models.query import RawQuerySet
-from django.utils.importlib import import_module
 
 from .. import smartsql
 from .signals import field_conversion
@@ -211,15 +210,7 @@ def s(cls):
         setattr(cls, a, Table(cls))
     return getattr(cls, a)
 
-
-@classproperty
-def ss(cls):
-    smartsql.warn('Model.ss', 'Model.{0}'.format(SMARTSQL_ALIAS), 4)
-    return getattr(cls, SMARTSQL_ALIAS)
-
 setattr(Model, SMARTSQL_ALIAS, s)
-setattr(Model, 'ss', ss)
-
 
 # Fixing django.db.models.query.RawQuerySet,
 # because indexing and slicing are not performed at the database level
@@ -297,197 +288,3 @@ def patch_raw_query_set():
     Manager.raw = raw
 
 patch_raw_query_set()
-
-
-# Below - legacy code. Should be removed.
-
-
-class AbstractFacade(object):
-    """Abstract facade for Django integration"""
-    _model = None
-    _table = None
-    _query_set = None
-
-    def __init__(self, model):
-        """Constructor"""
-        raise NotImplementedError
-
-    @property
-    def model(self):
-        """Returns Django model instance."""
-        return self._model
-
-    @property
-    def table(self):
-        """Returns table instance."""
-        return self._table
-
-    def get_fields(self, prefix=None):
-        """Returns fileld list."""
-        raise NotImplementedError
-
-    def set_query_set(self, query_set):
-        """Sets query set."""
-        self._query_set = query_set
-        return self
-
-    def get_query_set(self):
-        """Returns query set."""
-        return self._query_set
-
-    @property
-    def qs(self):
-        """Returns query set."""
-        return self.get_query_set()
-
-    # Aliases
-    @property
-    def t(self):
-        """Returns table instance."""
-        return self._table
-
-try:
-    SQLOBJECT_ALIAS = getattr(settings, 'SQLBUILDER_SQLOBJECT_ALIAS', 'so')
-    SQLOBJECT_USE = getattr(settings, 'SQLBUILDER_SQLOBJECT_USE', False)
-
-    if not SQLOBJECT_USE:
-        raise ImportError
-    import sqlobject.sqlbuilder
-
-    SQLOBJECT_DIALECTS = {
-        'sqlite3': 'sqlite',
-        'mysql': 'mysql',
-        'postgresql': 'postgres',
-        'postgresql_psycopg2': 'postgres',
-        'postgis': 'postgres',
-        'oracle': 'oracle',
-    }
-
-    def get_so_dialect():
-        """Returns instance of Dialect"""
-        engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
-        return SQLOBJECT_DIALECTS[engine]
-
-    SQLOBJECT_DIALECT = get_so_dialect()
-    settings.SQLBUILDER_SQLOBJECT_DIALECT = SQLOBJECT_DIALECT
-
-    class SQLObjectFacade(AbstractFacade):
-        """Abstract facade for Django integration"""
-
-        def __init__(self, model):
-            """Constructor"""
-            self._model = model
-            self._table = sqlobject.sqlbuilder.Table(self._model._meta.db_table)
-            self._query_set = sqlobject.sqlbuilder.Select(
-                items=self.get_fields(),
-                staticTables=[self.table, ]
-            )
-
-        def get_fields(self, prefix=None):
-            """Returns field list."""
-            if prefix is None:
-                prefix = self._table
-            result = []
-            for f in self._model._meta.fields:
-                if f.column:
-                    result.append(getattr(prefix, f.column))
-            return result
-
-    @classproperty
-    def so(cls):
-        if getattr(cls, '_{0}'.format(SQLOBJECT_ALIAS), None) is None:
-            setattr(cls, '_{0}'.format(SQLOBJECT_ALIAS), SQLObjectFacade(cls))
-        return getattr(cls, '_{0}'.format(SQLOBJECT_ALIAS))
-
-    setattr(Model, SQLOBJECT_ALIAS, so)
-
-except ImportError:
-    pass
-
-try:
-    SQLALCHEMY_ALIAS = getattr(settings, 'SQLBUILDER_SQLALCHEMY_ALIAS', 'sa')
-    SQLALCHEMY_USE = getattr(settings, 'SQLBUILDER_SQLALCHEMY_USE', False)
-
-    if not SQLALCHEMY_USE:
-        raise ImportError
-    import sqlalchemy.sql
-
-    SQLALCHEMY_DIALECTS = {
-        'sqlite3': 'sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite',
-        'mysql': 'sqlalchemy.dialects.mysql.mysqldb.MySQLDialect_mysqldb',
-        'postgresql': 'sqlalchemy.dialects.postgresql.pypostgresql.PGDialect_pypostgresql',
-        'postgresql_psycopg2': 'sqlalchemy.dialects.postgresql.psycopg2.PGDialect_psycopg2',
-        'postgis': 'sqlalchemy.dialects.postgresql.psycopg2.PGDialect_psycopg2',
-        'oracle': 'sqlalchemy.dialects.oracle.cx_oracle.OracleDialect_cx_oracle',
-    }
-
-    def get_sa_dialect():
-        """Returns instance of Dialect"""
-        engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
-        module_name, cls_name = SQLALCHEMY_DIALECTS[engine].rsplit('.', 1)
-        module = import_module(module_name)
-        cls = getattr(module, cls_name)
-        return cls()
-
-    SQLALCHEMY_DIALECT = get_sa_dialect()
-    settings.SQLBUILDER_SQLALCHEMY_DIALECT = SQLALCHEMY_DIALECT
-
-    class VirtualColumns(object):
-        """Virtual column class."""
-        _table = None
-        _columns = None
-
-        def __init__(self, table=None):
-            """Constructor"""
-            self._table = table
-            self._columns = {}
-
-        def __getattr__(self, name):
-            """Creates column on fly."""
-            if name not in self._columns:
-                c = sqlalchemy.sql.column(name)
-                c.table = self._table
-                self._columns[name] = c
-            return self._columns[name]
-
-    @property
-    def vc(self):
-        """Returns VirtualColumns instance"""
-        if getattr(self, '_vc', None) is None:
-            self._vc = VirtualColumns(self)
-        return self._vc
-
-    sqlalchemy.sql.TableClause.vc = vc
-
-    class SQLAlchemyFacade(AbstractFacade):
-        """Abstract facade for Django integration"""
-
-        dialect = SQLALCHEMY_DIALECT
-
-        def __init__(self, model):
-            """Constructor"""
-            self._model = model
-            self._table = sqlalchemy.sql.table(self._model._meta.db_table)
-            self._query_set = sqlalchemy.sql.select(self.get_fields())\
-                .select_from(self.table)
-
-        def get_fields(self, prefix=None):
-            """Returns field list."""
-            if prefix is None:
-                prefix = self._table
-            result = []
-            for f in self._model._meta.fields:
-                if f.column:
-                    result.append(getattr(self._table.vc, f.column))
-            return result
-
-    @classproperty
-    def sa(cls):
-        if getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), None) is None:
-            setattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS), SQLAlchemyFacade(cls))
-        return getattr(cls, '_{0}'.format(SQLALCHEMY_ALIAS))
-
-    setattr(Model, SQLALCHEMY_ALIAS, sa)
-
-except ImportError:
-    pass
