@@ -876,18 +876,6 @@ class QuerySet(Expr):
         return self.limit(offset, limit)
 
     @opt_checker(["distinct", "for_update"])
-    def count(self, *args, **opts):
-        self = self.clone()
-        self._action = "count"
-        if len(args):
-            self = self.fields(*args)
-        if opts.get("distinct"):
-            self = self.distinct(True)
-        if opts.get("for_update"):
-            self._for_update = True
-        return self.result()
-
-    @opt_checker(["distinct", "for_update"])
     def select_one(self, *args, **opts):
         return self.limit(1).select(*args, **opts)
 
