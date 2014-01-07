@@ -477,9 +477,7 @@ class MetaField(type):
         if name is None:
             prefix, name = name, prefix
         f = cls(name, prefix)
-        if alias is not None:
-            f = f.as_(alias)
-        return f
+        return f.as_(alias) if alias else f
 
 
 class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
@@ -488,7 +486,6 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
 
     def __init__(self, name, prefix=None):
         self._name = name
-
         if isinstance(prefix, string_types):
             prefix = Table(prefix)
         self._prefix = prefix
@@ -528,9 +525,7 @@ class MetaTable(type):
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
         table = cls(name)
-        if alias is not None:
-            table = table.as_(alias)
-        return table
+        return table.as_(alias) if alias else table
 
 
 class Table(MetaTable(bytes("NewBase"), (object, ), {})):
@@ -549,9 +544,7 @@ class Table(MetaTable(bytes("NewBase"), (object, ), {})):
         parts = name.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
         f = Field(name, self)
-        if alias is not None:
-            f = f.as_(alias)
-        return f
+        return f.as_(alias) if alias else f
 
     def __sqlrepr__(self, dialect):
         return qn(self._name, dialect)
@@ -613,10 +606,10 @@ class TableJoin(object):
         return obj
 
     def left(self, left=None):
-        if left is not None:
-            self._left = left
-            return self
-        return self._left
+        if left is None:
+            return self._left
+        self._left = left
+        return self
 
     def join_type(self, join_type):
         self._join_type = join_type
@@ -717,48 +710,39 @@ class QuerySet(Expr):
         return dup
 
     def dialect(self, dialect=None):
-        if dialect is not None:
-            self = self.clone()
-            self._dialect = dialect
-            return self
-        return self._dialect
+        if dialect is None:
+            return self._dialect
+        self = self.clone()
+        self._dialect = dialect
+        return self
 
     def tables(self, t=None):
-        if t:
-            self = self.clone()
-            if not isinstance(t, TableJoin):
-                t = TableJoin(t)
-            self._tables = t
-            return self
-        return self._tables
+        if t is None:
+            return self._tables
+        self = self.clone()
+        self._tables = t if isinstance(t, TableJoin) else TableJoin(t)
+        return self
 
     def distinct(self, val=None):
-        if val is not None:
-            self = self.clone()
-            self._distinct = val
-            return self
-        return self._distinct
+        if val is None:
+            return self._distinct
+        self = self.clone()
+        self._distinct = val
+        return self
 
     @opt_checker(["reset", ])
     def fields(self, *args, **opts):
+        if not args and not opts:
+            return self._fields
+        self = self.clone()
         if opts.get("reset"):
-            self = self.clone()
             self._fields.reset()
-            if not args:
-                return self
         if args:
-            self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
                 self = self.fields(*args.pop(0), reset=True)
-            if len(args):
-                for i, f in enumerate(args):
-                    if not isinstance(f, Expr):
-                        f = Field(f)
-                    args[i] = f
-                self._fields.extend(args)
-            return self
-        return self._fields
+            self._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
+        return self
 
     def on(self, c):
         # TODO: Remove?
@@ -780,20 +764,17 @@ class QuerySet(Expr):
 
     @opt_checker(["reset", ])
     def group_by(self, *args, **opts):
+        if not args and not opts:
+            return self._group_by
+        self = self.clone()
         if opts.get("reset"):
-            self = self.clone()
             self._group_by.reset()
-            if not args:
-                return self
         if args:
-            self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
                 self = self.group_by(*args.pop(0), reset=True)
-            if len(args):
-                self._group_by.extend(args)
-            return self
-        return self._group_by
+            self._group_by.extend(args)
+        return self
 
     def having(self, c):
         self = self.clone()
@@ -807,24 +788,18 @@ class QuerySet(Expr):
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
-        direct = "DESC" if opts.get("desc") else "ASC"
+        if not args and not opts:
+            return self._order_by
+        self = self.clone()
         if opts.get("reset"):
-            self = self.clone()
             self._order_by.reset()
-            if not args:
-                return self
         if args:
-            self = self.clone()
             args = list(args)
             if hasattr(args[0], '__iter__'):
                 self = self.order_by(*args.pop(0), reset=True)
-            if len(args):
-                for f in args:
-                    if not (isinstance(f, Suffix) and f._suffix in ("ASC", "DESC")):
-                        f = Suffix(f, direct)
-                    self._order_by.append(f)
-            return self
-        return self._order_by
+            direct = "DESC" if opts.get("desc") else "ASC"
+            self._order_by.extend([f if isinstance(f, Suffix) and f._suffix in ("ASC", "DESC") else Suffix(f, direct) for f in args])
+        return self
 
     def limit(self, *args, **kwargs):
         self = self.clone()
@@ -855,7 +830,7 @@ class QuerySet(Expr):
     def select(self, *args, **opts):
         self = self.clone()
         self._action = "select"
-        if len(args):
+        if args:
             self = self.fields(*args)
         if opts.get("distinct"):
             self = self.distinct(True)
@@ -869,10 +844,6 @@ class QuerySet(Expr):
 
     @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, fields, values, **opts):
-        fields = list(fields)
-        for i, f in enumerate(fields):
-            if not isinstance(f, Expr):
-                fields[i] = Field(f)
         self = self.fields(fields, reset=True)
         self._action = "insert"
         if opts.get("ignore"):
@@ -1030,7 +1001,7 @@ class Name(object):
 
 def placeholder_conditional(expr):
     if not isinstance(expr, (Expr, Table, TableJoin)):
-        expr = Placeholder(expr)
+        return Placeholder(expr)
     return expr
 
 
