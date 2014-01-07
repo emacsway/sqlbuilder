@@ -1,7 +1,7 @@
-from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
 # Some ideas from http://code.google.com/p/py-smart-sql-constructor/
 # But the code fully another... It's not a fork anymore...
+from __future__ import absolute_import, unicode_literals
 import sys
 import copy
 import warnings
@@ -352,9 +352,7 @@ class Concat(ExprList):
 
     def __sqlrepr__(self, dialect):
         value = super(Concat, self).__sqlrepr__(dialect)
-        if self._ws:
-            return "concat_ws({0}, {1})".format(self._ws, value)
-        return value
+        return "concat_ws({0}, {1})".format(self._ws, value) if self._ws else value
 
 
 class Placeholder(Expr):
