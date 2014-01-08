@@ -42,12 +42,14 @@ class QS(smartsql.QS):
     """Query Set adapted for Django."""
 
     _cache = None
+    _using = 'default'
     model = None
 
     def __init__(self, tables=None):
         super(QS, self).__init__(tables=tables)
         if isinstance(tables, (Table, TableAlias)):
             self.model = tables.model
+            self._using = self.model.objects.db
 
     def clone(self):
         self = super(QS, self).clone()
@@ -68,7 +70,7 @@ class QS(smartsql.QS):
         """Returns length or list."""
         if self._cache is not None:
             return len(self._cache)
-        return self.order_by(reset=True).execute().count()
+        return super(QS, self).count()
 
     def iterator(self):
         return self.execute().iterator()
@@ -88,9 +90,15 @@ class QS(smartsql.QS):
             return list(self)[0]
         return super(QS, self).__getitem__(key)
 
+    def using(self, alias=None):
+        if alias is None:
+            return self._using
+        self = self.clone()
+        self._using = alias
+        return self
+
     def dialect(self):
-        #engine = connection.settings_dict['ENGINE'].rsplit('.')[-1]
-        engine = connections.databases[self.model.objects.db]['ENGINE'].rsplit('.')[-1]
+        engine = connections.databases[self.using()]['ENGINE'].rsplit('.')[-1]
         return SMARTSQL_DIALECTS[engine]
 
     def sqlrepr(self, expr=None):
@@ -101,15 +109,22 @@ class QS(smartsql.QS):
 
     def execute(self):
         """Implementation of query execution"""
-        return self.model.objects.raw(
-            self.sqlrepr(),
-            self.sqlparams()
-        )
+        # TODO: sql = self._build_sql(), sqlrepr(sql, dialect), sqlparams(sql)???
+        if self._action == "select":
+            return self.model.objects.raw(self.sqlrepr(), self.sqlparams()).using(self.using())
+        return self._execute(self.sqlrepr(), self.sqlparams())
+
+    def _execute(self, sql, params):
+        cursor = connections[self.using()].cursor()
+        cursor.execute(sql, params)
+        return cursor
 
     def result(self):
         """Result"""
-        if self._action in ('select', 'count', ):
+        if self._action == 'select':
             return self
+        if self._action == 'count':
+            return self.execute().fetchone()[0]
         return self.execute()
 
     def as_union(self):
@@ -216,6 +231,7 @@ setattr(Model, SMARTSQL_ALIAS, s)
 # because indexing and slicing are not performed at the database level
 # https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups
 
+
 class PaginatedRawQuerySet(RawQuerySet):
     """Extended RawQuerySet with pagination support"""
 
@@ -277,6 +293,17 @@ class PaginatedRawQuerySet(RawQuerySet):
         """Cache for small selections"""
         self.fill_cache()
         return iter(self._cache)
+
+    def using(self, alias):
+        """
+        Selects which database this Raw QuerySet should excecute it's query against.
+        """
+        return PaginatedRawQuerySet(
+            self.raw_query, model=self.model,
+            query=self.query.clone(using=alias),
+            params=self.params, translations=self.translations,
+            using=alias
+        )
 
 
 def raw(self, raw_query, params=None, *args, **kwargs):
