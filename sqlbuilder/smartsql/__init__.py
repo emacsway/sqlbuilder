@@ -836,6 +836,11 @@ class QuerySet(Expr):
             self._for_update = True
         return self.result()
 
+    def count(self):
+        qs = type(self)().fields(Constant('COUNT')(Constant('1')).as_('count_value')).tables(self.order_by(reset=True).as_table('count_list'))
+        qs._action = 'count'
+        return qs.result()
+
     def insert(self, fv_dict, **opts):
         items = list(fv_dict.items())
         return self.insert_many([x[0] for x in items], ([x[1] for x in items], ), **opts)
@@ -897,7 +902,7 @@ class QuerySet(Expr):
     def _build_sql(self):
         sql = ExprList().join(" ")
 
-        if self._action == "select":
+        if self._action in ("select", "count"):
             sql.append(Constant("SELECT"))
             if self._distinct:
                 sql.append(Constant("DISTINCT"))

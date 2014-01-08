@@ -306,6 +306,12 @@ class TestSmartSQL(unittest.TestCase):
             ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE ("item"."status" <> %s)) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE ("gift"."storage" > %s)) ORDER BY %s DESC, %s DESC LIMIT 10 OFFSET 100', [-1, 0, 'type', 'name', ], )
         )
 
+    def test_count(self):
+        self.assertEqual(
+            QS(T.tb1).fields(T.tb1.f1, T.tb1.f1).where(T.tb1.f1 > 10).order_by(T.tb1.f1).count(),
+            ('SELECT COUNT(1) AS "count_value" FROM (SELECT "tb1"."f1", "tb1"."f1" FROM "tb1" WHERE ("tb1"."f1" > %s)) AS "count_list"', [10])
+        )
+
     def test_insert(self):
         self.assertEqual(
             QS(T.user).insert({
