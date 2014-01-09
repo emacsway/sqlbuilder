@@ -698,8 +698,6 @@ class QuerySet(Expr):
 
         self._action = "select"
         self._dialect = None
-        self._sql = None
-        self._params = []
 
     def clone(self):
         dup = copy.copy(super(QuerySet, self))

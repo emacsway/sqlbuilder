@@ -85,7 +85,6 @@ class QS(smartsql.QS):
         if self._cache:
             return self._cache[key]
         if isinstance(key, integer_types):
-            self = self.clone()
             self = super(QS, self).__getitem__(key)
             return list(self)[0]
         return super(QS, self).__getitem__(key)
