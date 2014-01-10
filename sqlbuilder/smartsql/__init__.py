@@ -265,15 +265,17 @@ class ExprList(Expr):
         return len(self._args)
 
     def __setitem__(self, key, value):
-        self._args[key] = prepare_expr(value)
+        if isinstance(key, slice):
+            self._args[key] = [prepare_expr(v) for v in value]
+        else:
+            self._args[key] = prepare_expr(value)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start = key.start or 0
             end = key.stop or sys.maxsize
             return ExprList(*self._args[start:end])
-        else:
-            return self._args[key]
+        return self._args[key]
 
     def __iter__(self):
         return iter(self._args)
@@ -285,7 +287,7 @@ class ExprList(Expr):
         return self._args.insert(i, prepare_expr(x))
 
     def extend(self, L):
-        return self._args.extend(list(map(prepare_expr, L)))
+        return self._args.extend([prepare_expr(v) for v in L])
 
     def pop(self, i):
         return self._args.pop(i)
