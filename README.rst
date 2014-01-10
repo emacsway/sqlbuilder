@@ -115,10 +115,3 @@ Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
         (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
     )[:10]
 
-Paginator
-==========
-django.db.models.query.RawQuerySet `indexing and slicing are not performed at the database level
-<https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups>`_,
-so it can cause problems with pagination.
-
-For this reason, SQLBuilder fixes this issue.
