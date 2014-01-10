@@ -226,6 +226,8 @@ def s(cls):
 
 setattr(Model, SMARTSQL_ALIAS, s)
 
+# TODO: Below is useless code for now. Remove it?
+
 # Fixing django.db.models.query.RawQuerySet,
 # because indexing and slicing are not performed at the database level
 # https://docs.djangoproject.com/en/dev/topics/db/sql/#index-lookups
