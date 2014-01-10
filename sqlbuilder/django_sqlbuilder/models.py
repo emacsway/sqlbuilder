@@ -1,11 +1,8 @@
 from __future__ import absolute_import, unicode_literals
-import re
 import collections
 from django.conf import settings
 from django.db import connections
 from django.db.models import Model
-from django.db.models.manager import Manager
-from django.db.models.query import RawQuerySet
 
 from .. import smartsql
 from .signals import field_conversion
@@ -73,7 +70,7 @@ class QS(smartsql.QS):
         return super(QS, self).count()
 
     def iterator(self):
-        return self.execute().iterator()
+        return self.execute()
 
     def __iter__(self):
         """Returns iterator."""
