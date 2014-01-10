@@ -132,6 +132,7 @@ class UnionQuerySet(smartsql.UnionQuerySet, QS):
     def __init__(self, qs):
         super(UnionQuerySet, self).__init__(qs)
         self.model = qs.model
+        self._using = qs.using()
 
 
 class Table(smartsql.Table):
