@@ -271,7 +271,7 @@ class ExprList(Expr):
         if isinstance(key, slice):
             start = key.start or 0
             end = key.stop or sys.maxsize
-            return self._args[start:end]
+            return ExprList(*self._args[start:end])
         else:
             return self._args[key]
 
