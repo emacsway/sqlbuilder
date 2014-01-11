@@ -487,7 +487,7 @@ class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
     def __sqlrepr__(self, dialect):
         sql = self._name == '*' and self._name or qn(self._name, dialect)
         if self._prefix is not None:
-            sql = ".".join((qn(self._prefix, dialect), sql, ))
+            sql = ".".join((qn(self._prefix, dialect), sql))
         return sql
 
 
