@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-from . import (Condition, Name, Concat, sql_dialects, sqlrepr)
+from . import (Condition, Concat, ExprList, Name, sql_dialects, sqlrepr)
 
 TRANSLATION_MAP = {
     'sqlite': {
@@ -35,7 +35,7 @@ def name_sqlrepr(self, dialect):
 
 @sql_dialects.register('mysql', Concat)
 def name_sqlrepr(self, dialect):
-    value = super(Concat, self.join(', ')).__sqlrepr__(dialect)
+    value = sqlrepr(self.join(', '), dialect, ExprList)
     if self._ws:
-        return "CONCAT_WS({0}, {1})".format(self._ws, value)
+        return "CONCAT_WS({0}, {1})".format(sqlrepr(self._ws, dialect), value)
     return "CONCAT({0})".format(value)

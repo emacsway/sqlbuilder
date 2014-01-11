@@ -58,12 +58,12 @@ class TestSmartSQL(unittest.TestCase):
 
     def test_prefix(self):
         self.assertEqual(
-            QS(T.tb).where(~T.tb.cl == 3).select('*'),
-            ('SELECT * FROM "tb" WHERE (NOT "tb"."cl" = %s)', [3, ], )
+            QS(T.tb).where(~(T.tb.cl == 3)).select('*'),
+            ('SELECT * FROM "tb" WHERE NOT ("tb"."cl" = %s)', [3, ], )
         )
         self.assertEqual(
-            QS(T.tb).where(Prefix((T.tb.cl == 2), (T.tb.cl2 == 3))).select('*'),
-            ('SELECT * FROM "tb" WHERE "tb"."cl" = %s ("tb"."cl2" = %s)', [3, ], )
+            QS(T.tb).where(Prefix("NOT", (T.tb.cl == 3))).select('*'),
+            ('SELECT * FROM "tb" WHERE NOT ("tb"."cl" = %s)', [3, ], )
         )
 
     def test_mod(self):

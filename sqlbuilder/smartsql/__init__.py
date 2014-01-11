@@ -9,11 +9,9 @@ from functools import partial, wraps
 
 try:
     str = unicode  # Python 2.* compatible
-    PY3 = False
     string_types = (basestring,)
     integer_types = (int, long)
 except NameError:
-    PY3 = True
     string_types = (str,)
     integer_types = (int,)
 
@@ -300,11 +298,7 @@ class ExprList(Expr):
         return self
 
     def __sqlrepr__(self, dialect):
-        sqls = []
-        for a in self._args:
-            sql = sqlrepr(a, dialect)
-            sqls.append(sql)
-        return self._sep.join(sqls)
+        return self._sep.join([sqlrepr(a, dialect) for a in self._args])
 
     def __params__(self):
         params = []
@@ -349,12 +343,12 @@ class Concat(ExprList):
         self._ws = prepare_expr(sep)
         return self
 
+    def __sqlrepr__(self, dialect):
+        value = sqlrepr(self, dialect, ExprList)
+        return "concat_ws({0}, {1})".format(sqlrepr(self._ws, dialect), value) if self._ws else value
+
     def __params__(self):
         return sqlparams(self._ws) + super(Concat, self).__params__()
-
-    def __sqlrepr__(self, dialect):
-        value = super(Concat, self).__sqlrepr__(dialect)
-        return "concat_ws({0}, {1})".format(self._ws, value) if self._ws else value
 
 
 class Placeholder(Expr):
@@ -1027,10 +1021,10 @@ def default_dialect(dialect=None):
     return DEFAULT_DIALECT
 
 
-def sqlrepr(obj, dialect=None):
+def sqlrepr(obj, dialect=None, cls=None):
     """Renders query set"""
     dialect = dialect or DEFAULT_DIALECT
-    callback = sql_dialects.sqlrepr(dialect, obj.__class__)
+    callback = sql_dialects.sqlrepr(dialect, cls or obj.__class__)
     if callback is not None:
         return callback(obj, dialect)
     return obj  # It's a string
@@ -1051,11 +1045,6 @@ func = const = ConstantSpace()
 qn = Name()
 
 for cls in (Expr, Table, TableJoin, ):
-    cls.__bytes__ = lambda self: sqlrepr(self).encode('utf-8')
-    cls.__str__ = lambda self: sqlrepr(self)
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
-    if not PY3:
-        cls.__unicode__ = cls.__str__
-        cls.__str__ = cls.__bytes__
 
 from . import dialects
