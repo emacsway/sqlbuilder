@@ -71,7 +71,7 @@ class Comparable(object):
     __slots__ = ()
 
     def _c(op, inv=False):
-        return (lambda self, other: Condition(op, self, other)) if not inv else (lambda self, other: Condition(op, other, self))
+        return (lambda self, other: Condition(self, op, other)) if not inv else (lambda self, other: Condition(other, op, self))
 
     def _ca(op, inv=False):
         return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
@@ -142,17 +142,17 @@ class Comparable(object):
 
     def __eq__(self, other):
         if other is None:
-            return Condition("IS", self, Constant("NULL"))
+            return Condition(self, "IS", Constant("NULL"))
         if hasattr(other, '__iter__'):
             return self.in_(other)
-        return Condition("=", self, other)
+        return Condition(self, "=", other)
 
     def __ne__(self, other):
         if other is None:
-            return Condition("IS NOT", self, Constant("NULL"))
+            return Condition(self, "IS NOT", Constant("NULL"))
         if hasattr(other, '__iter__'):
             return self.not_in(other)
-        return Condition("<>", self, other)
+        return Condition(self, "<>", other)
 
     def as_(self, alias):
         return Alias(alias, self)
@@ -219,9 +219,9 @@ class Expr(Comparable):
 
 class Condition(Expr):
 
-    __slots__ = ('_op', '_expr1', '_expr2')
+    __slots__ = ('_expr1', '_op', '_expr2')
 
-    def __init__(self, op, expr1, expr2):
+    def __init__(self, expr1, op, expr2):
         self._op = op.upper()
         self._expr1 = None if expr1 is None else prepare_expr(expr1)
         self._expr2 = None if expr2 is None else prepare_expr(expr2)
@@ -380,7 +380,7 @@ class OmitParentheses(Parentheses):
 
 class Prefix(Expr):
 
-    __slots__ = ('_prefix', '_expr', )
+    __slots__ = ('_prefix', '_expr')
 
     def __init__(self, prefix, expr):
         self._prefix = prefix
@@ -395,7 +395,7 @@ class Prefix(Expr):
 
 class Suffix(Expr):
 
-    __slots__ = ('_suffix', '_expr', )
+    __slots__ = ('_expr', '_suffix')
 
     def __init__(self, expr, suffix):
         self._suffix = suffix
@@ -557,7 +557,7 @@ class TableAlias(Table):
 
     __slots__ = ('_table', '_alias')
 
-    def __init__(self, alias, table):
+    def __init__(self, alias, table=None):
         self._table = table
         self._alias = alias
 
