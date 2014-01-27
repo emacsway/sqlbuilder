@@ -222,8 +222,8 @@ class Condition(Expr):
     __slots__ = ('_expr1', '_op', '_expr2')
 
     def __init__(self, expr1, op, expr2):
-        self._op = op.upper()
         self._expr1 = None if expr1 is None else prepare_expr(expr1)
+        self._op = op.upper()
         self._expr2 = None if expr2 is None else prepare_expr(expr2)
 
     def __sqlrepr__(self, dialect):
