@@ -180,11 +180,17 @@ class Comparable(object):
     def concat_ws(self, sep, *args):
         return Concat(self, *args).ws(sep)
 
+    def op(self, op):
+        return lambda other: Condition(self, op, other)
+
+    def rop(self, op):  # useless, can be P('lookingfor').op('=')(expr)
+        return lambda other: Condition(other, op, self)
+
     def asc(self):
-        return Suffix(self, "ASC")
+        return Postfix(self, "ASC")
 
     def desc(self):
-        return Suffix(self, "DESC")
+        return Postfix(self, "DESC")
 
     def __getitem__(self, key):
         """Returns self.between()"""
@@ -393,16 +399,16 @@ class Prefix(Expr):
         return sqlparams(self._expr)
 
 
-class Suffix(Expr):
+class Postfix(Expr):
 
-    __slots__ = ('_expr', '_suffix')
+    __slots__ = ('_expr', '_postfix')
 
-    def __init__(self, expr, suffix):
-        self._suffix = suffix
+    def __init__(self, expr, postfix):
+        self._postfix = postfix
         self._expr = prepare_expr(expr)
 
     def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._suffix)
+        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._postfix)
 
     def __params__(self):
         return sqlparams(self._expr)
@@ -790,7 +796,7 @@ class QuerySet(Expr):
             if hasattr(args[0], '__iter__'):
                 self = self.order_by(*args.pop(0), reset=True)
             direct = "DESC" if opts.get("desc") else "ASC"
-            self._order_by.extend([f if isinstance(f, Suffix) and f._suffix in ("ASC", "DESC") else Suffix(f, direct) for f in args])
+            self._order_by.extend([f if isinstance(f, Postfix) and f._postfix in ("ASC", "DESC") else Postfix(f, direct) for f in args])
         return self
 
     def limit(self, *args, **kwargs):
@@ -1040,7 +1046,7 @@ def sqlparams(obj):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-T, TA, F, A, E, QS = Table, TableAlias, Field, Alias, Expr, QuerySet
+A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
 qn = Name()
 
