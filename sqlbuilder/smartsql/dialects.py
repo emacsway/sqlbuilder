@@ -17,14 +17,8 @@ TRANSLATION_MAP = {
 @sql_dialects.register('mysql', Condition)
 def condition_sqlrepr(self, dialect):
     """Translates operators for sqlbuilder.smartsql.Condition"""
-    s1 = sqlrepr(self._expr1, dialect)
-    s2 = sqlrepr(self._expr2, dialect)
-    op = TRANSLATION_MAP.get(dialect, {}).get(self._op, self._op)
-    if not s1:
-        return s2
-    if not s2:
-        return s1
-    return "{0} {1} {2}".format(s1, op, s2)
+    op = TRANSLATION_MAP.get(dialect, {}).get(self._sql, self._sql)
+    return "{0} {1} {2}".format(sqlrepr(self._left, dialect), op, sqlrepr(self._right, dialect))
 
 
 @sql_dialects.register('sqlite', Name)

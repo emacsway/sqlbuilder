@@ -110,6 +110,8 @@ class Comparable(object):
     __lt__ = _c("<")
     __ge__ = _c(">=")
     __le__ = _c("<=")
+    is_ = _c("IS")
+    is_not = _c("IS NOT")
     like = _c("LIKE")
     ilike = _c("ILIKE")
     rlike = _c("LIKE", 1)
@@ -142,14 +144,14 @@ class Comparable(object):
 
     def __eq__(self, other):
         if other is None:
-            return Condition(self, "IS", Constant("NULL"))
+            return self.is_(None)
         if hasattr(other, '__iter__'):
             return self.in_(other)
         return Condition(self, "=", other)
 
     def __ne__(self, other):
         if other is None:
-            return Condition(self, "IS NOT", Constant("NULL"))
+            return self.is_not(None)
         if hasattr(other, '__iter__'):
             return self.not_in(other)
         return Condition(self, "<>", other)
@@ -159,15 +161,11 @@ class Comparable(object):
 
     def in_(self, other):
         if not isinstance(other, Expr) and hasattr(other, '__iter__'):
-            if len(other) < 1:
-                raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
         return ExprList(self, Constant("IN"), Parentheses(other)).join(" ")
 
     def not_in(self, other):
         if not isinstance(other, Expr) and hasattr(other, '__iter__'):
-            if len(other) < 1:
-                raise Error("Empty list is not allowed")
             other = ExprList(*other).join(", ")
         return ExprList(self, Constant("NOT IN"), Parentheses(other)).join(" ")
 
@@ -225,33 +223,27 @@ class Expr(Comparable):
 
 class Condition(Expr):
 
-    __slots__ = ('_expr1', '_op', '_expr2')
+    __slots__ = ('_left', '_right')
 
-    def __init__(self, expr1, op, expr2):
-        self._expr1 = None if expr1 is None else prepare_expr(expr1)
-        self._op = op.upper()
-        self._expr2 = None if expr2 is None else prepare_expr(expr2)
+    def __init__(self, left, op, right):
+        self._left = prepare_expr(left)
+        self._sql = op.upper()
+        self._right = prepare_expr(right)
 
     def __sqlrepr__(self, dialect):
-        s1 = sqlrepr(self._expr1, dialect)
-        s2 = sqlrepr(self._expr2, dialect)
-        if not s1:
-            return s2
-        if not s2:
-            return s1
-        return "{0} {1} {2}".format(s1, self._op, s2)
+        return "{0} {1} {2}".format(sqlrepr(self._left, dialect), self._sql, sqlrepr(self._right, dialect))
 
     def __params__(self):
-        params = sqlparams(self._expr1) + sqlparams(self._expr2)
+        params = sqlparams(self._left) + sqlparams(self._right)
         return params
 
 
 class ExprList(Expr):
 
-    __slots__ = ('_sep', '_args')
+    __slots__ = ('_args', )
 
     def __init__(self, *args):
-        self._sep = " "
+        self._sql = " "
         self._args = []
         args = list(args)
         if len(args) and hasattr(args[0], '__iter__'):
@@ -262,7 +254,7 @@ class ExprList(Expr):
             self._args[i] = prepare_expr(arg)
 
     def join(self, sep):
-        self._sep = sep
+        self._sql = sep
         return self
 
     def __len__(self):
@@ -304,7 +296,7 @@ class ExprList(Expr):
         return self
 
     def __sqlrepr__(self, dialect):
-        return self._sep.join([sqlrepr(a, dialect) for a in self._args])
+        return self._sql.join([sqlrepr(a, dialect) for a in self._args])
 
     def __params__(self):
         params = []
@@ -323,7 +315,7 @@ class FieldList(ExprList):
     __slots__ = ()
 
     def _build(self):
-        sql = ExprList().join(self._sep)
+        sql = ExprList().join(self._sql)
         for a in self._args:
             if isinstance(a, Alias):
                 a = ExprList(a._expr, Constant("AS"), a).join(" ")
@@ -338,11 +330,11 @@ class FieldList(ExprList):
 
 class Concat(ExprList):
 
-    __slots__ = ('_sep', '_args', '_ws')
+    __slots__ = ('_args', '_ws')
 
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
-        self._sep = ' || '
+        self._sql = ' || '
         self._ws = None
 
     def ws(self, sep):
@@ -359,7 +351,7 @@ class Concat(ExprList):
 
 class Placeholder(Expr):
 
-    __slots__ = ('_sql', '_params')
+    __slots__ = ()
 
     def __init__(self, *params):
         super(Placeholder, self).__init__(PLACEHOLDER, *params)
@@ -386,14 +378,14 @@ class OmitParentheses(Parentheses):
 
 class Prefix(Expr):
 
-    __slots__ = ('_prefix', '_expr')
+    __slots__ = ('_expr', )
 
     def __init__(self, prefix, expr):
-        self._prefix = prefix
+        self._sql = prefix
         self._expr = prepare_expr(expr)
 
     def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(self._prefix, sqlrepr(self._expr, dialect))
+        return "{0} {1}".format(self._sql, sqlrepr(self._expr, dialect))
 
     def __params__(self):
         return sqlparams(self._expr)
@@ -401,14 +393,14 @@ class Prefix(Expr):
 
 class Postfix(Expr):
 
-    __slots__ = ('_expr', '_postfix')
+    __slots__ = ('_expr', )
 
     def __init__(self, expr, postfix):
-        self._postfix = postfix
+        self._sql = postfix
         self._expr = prepare_expr(expr)
 
     def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._postfix)
+        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._sql)
 
     def __params__(self):
         return sqlparams(self._expr)
@@ -796,7 +788,7 @@ class QuerySet(Expr):
             if hasattr(args[0], '__iter__'):
                 self = self.order_by(*args.pop(0), reset=True)
             direct = "DESC" if opts.get("desc") else "ASC"
-            self._order_by.extend([f if isinstance(f, Postfix) and f._postfix in ("ASC", "DESC") else Postfix(f, direct) for f in args])
+            self._order_by.extend([f if isinstance(f, Postfix) and f._sql in ("ASC", "DESC") else Postfix(f, direct) for f in args])
         return self
 
     def limit(self, *args, **kwargs):
