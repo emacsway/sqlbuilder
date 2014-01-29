@@ -113,19 +113,19 @@ class TestSmartSQL(unittest.TestCase):
     def test_in(self):
         self.assertEqual(
             QS(T.tb).where(T.tb.cl == [1, T.tb.cl3, 5, ]).where(T.tb.cl2 == [1, T.tb.cl4, ]).select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" IN (%s, "tb"."cl3", %s) AND "tb"."cl2" IN (%s, "tb"."cl4"))', [1, 5, 1, ], )
+            ('SELECT * FROM "tb" WHERE (("tb"."cl" IN (%s, "tb"."cl3", %s)) AND ("tb"."cl2" IN (%s, "tb"."cl4")))', [1, 5, 1, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl != [1, 3, 5, ]).select('*'),
-            ('SELECT * FROM "tb" WHERE "tb"."cl" NOT IN (%s, %s, %s)', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE ("tb"."cl" NOT IN (%s, %s, %s))', [1, 3, 5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.in_([1, 3, 5, ])).select('*'),
-            ('SELECT * FROM "tb" WHERE "tb"."cl" IN (%s, %s, %s)', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE ("tb"."cl" IN (%s, %s, %s))', [1, 3, 5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.not_in([1, 3, 5, ])).select('*'),
-            ('SELECT * FROM "tb" WHERE "tb"."cl" NOT IN (%s, %s, %s)', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE ("tb"."cl" NOT IN (%s, %s, %s))', [1, 3, 5, ], )
         )
 
     def test_between(self):
@@ -241,16 +241,16 @@ class TestSmartSQL(unittest.TestCase):
         w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= now)
         self.assertEqual(
             QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND "grade"."status" IN (%s, %s)) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT 1', [1, 0, 1, '2009-01-01', now, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT 1', [1, 0, 1, '2009-01-01', now, ], )
         )
         w = w & (F.base__status != [1, 2])
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN 1")),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN 1) FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND "grade"."status" IN (%s, %s)) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND "base"."status" NOT IN (%s, %s))', [1, 0, 1, '2009-01-01', now, 1, 2, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN 1) FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND ("base"."status" NOT IN (%s, %s)))', [1, 0, 1, '2009-01-01', now, 1, 2, ], )
         )
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN " + PLACEHOLDER, 'exp_value').as_("exp_result")),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN %s) AS "exp_result" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND "grade"."status" IN (%s, %s)) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND "base"."status" NOT IN (%s, %s))', ['exp_value', 1, 0, 1, '2009-01-01', now, 1, 2, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN %s) AS "exp_result" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND ("base"."status" NOT IN (%s, %s)))', ['exp_value', 1, 0, 1, '2009-01-01', now, 1, 2, ], )
         )
         qs = QS(T.user)
         self.assertEqual(
@@ -270,7 +270,7 @@ class TestSmartSQL(unittest.TestCase):
         qs = qs.where((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
         self.assertEqual(
             qs.select(F.user__name, F.address__street, func.COUNT(Constant("*")).as_("count")),
-            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE (("id" = %s) AND ("address"."city_id" IN (%s, %s) OR (address.city_id IS NULL)))', [1, 111, 112, ], )
+            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE (("id" = %s) AND (("address"."city_id" IN (%s, %s)) OR (address.city_id IS NULL)))', [1, 111, 112, ], )
         )
 
     def test_subquery(self):
@@ -281,7 +281,7 @@ class TestSmartSQL(unittest.TestCase):
         )
         self.assertEqual(
             QS(T.tb1).where(T.tb1.tb2_id.in_(sub_q)).select(T.tb1.id),
-            ('SELECT "tb1"."id" FROM "tb1" WHERE "tb1"."tb2_id" IN (SELECT FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT 1)', [], )
+            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" IN (SELECT FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT 1))', [], )
         )
         self.assertEqual(
             QS(T.tb1).select(sub_q.as_('sub_value')),

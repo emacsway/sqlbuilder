@@ -112,6 +112,8 @@ class Comparable(object):
     __le__ = _c("<=")
     is_ = _c("IS")
     is_not = _c("IS NOT")
+    in_ = _c("IN")
+    not_in = _c("NOT IN")
     like = _c("LIKE")
     ilike = _c("ILIKE")
     rlike = _c("LIKE", 1)
@@ -158,16 +160,6 @@ class Comparable(object):
 
     def as_(self, alias):
         return Alias(alias, self)
-
-    def in_(self, other):
-        if not isinstance(other, Expr) and hasattr(other, '__iter__'):
-            other = ExprList(*other).join(", ")
-        return ExprList(self, Constant("IN"), Parentheses(other)).join(" ")
-
-    def not_in(self, other):
-        if not isinstance(other, Expr) and hasattr(other, '__iter__'):
-            other = ExprList(*other).join(", ")
-        return ExprList(self, Constant("NOT IN"), Parentheses(other)).join(" ")
 
     def between(self, start, end):
         return Between(self, start, end)
@@ -1009,6 +1001,8 @@ def parentheses_conditional(expr):
 def prepare_expr(expr):
     if expr is None:
         return Constant("NULL")
+    if not isinstance(expr, Expr) and hasattr(expr, '__iter__'):
+        expr = Parentheses(ExprList(*expr).join(", "))
     return parentheses_conditional(placeholder_conditional(expr))
 
 
