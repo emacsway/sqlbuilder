@@ -62,10 +62,10 @@ table operator::
 condition operator::
 
     In [19]: (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[19]: <Condition: ("author"."first_name" <> %s) AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    Out[19]: <Condition: ("author"."first_name" <> %s) AND ("author"."last_name" IN (%s, %s)), ['Tom', 'Smith', 'Johnson']>
 
     In [20]: (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[20]: <Condition: ("author"."first_name" <> %s) OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    Out[20]: <Condition: ("author"."first_name" <> %s) OR ("author"."last_name" IN (%s, %s)), ['Tom', 'Smith', 'Johnson']>
 
     In [21]: T.author.last_name.startswith('Sm')
     Out[21]: <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
