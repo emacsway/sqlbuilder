@@ -464,7 +464,7 @@ class MetaField(type):
         return f.as_(alias) if alias else f
 
 
-class Field(MetaField(bytes("NewBase"), (Expr, ), {})):
+class Field(MetaField(b"NewBase", (Expr, ), {})):
 
     __slots__ = ('_name', '_prefix')
 
@@ -512,7 +512,7 @@ class MetaTable(type):
         return table.as_(alias) if alias else table
 
 
-class Table(MetaTable(bytes("NewBase"), (object, ), {})):
+class Table(MetaTable(b"NewBase", (object, ), {})):
 
     __slots__ = ('_name', )
 
