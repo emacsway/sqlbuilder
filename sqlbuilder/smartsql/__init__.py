@@ -497,7 +497,7 @@ class MetaTable(type):
 
     def __new__(cls, name, bases, attrs):
         def _f(attr):
-            return lambda self, *a, **kw: getattr(TableJoin(self), attr)(*a, **kw)
+            return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
         for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
             attrs[a] = _f(a)
@@ -520,7 +520,7 @@ class Table(MetaTable(b"NewBase", (object, ), {})):
         self._name = name
 
     def as_(self, alias):
-        return TableAlias(alias, self)
+        return self._cr.TableAlias(alias, self)
 
     def __getattr__(self, name):
         if name[0] == '_':
@@ -585,7 +585,7 @@ class TableJoin(object):
 
     def join(self, join_type, obj):
         if not isinstance(obj, TableJoin) or obj.left():
-            obj = TableJoin(obj, left=self)
+            obj = type(self)(obj, left=self)
         obj = obj.left(self).join_type(join_type)
         return obj
 
@@ -601,12 +601,12 @@ class TableJoin(object):
 
     def on(self, c):
         if self._on is not None:
-            self = TableJoin(self)
+            self = type(self)(self)
         self._on = parentheses_conditional(c)
         return self
 
     def group(self):
-        return TableJoin(self)
+        return type(self)(self)
 
     def hint(self, expr):
         if isinstance(expr, string_types):
@@ -668,7 +668,7 @@ class QuerySet(Expr):
         self._fields = FieldList().join(", ")
         if tables:
             if not isinstance(tables, TableJoin):
-                tables = TableJoin(tables)
+                tables = self._cr.TableJoin(tables)
         self._tables = tables
         self._wheres = None
         self._havings = None
@@ -702,7 +702,7 @@ class QuerySet(Expr):
         if t is None:
             return self._tables
         self = self.clone()
-        self._tables = t if isinstance(t, TableJoin) else TableJoin(t)
+        self._tables = t if isinstance(t, TableJoin) else self._cr.TableJoin(t)
         return self
 
     def distinct(self, val=None):
@@ -865,10 +865,10 @@ class QuerySet(Expr):
         return self.result()
 
     def as_table(self, alias):
-        return TableAlias(alias, self)
+        return self._cr.TableAlias(alias, self)
 
     def as_union(self):
-        return UnionQuerySet(self)
+        return self._cr.UnionQuerySet(self)
 
     def execute(self):
         return sqlrepr(self, self._dialect), sqlparams(self)  # as_sql()? compile()?
@@ -986,6 +986,19 @@ class Name(object):
         return self._sqlrepr_base('"', dialect)
 
 
+class ClassRegistry(object):
+    def __call__(self, name_or_cls):
+        name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
+
+        def deco(cls):
+            setattr(self, name, cls)
+            if not getattr(cls, '_cr', None) is self:  # save mem
+                cls._cr = self
+            return cls
+
+        return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
+
+
 def placeholder_conditional(expr):
     if not isinstance(expr, (Expr, Table, TableJoin)):
         return Placeholder(expr)
@@ -1035,8 +1048,12 @@ def warn(old, new, stacklevel=3):
 A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
 qn = Name()
+cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
+
+for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet):
+    cr(cls)
 
 from . import dialects

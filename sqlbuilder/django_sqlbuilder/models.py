@@ -1,4 +1,5 @@
 from __future__ import absolute_import, unicode_literals
+import copy
 import collections
 from django.conf import settings
 from django.db import connections
@@ -25,6 +26,8 @@ SMARTSQL_DIALECTS = {
     'oracle': 'oracle',
 }
 
+cr = copy.copy(smartsql.cr)
+
 
 class classproperty(object):
     """Class property decorator"""
@@ -35,6 +38,7 @@ class classproperty(object):
         return self.getter(owner)
 
 
+@cr('QuerySet')
 class QS(smartsql.QS):
     """Query Set adapted for Django."""
 
@@ -123,10 +127,8 @@ class QS(smartsql.QS):
             return self.execute().fetchone()[0]
         return self.execute()
 
-    def as_union(self):
-        return UnionQuerySet(self)
 
-
+@cr
 class UnionQuerySet(smartsql.UnionQuerySet, QS):
     """Union query class"""
     def __init__(self, qs):
@@ -135,6 +137,7 @@ class UnionQuerySet(smartsql.UnionQuerySet, QS):
         self._using = qs.using()
 
 
+@cr
 class Table(smartsql.Table):
     """Table class for Django model"""
 
@@ -204,15 +207,13 @@ class Table(smartsql.Table):
 
         return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
 
-    def as_(self, alias):
-        return TableAlias(alias, self)
 
-
+@cr
 class TableAlias(smartsql.TableAlias, Table):
     """Table alias class"""
     @property
     def model(self):
-        return self._table.model
+        return getattr(self._table, 'model', None)  # Can be subquery
 
 
 @classproperty
