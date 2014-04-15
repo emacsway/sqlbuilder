@@ -6,6 +6,8 @@ SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikip
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/emacsway/autumn>`_.
 
+Home Page: https://bitbucket.org/emacsway/sqlbuilder
+
 LICENSE:
 
 * License is BSD
