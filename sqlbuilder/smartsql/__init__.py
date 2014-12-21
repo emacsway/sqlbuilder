@@ -85,6 +85,7 @@ class Comparable(object):
             a = 'i' + a
         if inv:
             a = 'r' + a
+
         def f(self, other):
             args = [other]
             if 4 & mask:
@@ -320,6 +321,7 @@ class FieldList(ExprList):
     def __params__(self):
         return sqlparams(self._build())
 
+
 class Concat(ExprList):
 
     __slots__ = ('_args', '_ws')
@@ -474,6 +476,9 @@ class Field(MetaField(b"NewBase", (Expr, ), {})):
             prefix = Table(prefix)
         self._prefix = prefix
 
+    def __cachekey__(self):
+        return (self._name, self._prefix.__cachekey__())
+
     def __sqlrepr__(self, dialect):
         sql = self._name == '*' and self._name or qn(self._name, dialect)
         if self._prefix is not None:
@@ -528,7 +533,13 @@ class Table(MetaTable(b"NewBase", (object, ), {})):
         parts = name.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
         f = Field(name, self)
-        return f.as_(alias) if alias else f
+        if alias:
+            f = f.as_(alias)
+        setattr(self, name, f)
+        return f
+
+    def __cachekey__(self):
+        return self._name
 
     def __sqlrepr__(self, dialect):
         return qn(self._name, dialect)
@@ -553,6 +564,9 @@ class TableAlias(Table):
 
     def as_(self, alias):
         return type(self)(alias, self._table)
+
+    def __cachekey__(self):
+        return self._alias
 
     def __sqlrepr__(self, dialect):
         return qn(self._alias, dialect)
@@ -971,10 +985,6 @@ class Name(object):
     def __init__(self, name=None):
         self._name = name
 
-    def __call__(self, name, dialect):
-        self._name = name
-        return sqlrepr(self, dialect)
-
     def _sqlrepr_base(self, q, dialect):
         if hasattr(self._name, '__sqlrepr__'):
             return sqlrepr(self._name, dialect)
@@ -1026,13 +1036,29 @@ def default_dialect(dialect=None):
     return DEFAULT_DIALECT
 
 
-def sqlrepr(obj, dialect=None, cls=None):
-    """Renders query set"""
-    dialect = dialect or DEFAULT_DIALECT
-    callback = sql_dialects.sqlrepr(dialect, cls or obj.__class__)
-    if callback is not None:
-        return callback(obj, dialect)
-    return obj  # It's a string
+class SqlRepr(dict):
+
+    def __call__(self, obj, dialect=None, cls=None):
+        try:
+            key = (obj.__cachekey__(), dialect, cls or obj.__class__)
+            return self[key]
+        except AttributeError:
+            return self.sqlrepr(obj, dialect, cls)
+        except KeyError:
+            self[key] = self.sqlrepr(obj, dialect, cls)
+            return self[key]
+        else:
+            raise
+
+    def sqlrepr(self, obj, dialect=None, cls=None):
+        """Renders query set"""
+        dialect = dialect or DEFAULT_DIALECT
+        callback = sql_dialects.sqlrepr(dialect, cls or obj.__class__)
+        if callback is not None:
+            return callback(obj, dialect)
+        return obj  # It's a string
+
+sqlrepr = SqlRepr()
 
 
 def sqlparams(obj):
@@ -1047,7 +1073,7 @@ def warn(old, new, stacklevel=3):
 
 A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
-qn = Name()
+qn = lambda name, dialect: sqlrepr(Name(name), dialect)
 cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):
