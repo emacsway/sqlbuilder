@@ -200,12 +200,9 @@ class Expr(Comparable):
     __slots__ = ('_sql', '_params')
 
     def __init__(self, sql, *params):
-        self._sql = sql
-        self._params = []
-        params = list(params)
-        if len(params) and hasattr(params[0], '__iter__'):
-            self._params.extend(params.pop(0))
-        self._params.extend(params)
+        if params and hasattr(params[0], '__iter__'):
+            return self.__init__(sql, *params[0])
+        self._sql, self._params = sql, params
 
     def __sqlrepr__(self, dialect):
         return getattr(self, '_sql', "")
@@ -236,15 +233,9 @@ class ExprList(Expr):
     __slots__ = ('_args', )
 
     def __init__(self, *args):
-        self._sql = " "
-        self._args = []
-        args = list(args)
-        if len(args) and hasattr(args[0], '__iter__'):
-            self._args.extend(args.pop(0))
-        self._args.extend(args)
-
-        for i, arg in enumerate(self._args):
-            self._args[i] = prepare_expr(arg)
+        if args and hasattr(args[0], '__iter__'):
+            return self.__init__(*args[0])
+        self._sql, self._args = " ", list(map(prepare_expr, args))
 
     def join(self, sep):
         self._sql = sep
@@ -730,15 +721,16 @@ class QuerySet(Expr):
     def fields(self, *args, **opts):
         if not args and not opts:
             return self._fields
-        self = self.clone()
+
+        if args and hasattr(args[0], '__iter__'):
+            return self.fields(*args[0], reset=True)
+
+        c = self.clone()
         if opts.get("reset"):
-            self._fields.reset()
+            c._fields.reset()
         if args:
-            args = list(args)
-            if hasattr(args[0], '__iter__'):
-                self = self.fields(*args.pop(0), reset=True)
-            self._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
-        return self
+            c._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
+        return c
 
     def on(self, c):
         # TODO: Remove?
@@ -762,43 +754,45 @@ class QuerySet(Expr):
     def group_by(self, *args, **opts):
         if not args and not opts:
             return self._group_by
-        self = self.clone()
+
+        if args and hasattr(args[0], '__iter__'):
+            return self.group_by(*args[0], reset=True)
+
+        c = self.clone()
         if opts.get("reset"):
-            self._group_by.reset()
+            c._group_by.reset()
         if args:
-            args = list(args)
-            if hasattr(args[0], '__iter__'):
-                self = self.group_by(*args.pop(0), reset=True)
-            self._group_by.extend(args)
-        return self
+            c._group_by.extend(args)
+        return c
 
-    def having(self, c):
-        self = self.clone()
-        self._havings = c if self._havings is None else self._havings & c
-        return self
+    def having(self, cond):
+        c = self.clone()
+        c._havings = cond if c._havings is None else c._havings & cond
+        return c
 
-    def or_having(self, c):
-        self = self.clone()
-        self._havings = c if self._havings is None else self._havings | c
-        return self
+    def or_having(self, cond):
+        c = self.clone()
+        c._havings = cond if c._havings is None else c._havings | cond
+        return c
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
         if not args and not opts:
             return self._order_by
-        self = self.clone()
+
+        if args and hasattr(args[0], '__iter__'):
+            return self.order_by(*args[0], reset=True)
+
+        c = self.clone()
         if opts.get("reset"):
-            self._order_by.reset()
+            c._order_by.reset()
         if args:
-            args = list(args)
-            if hasattr(args[0], '__iter__'):
-                self = self.order_by(*args.pop(0), reset=True)
             direct = "DESC" if opts.get("desc") else "ASC"
-            self._order_by.extend([f if isinstance(f, Postfix) and f._sql in ("ASC", "DESC") else Postfix(f, direct) for f in args])
-        return self
+            c._order_by.extend([f if isinstance(f, Postfix) and f._sql in ("ASC", "DESC") else Postfix(f, direct) for f in args])
+        return c
 
     def limit(self, *args, **kwargs):
-        self = self.clone()
+        c = self.clone()
         if args:
             if len(args) < 2:
                 args = (0,) + args
@@ -811,8 +805,8 @@ class QuerySet(Expr):
             sql = "LIMIT {0:d}".format(limit)
         if offset:
             sql = "{0} OFFSET {1:d}".format(sql, offset)
-        self._limit = Constant(sql)
-        return self
+        c._limit = Constant(sql)
+        return c
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -824,15 +818,15 @@ class QuerySet(Expr):
 
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
-        self = self.clone()
-        self._action = "select"
+        c = self.clone()
+        c._action = "select"
         if args:
-            self = self.fields(*args)
+            c = c.fields(*args)
         if opts.get("distinct"):
-            self = self.distinct(True)
+            c = c.distinct(True)
         if opts.get("for_update"):
-            self._for_update = True
-        return self.result()
+            c._for_update = True
+        return c.result()
 
     def count(self):
         qs = type(self)().fields(Constant('COUNT')(Constant('1')).as_('count_value')).tables(self.order_by(reset=True).as_table('count_list'))
@@ -845,38 +839,38 @@ class QuerySet(Expr):
 
     @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, fields, values, **opts):
-        self = self.fields(fields, reset=True)
-        self._action = "insert"
+        c = self.fields(fields, reset=True)
+        c._action = "insert"
         if opts.get("ignore"):
-            self._ignore = True
-        self._values = ExprList().join(", ")
+            c._ignore = True
+        c._values = ExprList().join(", ")
         for row in values:
-            self._values.append(ExprList(*row).join(", "))
+            c._values.append(ExprList(*row).join(", "))
         if opts.get("on_duplicate_key_update"):
-            self._on_duplicate_key_update = ExprList().join(", ")
+            c._on_duplicate_key_update = ExprList().join(", ")
             for f, v in opts.get("on_duplicate_key_update").items():
                 if not isinstance(f, Expr):
                     f = Field(f)
-                self._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
-        return self.result()
+                c._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
+        return c.result()
 
     @opt_checker(["ignore"])
     def update(self, key_values, **opts):
-        self = self.clone()
-        self._action = "update"
+        c = self.clone()
+        c._action = "update"
         if opts.get("ignore"):
-            self._ignore = True
-        self._key_values = ExprList().join(", ")
+            c._ignore = True
+        c._key_values = ExprList().join(", ")
         for f, v in key_values.items():
             if not isinstance(f, Expr):
                 f = Field(f)
-            self._key_values.append(ExprList(f, Constant("="), v))
-        return self.result()
+            c._key_values.append(ExprList(f, Constant("="), v))
+        return c.result()
 
     def delete(self):
-        self = self.clone()
-        self._action = "delete"
-        return self.result()
+        c = self.clone()
+        c._action = "delete"
+        return c.result()
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
