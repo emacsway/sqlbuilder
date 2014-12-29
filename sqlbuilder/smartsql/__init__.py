@@ -1057,7 +1057,7 @@ sqlrepr = SqlRepr()
 
 def sqlparams(obj):
     """Returns query set params"""
-    if hasattr(obj, '__params__'):
+    if hasattr(obj, b'__params__'):
         return list(obj.__params__())
     return []
 
