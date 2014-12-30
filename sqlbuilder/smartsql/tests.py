@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 import datetime
 import unittest
+from collections import OrderedDict
 
 if __name__ == '__main__':
     import os
@@ -314,11 +315,11 @@ class TestSmartSQL(unittest.TestCase):
 
     def test_insert(self):
         self.assertEqual(
-            QS(T.user).insert({
-                "name": "garfield",
-                "gender": "male",
-                "status": 0
-            }, ignore=True),
+            QS(T.user).insert(OrderedDict((
+                ("status", 0),
+                ("gender", "male"),
+                ("name", "garfield")
+            )), ignore=True),
             ('INSERT IGNORE INTO "user" ("status", "gender", "name") VALUES (%s, %s, %s)', [0, 'male', 'garfield', ], )
         )
         fl = ("name", "gender", "status", "age")
@@ -330,7 +331,7 @@ class TestSmartSQL(unittest.TestCase):
 
     def test_update(self):
         self.assertEqual(
-            QS(T.user).where(F.id == 100).update({"name": "nobody", "status": 1}, ignore=True),
+            QS(T.user).where(F.id == 100).update(OrderedDict((("status", 1), ("name", "nobody"))), ignore=True),
             ('UPDATE IGNORE "user" SET "status" = %s, "name" = %s WHERE ("id" = %s)', [1, 'nobody', 100, ], )
         )
 

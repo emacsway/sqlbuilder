@@ -11,18 +11,25 @@ try:
     str = unicode  # Python 2.* compatible
     string_types = (basestring,)
     integer_types = (int, long)
+
+    def i(v):
+        return v.encode('utf-8')
+
 except NameError:
     string_types = (str,)
     integer_types = (int,)
 
+    def i(v):
+        return v
+
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
-LOOKUP_SEP = b'__'
+LOOKUP_SEP = i('__')
 
 
 class SqlDialects(object):
 
-    __slots__ = (b'_registry', )
+    __slots__ = (i('_registry'), )
 
     def __init__(self):
         self._registry = {}
@@ -36,7 +43,7 @@ class SqlDialects(object):
     def sqlrepr(self, dialect, cls):
         ns = self._registry.setdefault(dialect, {})
         for t in cls.mro():
-            r = ns.get(t, t.__dict__.get(b'__sqlrepr__'))
+            r = ns.get(t, t.__dict__.get('__sqlrepr__'))
             if r:
                 return r
         return None
@@ -148,14 +155,14 @@ class Comparable(object):
     def __eq__(self, other):
         if other is None:
             return self.is_(None)
-        if hasattr(other, b'__iter__'):
+        if is_list(other):
             return self.in_(other)
         return Condition(self, "=", other)
 
     def __ne__(self, other):
         if other is None:
             return self.is_not(None)
-        if hasattr(other, b'__iter__'):
+        if is_list(other):
             return self.not_in(other)
         return Condition(self, "<>", other)
 
@@ -197,23 +204,23 @@ class Comparable(object):
 
 class Expr(Comparable):
 
-    __slots__ = (b'_sql', b'_params')
+    __slots__ = (i('_sql'), i('_params'))
 
     def __init__(self, sql, *params):
-        if params and hasattr(params[0], b'__iter__'):
+        if params and is_list(params[0]):
             return self.__init__(sql, *params[0])
         self._sql, self._params = sql, params
 
     def __sqlrepr__(self, dialect):
-        return getattr(self, b'_sql', "")
+        return getattr(self, '_sql', "")
 
     def __params__(self):
-        return getattr(self, b'_params', [])
+        return getattr(self, '_params', [])
 
 
 class Condition(Expr):
 
-    __slots__ = (b'_left', b'_right')
+    __slots__ = (i('_left'), i('_right'))
 
     def __init__(self, left, op, right):
         self._left = prepare_expr(left)
@@ -230,10 +237,10 @@ class Condition(Expr):
 
 class ExprList(Expr):
 
-    __slots__ = (b'_args', )
+    __slots__ = (i('_args'), )
 
     def __init__(self, *args):
-        if args and hasattr(args[0], b'__iter__'):
+        if args and is_list(args[0]):
             return self.__init__(*args[0])
         self._sql, self._args = " ", list(map(prepare_expr, args))
 
@@ -315,7 +322,7 @@ class FieldList(ExprList):
 
 class Concat(ExprList):
 
-    __slots__ = (b'_args', b'_ws')
+    __slots__ = (i('_args'), i('_ws'))
 
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
@@ -344,7 +351,7 @@ class Placeholder(Expr):
 
 class Parentheses(Expr):
 
-    __slots__ = (b'_expr', )
+    __slots__ = (i('_expr', ))
 
     def __init__(self, expr):
         self._expr = expr
@@ -363,7 +370,7 @@ class OmitParentheses(Parentheses):
 
 class Prefix(Expr):
 
-    __slots__ = (b'_expr', )
+    __slots__ = (i('_expr', ))
 
     def __init__(self, prefix, expr):
         self._sql = prefix
@@ -378,7 +385,7 @@ class Prefix(Expr):
 
 class Postfix(Expr):
 
-    __slots__ = (b'_expr', )
+    __slots__ = (i('_expr', ))
 
     def __init__(self, expr, postfix):
         self._sql = postfix
@@ -393,7 +400,7 @@ class Postfix(Expr):
 
 class Between(Expr):
 
-    __slots__ = (b'_expr', b'_start', b'_end')
+    __slots__ = (i('_expr'), i('_start'), i('_end'))
 
     def __init__(self, expr, start, end):
         self._expr = prepare_expr(expr)
@@ -409,7 +416,7 @@ class Between(Expr):
 
 class Callable(Expr):
 
-    __slots__ = (b'_expr', b'_args')
+    __slots__ = (i('_expr'), i('_args'))
 
     def __init__(self, expr, *args):
         self._expr = expr
@@ -424,7 +431,7 @@ class Callable(Expr):
 
 class Constant(Expr):
 
-    __slots__ = (b'_const', )
+    __slots__ = (i('_const'), )
 
     def __init__(self, const):
         self._const = const.upper()
@@ -447,7 +454,7 @@ class ConstantSpace(object):
 class MetaField(type):
 
     def __getattr__(cls, key):
-        if key[0] == b'_':
+        if key[0] == '_':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 2)
         prefix, name, alias = parts + [None] * (3 - len(parts))
@@ -457,9 +464,9 @@ class MetaField(type):
         return f.as_(alias) if alias else f
 
 
-class Field(MetaField(b"NewBase", (Expr, ), {})):
+class Field(MetaField(i("NewBase"), (Expr, ), {})):
 
-    __slots__ = (b'_name', b'_prefix')
+    __slots__ = (i('_name'), i('_prefix'))
 
     def __init__(self, name, prefix=None):
         self._name = name
@@ -479,7 +486,7 @@ class Field(MetaField(b"NewBase", (Expr, ), {})):
 
 class Alias(Expr):
 
-    __slots__ = (b'_expr', b'_sql')
+    __slots__ = (i('_expr'), i('_sql'))
 
     def __init__(self, alias, expr=None):
         self._expr = expr
@@ -495,12 +502,12 @@ class MetaTable(type):
         def _f(attr):
             return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
-        for a in [b'inner_join', b'left_join', b'right_join', b'full_join', b'cross_join', b'join', b'on', b'hint']:
+        for a in [i('inner_join'), i('left_join'), i('right_join'), i('full_join'), i('cross_join'), i('join'), i('on'), i('hint')]:
             attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
 
     def __getattr__(cls, key):
-        if key[0] == b'_':
+        if key[0] == '_':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
@@ -508,9 +515,9 @@ class MetaTable(type):
         return table.as_(alias) if alias else table
 
 
-class Table(MetaTable(b"NewBase", (object, ), {})):
+class Table(MetaTable(i("NewBase"), (object, ), {})):
 
-    __slots__ = (b'_name', )
+    __slots__ = (i('_name'), )
 
     def __init__(self, name):
         self._name = name
@@ -519,7 +526,7 @@ class Table(MetaTable(b"NewBase", (object, ), {})):
         return self._cr.TableAlias(alias, self)
 
     def __getattr__(self, name):
-        if name[0] == b'_':
+        if name[0] == '_':
             raise AttributeError
         parts = name.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
@@ -538,16 +545,16 @@ class Table(MetaTable(b"NewBase", (object, ), {})):
     def __params__(self):
         return []
 
-    __and__ = same(b'inner_join')
-    __add__ = same(b'left_join')
-    __sub__ = same(b'right_join')
-    __or__ = same(b'full_join')
-    __mul__ = same(b'cross_join')
+    __and__ = same(i('inner_join'))
+    __add__ = same(i('left_join'))
+    __sub__ = same(i('right_join'))
+    __or__ = same(i('full_join'))
+    __mul__ = same(i('cross_join'))
 
 
 class TableAlias(Table):
 
-    __slots__ = (b'_table', b'_alias')
+    __slots__ = (i('_table'), i('_alias'))
 
     def __init__(self, alias, table=None):
         self._table = table
@@ -565,7 +572,7 @@ class TableAlias(Table):
 
 class TableJoin(object):
 
-    __slots__ = (b'_table', b'_alias', b'_join_type', b'_on', b'_left', b'_hint', )
+    __slots__ = (i('_table'), i('_alias'), i('_join_type'), i('_on'), i('_left'), i('_hint'), )
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
@@ -621,7 +628,7 @@ class TableJoin(object):
 
     def __copy__(self):
         dup = copy.copy(super(TableJoin, self))
-        for a in [b'_hint', ]:
+        for a in ['_hint', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
@@ -646,25 +653,25 @@ class TableJoin(object):
     def __params__(self):
         return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on) + sqlparams(self._hint)
 
-    as_nested = same(b'group')
-    __and__ = same(b'inner_join')
-    __add__ = same(b'left_join')
-    __sub__ = same(b'right_join')
-    __or__ = same(b'full_join')
-    __mul__ = same(b'cross_join')
+    as_nested = same(i('group'))
+    __and__ = same(i('inner_join'))
+    __add__ = same(i('left_join'))
+    __sub__ = same(i('right_join'))
+    __or__ = same(i('full_join'))
+    __mul__ = same(i('cross_join'))
 
 
 class QuerySet(Expr):
 
     _clauses = (
-        ('fields', None, b'_fields'),
-        ('tables', None, b'_tables'),
-        ('from', 'FROM', b'_tables'),
-        ('where', 'WHERE', b'_wheres'),
-        ('group', 'GROUP BY', b'_group_by'),
-        ('having', 'HAVING', b'_havings'),
-        ('order', 'ORDER BY', b'_order_by'),
-        ('limit', None, b'_limit')
+        ('fields', None, i('_fields')),
+        ('tables', None, i('_tables')),
+        ('from', 'FROM', i('_tables')),
+        ('where', 'WHERE', i('_wheres')),
+        ('group', 'GROUP BY', i('_group_by')),
+        ('having', 'HAVING', i('_havings')),
+        ('order', 'ORDER BY', i('_order_by')),
+        ('limit', None, i('_limit'))
     )
 
     def __init__(self, tables=None):
@@ -692,7 +699,7 @@ class QuerySet(Expr):
 
     def clone(self):
         dup = copy.copy(super(QuerySet, self))
-        for a in [b'_fields', b'_tables', b'_group_by', b'_order_by', b'_values', b'_key_values', ]:
+        for a in ['_fields', '_tables', '_group_by', '_order_by', '_values', '_key_values', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
@@ -717,16 +724,16 @@ class QuerySet(Expr):
         self._distinct = val
         return self
 
-    @opt_checker([b"reset", ])
+    @opt_checker([i("reset"), ])
     def fields(self, *args, **opts):
         if not args and not opts:
             return self._fields
 
-        if args and hasattr(args[0], b'__iter__'):
+        if args and is_list(args[0]):
             return self.fields(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(b"reset"):
+        if opts.get(i("reset")):
             c._fields.reset()
         if args:
             c._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
@@ -750,16 +757,16 @@ class QuerySet(Expr):
         self._wheres = c if self._wheres is None else self._wheres | c
         return self
 
-    @opt_checker([b"reset", ])
+    @opt_checker([i("reset"), ])
     def group_by(self, *args, **opts):
         if not args and not opts:
             return self._group_by
 
-        if args and hasattr(args[0], b'__iter__'):
+        if args and is_list(args[0]):
             return self.group_by(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(b"reset"):
+        if opts.get(i("reset")):
             c._group_by.reset()
         if args:
             c._group_by.extend(args)
@@ -775,16 +782,16 @@ class QuerySet(Expr):
         c._havings = cond if c._havings is None else c._havings | cond
         return c
 
-    @opt_checker([b"desc", b"reset", ])
+    @opt_checker([i("desc"), i("reset"), ])
     def order_by(self, *args, **opts):
         if not args and not opts:
             return self._order_by
 
-        if args and hasattr(args[0], b'__iter__'):
+        if args and is_list(args[0]):
             return self.order_by(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(b"reset"):
+        if opts.get(i("reset")):
             c._order_by.reset()
         if args:
             direct = "DESC" if opts.get("desc") else "ASC"
@@ -798,8 +805,8 @@ class QuerySet(Expr):
                 args = (0,) + args
             offset, limit = args
         else:
-            limit = kwargs.get(b'limit')
-            offset = kwargs.get(b'offset', 0)
+            limit = kwargs.get('limit')
+            offset = kwargs.get('offset', 0)
         sql = ""
         if limit:
             sql = "LIMIT {0:d}".format(limit)
@@ -816,15 +823,15 @@ class QuerySet(Expr):
             offset, limit = key, 1
         return self.limit(offset, limit)
 
-    @opt_checker([b"distinct", b"for_update"])
+    @opt_checker([i("distinct"), i("for_update")])
     def select(self, *args, **opts):
         c = self.clone()
         c._action = "select"
         if args:
             c = c.fields(*args)
-        if opts.get(b"distinct"):
+        if opts.get(i("distinct")):
             c = c.distinct(True)
-        if opts.get(b"for_update"):
+        if opts.get(i("for_update")):
             c._for_update = True
         return c.result()
 
@@ -837,16 +844,16 @@ class QuerySet(Expr):
         items = list(fv_dict.items())
         return self.insert_many([x[0] for x in items], ([x[1] for x in items], ), **opts)
 
-    @opt_checker([b"ignore", b"on_duplicate_key_update"])
+    @opt_checker([i("ignore"), i("on_duplicate_key_update")])
     def insert_many(self, fields, values, **opts):
         c = self.fields(fields, reset=True)
         c._action = "insert"
-        if opts.get(b"ignore"):
+        if opts.get(i("ignore")):
             c._ignore = True
         c._values = ExprList().join(", ")
         for row in values:
             c._values.append(ExprList(*row).join(", "))
-        if opts.get(b"on_duplicate_key_update"):
+        if opts.get(i("on_duplicate_key_update")):
             c._on_duplicate_key_update = ExprList().join(", ")
             for f, v in opts.get("on_duplicate_key_update").items():
                 if not isinstance(f, Expr):
@@ -854,11 +861,11 @@ class QuerySet(Expr):
                 c._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
         return c.result()
 
-    @opt_checker([b"ignore"])
+    @opt_checker([i("ignore")])
     def update(self, key_values, **opts):
         c = self.clone()
         c._action = "update"
-        if opts.get(b"ignore"):
+        if opts.get(i("ignore")):
             c._ignore = True
         c._key_values = ExprList().join(", ")
         for f, v in key_values.items():
@@ -974,13 +981,13 @@ class UnionQuerySet(QuerySet):
 
 class Name(object):
 
-    __slots__ = (b'_name', )
+    __slots__ = (i('_name'), )
 
     def __init__(self, name=None):
         self._name = name
 
     def _sqlrepr_base(self, q, dialect):
-        if hasattr(self._name, b'__sqlrepr__'):
+        if hasattr(self._name, '__sqlrepr__'):
             return sqlrepr(self._name, dialect)
         if '.' in self._name:
             return '.'.join(map(partial(qn, dialect=dialect), self._name.split('.')))
@@ -1003,6 +1010,10 @@ class ClassRegistry(object):
         return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
 
 
+def is_list(v):
+    return isinstance(v, (list, tuple))
+
+
 def placeholder_conditional(expr):
     if not isinstance(expr, (Expr, Table, TableJoin)):
         return Placeholder(expr)
@@ -1018,7 +1029,7 @@ def parentheses_conditional(expr):
 def prepare_expr(expr):
     if expr is None:
         return Constant("NULL")
-    if not isinstance(expr, Expr) and hasattr(expr, '__iter__'):
+    if not isinstance(expr, Expr) and is_list(expr):
         expr = Parentheses(ExprList(*expr).join(", "))
     return parentheses_conditional(placeholder_conditional(expr))
 
@@ -1057,7 +1068,7 @@ sqlrepr = SqlRepr()
 
 def sqlparams(obj):
     """Returns query set params"""
-    if hasattr(obj, b'__params__'):
+    if hasattr(obj, '__params__'):
         return list(obj.__params__())
     return []
 
