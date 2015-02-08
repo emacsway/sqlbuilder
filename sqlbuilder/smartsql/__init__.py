@@ -464,18 +464,16 @@ class MetaField(type):
         return f.as_(alias) if alias else f
 
 
-class Field(MetaField(i("NewBase"), (Expr, ), {})):
+class Field(MetaField(i("NewBase"), (Expr,), {})):
 
-    __slots__ = (i('_name'), i('_prefix'))
+    __slots__ = (i('_name'), i('_prefix'), i('__cached__'))
 
     def __init__(self, name, prefix=None):
         self._name = name
         if isinstance(prefix, string_types):
             prefix = Table(prefix)
         self._prefix = prefix
-
-    def __cachekey__(self):
-        return (self._name, self._prefix.__cachekey__())
+        self.__cached__ = {}
 
     def __sqlrepr__(self, dialect):
         sql = self._name == '*' and self._name or qn(self._name, dialect)
@@ -517,10 +515,11 @@ class MetaTable(type):
 
 class Table(MetaTable(i("NewBase"), (object, ), {})):
 
-    __slots__ = (i('_name'), )
+    __slots__ = (i('_name'), i('__cached__'))
 
     def __init__(self, name):
         self._name = name
+        self.__cached__ = {}
 
     def as_(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -535,9 +534,6 @@ class Table(MetaTable(i("NewBase"), (object, ), {})):
             f = f.as_(alias)
         setattr(self, name, f)
         return f
-
-    def __cachekey__(self):
-        return self._name
 
     def __sqlrepr__(self, dialect):
         return qn(self._name, dialect)
@@ -559,12 +555,10 @@ class TableAlias(Table):
     def __init__(self, alias, table=None):
         self._table = table
         self._alias = alias
+        self.__cached__ = {}
 
     def as_(self, alias):
         return type(self)(alias, self._table)
-
-    def __cachekey__(self):
-        return self._alias
 
     def __sqlrepr__(self, dialect):
         return qn(self._alias, dialect)
@@ -1045,13 +1039,13 @@ class SqlRepr(dict):
 
     def __call__(self, obj, dialect=None, cls=None):
         try:
-            key = (obj.__cachekey__(), dialect, cls or obj.__class__)
-            return self[key]
+            key = (dialect, cls)
+            return obj.__cached__[key]
         except AttributeError:
             return self.sqlrepr(obj, dialect, cls)
         except KeyError:
-            self[key] = self.sqlrepr(obj, dialect, cls)
-            return self[key]
+            obj.__cached__[key] = self.sqlrepr(obj, dialect, cls)
+            return obj.__cached__[key]
         else:
             raise
 
