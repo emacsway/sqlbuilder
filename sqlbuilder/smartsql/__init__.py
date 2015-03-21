@@ -6,6 +6,7 @@ import sys
 import copy
 import warnings
 from functools import partial, wraps
+from weakref import WeakKeyDictionary
 
 try:
     str = unicode  # Python 2.* compatible
@@ -27,28 +28,61 @@ PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 LOOKUP_SEP = i('__')
 
 
-class SqlDialects(object):
-
-    __slots__ = (i('_registry'), )
+class State(object):
 
     def __init__(self):
+        self.sql = []
+        self.params = []
+        self._stack = []
+        self.context = None
+
+    def push(self, attr, new_value):
+        old_value = getattr(self, attr, None)
+        self._stack.append((attr, old_value))
+        if new_value is None:
+            new_value = copy(old_value)
+        setattr(self, attr, new_value)
+        return old_value
+
+    def pop(self):
+        setattr(self, *self._stack.pop(-1))
+
+
+class Compiler(object):
+
+    def __init__(self, parent=None):
+        self._children = WeakKeyDictionary()
+        if parent:
+            self._parents = []
+            self._parents.extend(parent._parents)
+            self._parents.append()
+            parent._children[self] = True
+        self._local_registry = {}
         self._registry = {}
 
-    def register(self, dialect, cls):
+    def create_child(self):
+        return self.__class__(self)
+
+    def register(self, cls):
         def deco(func):
-            self._registry.setdefault(dialect, {})[cls] = func
+            self._local_registry[cls] = func
+            self._update_cache()
             return func
         return deco
 
-    def sqlrepr(self, dialect, cls):
-        ns = self._registry.setdefault(dialect, {})
-        for t in cls.mro():
-            r = ns.get(t, t.__dict__.get('__sqlrepr__'))
-            if r:
-                return r
-        return None
+    def _update_cache(self):
+        self._registry.update(self._local_registry)
+        for child in self._children:
+            child._update_cache()
 
-sql_dialects = SqlDialects()
+    def __call__(self, expr, state):
+        for c in expr.__class__.mro():
+            if c in self._registry:
+                return self._registry[c](state)
+        raise Error("Unknown compiler for {}".format(cls))
+
+
+compile = Compiler()
 
 
 def opt_checker(k_list):
@@ -1035,29 +1069,17 @@ def default_dialect(dialect=None):
     return DEFAULT_DIALECT
 
 
-class SqlRepr(dict):
-
-    def __call__(self, obj, dialect=None, cls=None):
-        try:
-            key = (dialect, cls)
-            return obj.__cached__[key]
-        except AttributeError:
-            return self.sqlrepr(obj, dialect, cls)
-        except KeyError:
-            obj.__cached__[key] = self.sqlrepr(obj, dialect, cls)
-            return obj.__cached__[key]
-        else:
-            raise
-
-    def sqlrepr(self, obj, dialect=None, cls=None):
-        """Renders query set"""
-        dialect = dialect or DEFAULT_DIALECT
-        callback = sql_dialects.sqlrepr(dialect, cls or obj.__class__)
-        if callback is not None:
-            return callback(obj, dialect)
-        return obj  # It's a string
-
-sqlrepr = SqlRepr()
+def sqlrepr(self, obj, dialect=None, cls=None):
+    """Renders query set"""
+    dialect = dialect or DEFAULT_DIALECT
+    if dialect == DEFAULT_DIALECT:
+        return compile(cls)
+    elif dialect == 'mysql':
+        from .compilers.mysql import compile as mysql_compile
+        return mysql_compile(cls)
+    elif dialect == 'sqlite':
+        from .compilers.sqlite import compile as sqlite_compile
+        return sqlite_compile(cls)
 
 
 def sqlparams(obj):
@@ -1080,5 +1102,3 @@ for cls in (Expr, Table, TableJoin, ):
 
 for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet):
     cr(cls)
-
-from . import dialects
