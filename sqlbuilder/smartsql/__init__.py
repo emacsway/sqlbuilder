@@ -26,6 +26,11 @@ except NameError:
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 LOOKUP_SEP = i('__')
+MAX_PRECEDENCE = 1000
+SPACE = " "
+
+CONTEXT_QUERY = 0
+CONTEXT_COLUMNS = 1
 
 
 class State(object):
@@ -34,7 +39,8 @@ class State(object):
         self.sql = []
         self.params = []
         self._stack = []
-        self.context = None
+        self.context = CONTEXT_QUERY
+        self.precedence = 0
 
     def push(self, attr, new_value):
         old_value = getattr(self, attr, None)
@@ -58,7 +64,9 @@ class Compiler(object):
             self._parents.append()
             parent._children[self] = True
         self._local_registry = {}
+        self._local_precedence = {}
         self._registry = {}
+        self._precedence = {}
 
     def create_child(self):
         return self.__class__(self)
@@ -72,14 +80,29 @@ class Compiler(object):
 
     def _update_cache(self):
         self._registry.update(self._local_registry)
+        self._precedence.update(self._local_precedence)
         for child in self._children:
             child._update_cache()
 
+    def sqlrepr(self, expr):
+        state = State()
+        self(expr, state)
+        return ' '.join(state.sql), state.params
+
     def __call__(self, expr, state):
-        for c in expr.__class__.mro():
+        cls = expr.__class__
+        outer_precedence = state.precedence
+        inner_precedence = state.precedence = self._precedence.get(cls, MAX_PRECEDENCE)
+        if inner_precedence < outer_precedence:
+            # expr = Parentheses(expr)
+            pass
+        for c in cls.mro():
             if c in self._registry:
-                return self._registry[c](state)
-        raise Error("Unknown compiler for {}".format(cls))
+                self._registry[c](self, expr, state)
+                break
+        else:
+            raise Error("Unknown compiler for {}".format(cls))
+        state.precedence = outer_precedence
 
 
 compile = Compiler()
@@ -245,11 +268,11 @@ class Expr(Comparable):
             return self.__init__(sql, *params[0])
         self._sql, self._params = sql, params
 
-    def __sqlrepr__(self, dialect):
-        return getattr(self, '_sql', "")
 
-    def __params__(self):
-        return getattr(self, '_params', [])
+@compile.register(Expr)
+def compile_expr(compile, expr, state):
+    state.sql.append(expr._sql)
+    state.params += expr._params
 
 
 class Condition(Expr):
@@ -261,12 +284,14 @@ class Condition(Expr):
         self._sql = op.upper()
         self._right = prepare_expr(right)
 
-    def __sqlrepr__(self, dialect):
-        return "{0} {1} {2}".format(sqlrepr(self._left, dialect), self._sql, sqlrepr(self._right, dialect))
 
-    def __params__(self):
-        params = sqlparams(self._left) + sqlparams(self._right)
-        return params
+@compile.register(Condition)
+def compile_condition(compile, expr, state):
+    compile(compile, expr._left, state)
+    state.sql.append(SPACE)
+    state.sql.append(expr._sql)
+    state.sql.append(SPACE)
+    compile(compile, expr._right, state)
 
 
 class ExprList(Expr):
@@ -320,38 +345,21 @@ class ExprList(Expr):
         self._args = []
         return self
 
-    def __sqlrepr__(self, dialect):
-        return self._sql.join([sqlrepr(a, dialect) for a in self._args])
-
-    def __params__(self):
-        params = []
-        for a in self._args:
-            params.extend(sqlparams(a))
-        return params
-
     def __copy__(self):
         dup = copy.copy(super(ExprList, self))
         dup._args = dup._args[:]
         return dup
 
 
-class FieldList(ExprList):
-
-    __slots__ = ()
-
-    def _build(self):
-        sql = ExprList().join(self._sql)
-        for a in self._args:
-            if isinstance(a, Alias):
-                a = ExprList(a._expr, Constant("AS"), a).join(" ")
-            sql.append(a)
-        return sql
-
-    def __sqlrepr__(self, dialect):
-        return sqlrepr(self._build(), dialect)
-
-    def __params__(self):
-        return sqlparams(self._build())
+@compile.register(ExprList)
+def compile_exprlist(compile, expr, state):
+    first = True
+    for a in expr._args:
+        if first:
+            first = False
+        else:
+            state.sql.append(expr._sql)
+        compile(compile, a, state)
 
 
 class Concat(ExprList):
@@ -365,14 +373,21 @@ class Concat(ExprList):
 
     def ws(self, sep):
         self._ws = prepare_expr(sep)
+        self._sql = ', '
         return self
 
-    def __sqlrepr__(self, dialect):
-        value = sqlrepr(self, dialect, ExprList)
-        return "concat_ws({0}, {1})".format(sqlrepr(self._ws, dialect), value) if self._ws else value
 
-    def __params__(self):
-        return sqlparams(self._ws) + super(Concat, self).__params__()
+@compile.register(Concat)
+def compile_concat(compile, expr, state):
+    if not expr._ws:
+        return compile_exprlist(compile, expr, state)
+    state.sql.append('concat_ws(')
+    compile(compile, expr._ws, state)
+    state.sql.append(expr._sql)
+    for a in expr._args:
+        state.sql.append(expr._sql)
+        compile(compile, a, state)
+    state.sql.append(')')
 
 
 class Placeholder(Expr):
@@ -390,16 +405,21 @@ class Parentheses(Expr):
     def __init__(self, expr):
         self._expr = expr
 
-    def __sqlrepr__(self, dialect):
-        return "({0})".format(sqlrepr(self._expr, dialect))
 
-    def __params__(self):
-        return sqlparams(self._expr)
+@compile.register(Parentheses)
+def compile_parentheses(compile, expr, state):
+    state.sql.append('(')
+    compile(compile, expr._expr, state)
+    state.sql.append(')')
 
 
 class OmitParentheses(Parentheses):
-    def __sqlrepr__(self, dialect):
-        return sqlrepr(self._expr, dialect)
+    pass
+
+
+@compile.register(OmitParentheses)
+def compile_omitparentheses(compile, expr, state):
+    compile(compile, expr._expr, state)
 
 
 class Prefix(Expr):
@@ -524,8 +544,15 @@ class Alias(Expr):
         self._expr = expr
         super(Alias, self).__init__(alias)
 
-    def __sqlrepr__(self, dialect):
-        return qn(self._sql, dialect)
+
+@compile.register(Alias)
+def compile_alias(compile, expr, state):
+    if state.context == CONTEXT_COLUMNS:
+        compile(compile, expr._expr, state)
+        state.sql.append(SPACE)
+        state.sql.append('AS')
+        state.sql.append(SPACE)
+    compile(compile, Name(expr._sql), state)
 
 
 class MetaTable(type):
@@ -705,7 +732,7 @@ class QuerySet(Expr):
     def __init__(self, tables=None):
 
         self._distinct = False
-        self._fields = FieldList().join(", ")
+        self._fields = ExprList().join(", ")
         if tables:
             if not isinstance(tables, TableJoin):
                 tables = self._cr.TableJoin(tables)
