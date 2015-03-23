@@ -30,7 +30,8 @@ MAX_PRECEDENCE = 1000
 SPACE = " "
 
 CONTEXT_QUERY = 0
-CONTEXT_COLUMNS = 1
+CONTEXT_COLUMN = 1
+CONTEXT_TABLE = 2
 
 
 class State(object):
@@ -91,18 +92,21 @@ class Compiler(object):
 
     def __call__(self, expr, state):
         cls = expr.__class__
-        outer_precedence = state.precedence
-        inner_precedence = state.precedence = self._precedence.get(cls, MAX_PRECEDENCE)
-        if inner_precedence < outer_precedence:
-            # expr = Parentheses(expr)
-            pass
+        # outer_precedence = state.precedence
+        # if hasattr(cls, '_sql') and cls._sql in self._precedence:
+        #     inner_precedence = state.precedence = self._precedence[cls._sql]
+        # else:
+        #     inner_precedence = state.precedence = self._precedence.get(cls, MAX_PRECEDENCE)
+        # if inner_precedence < outer_precedence:
+        #     # expr = Parentheses(expr)
+        #     pass
         for c in cls.mro():
             if c in self._registry:
                 self._registry[c](self, expr, state)
                 break
         else:
             raise Error("Unknown compiler for {}".format(cls))
-        state.precedence = outer_precedence
+        # state.precedence = outer_precedence
 
 
 compile = Compiler()
@@ -430,11 +434,12 @@ class Prefix(Expr):
         self._sql = prefix
         self._expr = prepare_expr(expr)
 
-    def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(self._sql, sqlrepr(self._expr, dialect))
 
-    def __params__(self):
-        return sqlparams(self._expr)
+@compile.register(Prefix)
+def compile_prefix(compile, expr, state):
+    state._sql.append(expr._sql)
+    state._sql.append(SPACE)
+    compile(compile, expr._expr, state)
 
 
 class Postfix(Expr):
@@ -445,11 +450,12 @@ class Postfix(Expr):
         self._sql = postfix
         self._expr = prepare_expr(expr)
 
-    def __sqlrepr__(self, dialect):
-        return "{0} {1}".format(sqlrepr(self._expr, dialect), self._sql)
 
-    def __params__(self):
-        return sqlparams(self._expr)
+@compile.register(Postfix)
+def compile_postfix(compile, expr, state):
+    compile(compile, expr._expr, state)
+    state._sql.append(SPACE)
+    state._sql.append(expr._sql)
 
 
 class Between(Expr):
@@ -461,11 +467,14 @@ class Between(Expr):
         self._start = prepare_expr(start)
         self._end = prepare_expr(end)
 
-    def __sqlrepr__(self, dialect):
-        return "{0} BETWEEN {1} AND {2}".format(sqlrepr(self._expr, dialect), sqlrepr(self._start, dialect), sqlrepr(self._end, dialect))
 
-    def __params__(self):
-        return sqlparams(self._expr) + sqlparams(self._start) + sqlparams(self._end)
+@compile.register(Between)
+def compile_between(compile, expr, state):
+    compile(compile, expr._expr, state)
+    state._sql.append(' BETWEEN ')
+    compile(compile, expr._start, state)
+    state._sql.append(' AND ')
+    compile(compile, expr._end, state)
 
 
 class Callable(Expr):
@@ -476,25 +485,29 @@ class Callable(Expr):
         self._expr = expr
         self._args = ExprList(*args).join(", ")
 
-    def __sqlrepr__(self, dialect):
-        return "{0}({1})".format(sqlrepr(self._expr, dialect), sqlrepr(self._args, dialect))
 
-    def __params__(self):
-        return sqlparams(self._expr) + sqlparams(self._args)
+@compile.register(Callable)
+def compile_callable(compile, expr, state):
+    compile(compile, expr._expr, state)
+    state._sql.append('(')
+    compile(compile, expr._args, state)
+    state._sql.append(')')
 
 
 class Constant(Expr):
 
-    __slots__ = (i('_const'), )
+    __slots__ = ()
 
     def __init__(self, const):
-        self._const = const.upper()
+        self._sql = const.upper()
 
     def __call__(self, *args):
         return Callable(self, *args)
 
-    def __sqlrepr__(self, dialect):
-        return self._const
+
+@compile.register(Constant)
+def compile_constant(compile, expr, state):
+    state._sql.append(expr._sql)
 
 
 class ConstantSpace(object):
@@ -529,11 +542,16 @@ class Field(MetaField(i("NewBase"), (Expr,), {})):
         self._prefix = prefix
         self.__cached__ = {}
 
-    def __sqlrepr__(self, dialect):
-        sql = self._name == '*' and self._name or qn(self._name, dialect)
-        if self._prefix is not None:
-            sql = ".".join((qn(self._prefix, dialect), sql))
-        return sql
+
+@compile.register(Field)
+def compile_field(compile, expr, state):
+    if expr._prefix is not None:
+        compile(compile, expr._prefix, state)
+        state._sql.append('.')
+    if expr._name == '*':
+        state._sql.append(expr._name)
+    else:
+        compile(compile, Name(expr._name), state)
 
 
 class Alias(Expr):
@@ -547,7 +565,7 @@ class Alias(Expr):
 
 @compile.register(Alias)
 def compile_alias(compile, expr, state):
-    if state.context == CONTEXT_COLUMNS:
+    if state.context == CONTEXT_COLUMN:
         compile(compile, expr._expr, state)
         state.sql.append(SPACE)
         state.sql.append('AS')
@@ -596,17 +614,16 @@ class Table(MetaTable(i("NewBase"), (object, ), {})):
         setattr(self, name, f)
         return f
 
-    def __sqlrepr__(self, dialect):
-        return qn(self._name, dialect)
-
-    def __params__(self):
-        return []
-
     __and__ = same(i('inner_join'))
     __add__ = same(i('left_join'))
     __sub__ = same(i('right_join'))
     __or__ = same(i('full_join'))
     __mul__ = same(i('cross_join'))
+
+
+@compile.register(Table)
+def compile_table(compile, expr, state):
+    compile(compile, Name(expr._name), state)
 
 
 class TableAlias(Table):
@@ -621,8 +638,15 @@ class TableAlias(Table):
     def as_(self, alias):
         return type(self)(alias, self._table)
 
-    def __sqlrepr__(self, dialect):
-        return qn(self._alias, dialect)
+
+@compile.register(TableAlias)
+def compile_tablealias(compile, expr, state):
+    if state.context == CONTEXT_TABLE:
+        compile(compile, expr._table, state)
+        state.sql.append(SPACE)
+        state.sql.append('AS')
+        state.sql.append(SPACE)
+    compile(compile, Name(expr._alias), state)
 
 
 class TableJoin(object):
