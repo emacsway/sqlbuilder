@@ -11,6 +11,7 @@ if __name__ == '__main__':
     )))
 
 from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, func, const
+from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
 class TestSmartSQL(unittest.TestCase):
@@ -28,15 +29,15 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "t1"."id" FROM "t1" LEFT OUTER JOIN "t2" ON ("t2"."t1_id" = "t1"."id") CROSS JOIN "t3" ON ("t3"."t2_id" = "t2"."id") RIGHT OUTER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")', [], )
         )
         self.assertEqual(
-            QS((t1 + (t2 * t3).on(t3.t2_id == t2.id)).on(t2.t1_id == t1.id) - t4.on(t4.t3_id == t3.id)).select(t1.id),
+            QS((t1 + ((t2 * t3).on(t3.t2_id == t2.id))()).on(t2.t1_id == t1.id) - t4.on(t4.t3_id == t3.id)).select(t1.id),
             ('SELECT "t1"."id" FROM "t1" LEFT OUTER JOIN ("t2" CROSS JOIN "t3" ON ("t3"."t2_id" = "t2"."id")) ON ("t2"."t1_id" = "t1"."id") RIGHT OUTER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")', [], )
         )
         self.assertEqual(
-            QS(((t1 + t2) * t3 - t4).group().on((t2.t1_id == t1.id) & (t3.t2_id == t2.id) & (t4.t3_id == t3.id))).select(t1.id),
+            QS(((t1 + t2) * t3 - t4)().on((t2.t1_id == t1.id) & (t3.t2_id == t2.id) & (t4.t3_id == t3.id))).select(t1.id),
             ('SELECT "t1"."id" FROM ("t1" LEFT OUTER JOIN "t2" CROSS JOIN "t3" RIGHT OUTER JOIN "t4") ON ((("t2"."t1_id" = "t1"."id") AND ("t3"."t2_id" = "t2"."id")) AND ("t4"."t3_id" = "t3"."id"))', [], )
         )
         self.assertEqual(
-            QS((t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id))).on(t3.t2_id == t2.id)).select(t1.id),
+            QS((t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id))()).on(t3.t2_id == t2.id)).select(t1.id),
             ('SELECT "t1"."id" FROM "t1" INNER JOIN "t2" ON ("t2"."t1_id" = "t1"."id") INNER JOIN ("t3" INNER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")) ON ("t3"."t2_id" = "t2"."id")', [], )
         )
         self.assertEqual(
@@ -44,14 +45,14 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "t1"."id" FROM "t1" INNER JOIN "t2" ON ("t2"."t1_id" = "t1"."id") INNER JOIN ("t3" INNER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")) ON ("t3"."t2_id" = "t2"."id")', [], )
         )
         self.assertEqual(
-            QS((t1 & t2.on(t2.t1_id == t1.id)).group() & (t3 & t4.on(t4.t3_id == t3.id)).group().on(t3.t2_id == t2.id)).select(t1.id),
+            QS((t1 & t2.on(t2.t1_id == t1.id))() & (t3 & t4.on(t4.t3_id == t3.id))().on(t3.t2_id == t2.id)).select(t1.id),
             ('SELECT "t1"."id" FROM ("t1" INNER JOIN "t2" ON ("t2"."t1_id" = "t1"."id")) INNER JOIN ("t3" INNER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")) ON ("t3"."t2_id" = "t2"."id")', [], )
         )
 
     def test_hint(self):
         t1 = T.tb1
         t2 = T.tb1.as_('al2')
-        q = QS(t1 & t2.hint(E('USE INDEX (`index1`, `index2`)')).on(t2.parent_id == t1.id)).dialect('mysql')
+        q = QS(t1 & t2.hint(E('USE INDEX (`index1`, `index2`)')).on(t2.parent_id == t1.id)).set_compiler(mysql_compile)
         self.assertEqual(
             q.select(t2.id),
             ('SELECT `al2`.`id` FROM `tb1` INNER JOIN `tb1` AS `al2` ON (`al2`.`parent_id` = `tb1`.`id`) USE INDEX (`index1`, `index2`)', [], )
@@ -154,14 +155,14 @@ class TestSmartSQL(unittest.TestCase):
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
-            ('SELECT * FROM "tb" WHERE (concat_ws(%s, "tb"."cl" || %s || %s || %s || "tb"."cl2") <> %s)', [' + ', 1, 2, 'str', 'str2'], )
+            ('SELECT * FROM "tb" WHERE (concat_ws(%s, "tb"."cl", %s, %s, %s, "tb"."cl2") <> %s)', [' + ', 1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').dialect('mysql').select('*'),
+            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
             ('SELECT * FROM `tb` WHERE (CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').dialect('mysql').select('*'),
+            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
             ('SELECT * FROM `tb` WHERE (CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [' + ', 1, 2, 'str', 'str2'], )
         )
 
