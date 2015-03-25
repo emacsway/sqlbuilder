@@ -700,7 +700,7 @@ class TableJoin(object):
             self._table = table_or_alias
             self._alias = None
         self._join_type = join_type
-        self._on = on and parentheses_conditional(on) or on
+        self._on = on
         self._left = left
         self._hint = None
 
@@ -732,7 +732,7 @@ class TableJoin(object):
     def on(self, c):
         if self._on is not None:
             self = type(self)(self)
-        self._on = parentheses_conditional(c)
+        self._on = c
         return self
 
     def group(self):
@@ -1125,20 +1125,13 @@ def placeholder_conditional(expr):
     return expr
 
 
-def parentheses_conditional(expr):
-    return expr
-    if isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
-        return Parentheses(expr)
-    return expr
-
-
 def prepare_expr(expr):
     return expr
     if expr is None:
         return Constant("NULL")
     if not isinstance(expr, Expr) and is_list(expr):
         expr = Parentheses(ExprList(*expr).join(", "))
-    return parentheses_conditional(placeholder_conditional(expr))
+    return placeholder_conditional(expr)
 
 
 def warn(old, new, stacklevel=3):
