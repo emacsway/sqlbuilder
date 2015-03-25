@@ -4,8 +4,9 @@
 from __future__ import absolute_import, unicode_literals
 import sys
 import copy
+import types
 import warnings
-from functools import partial, wraps
+from functools import wraps
 from weakref import WeakKeyDictionary
 
 try:
@@ -133,7 +134,7 @@ def compile_object(compile, expr, state):
     state.params.append(expr)
 
 
-@compile.register(None)
+@compile.register(types.NoneType)
 def compile_none(compile, expr, state):
     state.sql.append('NULL')
 
@@ -430,7 +431,6 @@ def compile_concat(compile, expr, state):
         return compile_exprlist(compile, expr, state)
     state.sql.append('concat_ws(')
     compile(expr._ws, state)
-    state.sql.append(expr._sql)
     for a in expr._args:
         state.sql.append(expr._sql)
         compile(a, state)
@@ -760,13 +760,12 @@ class TableJoin(object):
 
 @compile.register(TableJoin)
 def compile_tablejoin(compile, expr, state):
-    state.push('context', CONTEXT_TABLE)
     sql = ExprList().join(" ")
     if expr._left is not None:
         sql.append(expr._left)
     if expr._join_type:
         sql.append(Constant(expr._join_type))
-    if isinstance(expr._table, (TableJoin, QuerySet)):
+    if isinstance(expr._table, (TableJoin, )):
         sql.append(Parentheses(expr._table))
     else:
         sql.append(expr._table)
@@ -777,7 +776,6 @@ def compile_tablejoin(compile, expr, state):
     if expr._hint is not None:
         sql.append(expr._hint)
     compile(sql, state)
-    state.pop()
 
 
 class QuerySet(Expr):
@@ -1062,18 +1060,18 @@ class UnionQuerySet(QuerySet):
 
     def __init__(self, qs):
         super(UnionQuerySet, self).__init__()
-        self._union_list = ExprList(Parentheses(qs)).join(" ")
+        self._union_list = ExprList(qs).join(" ")
 
     def __mul__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_list.append(Prefix("UNION DISTINCT", Parentheses(qs)))
+        self._union_list.append(Prefix("UNION DISTINCT", qs))
         return self
 
     def __add__(self, qs):
         if not isinstance(qs, QuerySet):
             raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_list.append(Prefix("UNION ALL", Parentheses(qs)))
+        self._union_list.append(Prefix("UNION ALL", qs))
         return self
 
     def _build_sql(self):
@@ -1148,11 +1146,11 @@ def warn(old, new, stacklevel=3):
 
 A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
-qn = lambda name, dialect: sqlrepr(Name(name), dialect)
+qn = lambda name, compile: compile(Name(name))
 cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):
-    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, sqlrepr(self), sqlparams(self))
+    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile.sqlrepr(self))
 
 for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet):
     cr(cls)
