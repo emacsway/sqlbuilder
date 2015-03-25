@@ -333,62 +333,62 @@ def compile_condition(compile, expr, state):
 
 class ExprList(Expr):
 
-    __slots__ = (i('_args'), )
+    __slots__ = (i('data'), )
 
     def __init__(self, *args):
         if args and is_list(args[0]):
             return self.__init__(*args[0])
-        self._sql, self._args = " ", list(args)
+        self._sql, self.data = " ", list(args)
 
     def join(self, sep):
         self._sql = sep
         return self
 
     def __len__(self):
-        return len(self._args)
+        return len(self.data)
 
     def __setitem__(self, key, value):
-        self._args[key] = value
+        self.data[key] = value
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start = key.start or 0
             end = key.stop or sys.maxsize
-            return ExprList(*self._args[start:end])
-        return self._args[key]
+            return ExprList(*self.data[start:end])
+        return self.data[key]
 
     def __iter__(self):
-        return iter(self._args)
+        return iter(self.data)
 
     def append(self, x):
-        return self._args.append(x)
+        return self.data.append(x)
 
     def insert(self, i, x):
-        return self._args.insert(i, x)
+        return self.data.insert(i, x)
 
     def extend(self, L):
-        return self._args.extend(L)
+        return self.data.extend(L)
 
     def pop(self, i):
-        return self._args.pop(i)
+        return self.data.pop(i)
 
     def remove(self, x):
-        return self._args.remove(x)
+        return self.data.remove(x)
 
     def reset(self):
-        self._args = []
+        del self.data[:]
         return self
 
     def __copy__(self):
         dup = copy.copy(super(ExprList, self))
-        dup._args = dup._args[:]
+        dup.data = dup.data[:]
         return dup
 
 
 @compile.register(ExprList)
 def compile_exprlist(compile, expr, state):
     first = True
-    for a in expr._args:
+    for a in expr:
         if first:
             first = False
         else:
@@ -409,7 +409,7 @@ def compile_fieldlist(compile, expr, state):
 
 class Concat(ExprList):
 
-    __slots__ = (i('_args'), i('_ws'))
+    __slots__ = (i('_ws'), )
 
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
@@ -428,7 +428,7 @@ def compile_concat(compile, expr, state):
         return compile_exprlist(compile, expr, state)
     state.sql.append('concat_ws(')
     compile(expr._ws, state)
-    for a in expr._args:
+    for a in expr:
         state.sql.append(expr._sql)
         compile(a, state)
     state.sql.append(')')
