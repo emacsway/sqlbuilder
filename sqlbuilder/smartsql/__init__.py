@@ -685,7 +685,7 @@ def compile_tablealias(compile, expr, state):
 
 class TableJoin(object):
 
-    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', )
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested')
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
@@ -698,6 +698,7 @@ class TableJoin(object):
         self._on = on
         self._left = left
         self._hint = None
+        self._nested = False
 
     def _j(j):
         return lambda self, obj: self.join(j, obj)
@@ -731,7 +732,9 @@ class TableJoin(object):
         return self
 
     def __call__(self):
-        return type(self)(self)
+        self._nested = True
+        self = self.__class__(self)
+        return self
 
     def hint(self, expr):
         if isinstance(expr, string_types):
@@ -761,17 +764,18 @@ def compile_tablejoin(compile, expr, state):
         sql.append(expr._left)
     if expr._join_type:
         sql.append(Constant(expr._join_type))
-    if isinstance(expr._table, (TableJoin, )):
-        sql.append(Parentheses(expr._table))
-    else:
-        sql.append(expr._table)
+    sql.append(expr._table)
     if expr._alias is not None:
         sql.extend([Constant("AS"), expr._alias])
     if expr._on is not None:
         sql.extend([Constant("ON"), expr._on])
     if expr._hint is not None:
         sql.append(expr._hint)
+    if expr._nested:
+        state.sql.append('(')
     compile(sql, state)
+    if expr._nested:
+        state.sql.append(')')
 
 
 class QuerySet(Expr):
