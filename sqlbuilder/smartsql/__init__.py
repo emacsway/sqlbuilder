@@ -1118,20 +1118,13 @@ def is_list(v):
     return isinstance(v, (list, tuple))
 
 
-def placeholder_conditional(expr):
-    return expr
-    if not isinstance(expr, (Expr, Table, TableJoin)):
-        return Placeholder(expr)
-    return expr
-
-
 def prepare_expr(expr):
     return expr
     if expr is None:
         return Constant("NULL")
     if not isinstance(expr, Expr) and is_list(expr):
         expr = Parentheses(ExprList(*expr).join(", "))
-    return placeholder_conditional(expr)
+    return expr
 
 
 def warn(old, new, stacklevel=3):
