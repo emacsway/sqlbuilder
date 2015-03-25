@@ -1128,7 +1128,7 @@ def warn(old, new, stacklevel=3):
 
 A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
-qn = lambda name, compile: compile(Name(name))
+qn = lambda name, compile: compile(Name(name))[0]
 cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):

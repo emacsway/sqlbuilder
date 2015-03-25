@@ -6,6 +6,8 @@ from django.db import connections
 from django.db.models import Model
 
 from .. import smartsql
+from ..smartsql.compilers import mysql
+from ..smartsql.compilers import sqlite
 from .signals import field_conversion
 
 try:
@@ -17,13 +19,12 @@ except NameError:
     integer_types = (int,)
 
 SMARTSQL_ALIAS = getattr(settings, 'SQLBUILDER_SMARTSQL_ALIAS', 's')
-SMARTSQL_DIALECTS = {
-    'sqlite3': 'sqlite',
-    'mysql': 'mysql',
-    'postgresql': 'postgres',
-    'postgresql_psycopg2': 'postgres',
-    'postgis': 'postgres',
-    'oracle': 'oracle',
+SMARTSQL_COMPILERS = {
+    'sqlite3': sqlite.compile,
+    'mysql': mysql.compile,
+    'postgresql': smartsql.compile,
+    'postgresql_psycopg2': smartsql.compile,
+    'postgis': smartsql.compile,
 }
 
 cr = copy.copy(smartsql.cr)
@@ -51,6 +52,7 @@ class QS(smartsql.QS):
         if isinstance(tables, (Table, TableAlias)):
             self.model = tables.model
             self._using = self.model.objects.db
+        self.set_compiler()
 
     def clone(self):
         self = super(QS, self).clone()
@@ -95,24 +97,19 @@ class QS(smartsql.QS):
             return self._using
         self = self.clone()
         self._using = alias
+        self.set_compiler()
         return self
 
-    def dialect(self):
+    def set_compiler(self):
         engine = connections.databases[self.using()]['ENGINE'].rsplit('.')[-1]
-        return SMARTSQL_DIALECTS[engine]
-
-    def sqlrepr(self, expr=None):
-        return smartsql.sqlrepr(expr or self, self.dialect())
-
-    def sqlparams(self, expr=None):
-        return smartsql.sqlparams(expr or self)
+        self.compile = SMARTSQL_COMPILERS[engine]
+        return self
 
     def execute(self):
         """Implementation of query execution"""
-        # TODO: sql = self._build_sql(), sqlrepr(sql, dialect), sqlparams(sql)???
         if self._action == "select":
-            return self.model.objects.raw(self.sqlrepr(), self.sqlparams()).using(self.using())
-        return self._execute(self.sqlrepr(), self.sqlparams())
+            return self.model.objects.raw(*self.compile(self)).using(self.using())
+        return self._execute(*self.compile(self))
 
     def _execute(self, sql, params):
         cursor = connections[self.using()].cursor()
