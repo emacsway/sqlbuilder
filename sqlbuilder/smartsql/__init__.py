@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # Some ideas from http://code.google.com/p/py-smart-sql-constructor/
 # But the code fully another... It's not a fork anymore...
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import #, unicode_literals
 import sys
 import copy
-import types
 import warnings
 from functools import wraps
 from weakref import WeakKeyDictionary
@@ -14,15 +13,10 @@ try:
     string_types = (basestring,)
     integer_types = (int, long)
 
-    def i(v):
-        return v.encode('utf-8')
-
 except NameError:
     string_types = (str,)
     integer_types = (int,)
 
-    def i(v):
-        return v
 
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
@@ -134,7 +128,7 @@ def compile_object(compile, expr, state):
     state.params.append(expr)
 
 
-@compile.register(types.NoneType)
+@compile.register(type(None))
 def compile_none(compile, expr, state):
     state.sql.append('NULL')
 
