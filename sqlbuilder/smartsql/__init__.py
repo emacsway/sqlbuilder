@@ -55,15 +55,16 @@ class Compiler(object):
 
     def __init__(self, parent=None):
         self._children = WeakKeyDictionary()
-        if parent:
-            self._parents = []
-            self._parents.extend(parent._parents)
-            self._parents.append()
-            parent._children[self] = True
+        self._parents = []
         self._local_registry = {}
         self._local_precedence = {}
         self._registry = {}
         self._precedence = {}
+        if parent:
+            self._parents.extend(parent._parents)
+            self._parents.append(parent)
+            parent._children[self] = True
+            self._update_cache()
 
     def create_child(self):
         return self.__class__(self)
@@ -76,6 +77,9 @@ class Compiler(object):
         return deco
 
     def _update_cache(self):
+        for parent in self._parents:
+            self._registry.update(parent._local_registry)
+            self._precedence.update(parent._local_precedence)
         self._registry.update(self._local_registry)
         self._precedence.update(self._local_precedence)
         for child in self._children:
@@ -90,7 +94,9 @@ class Compiler(object):
         cls = expr.__class__
         parentheses = False
         if state._callers:
-            if isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
+            if state._callers[0] in (OmitParentheses, Parentheses):
+                pass
+            elif isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
                 parentheses = True
 
         # outer_precedence = state.precedence
@@ -428,12 +434,12 @@ def compile_concat(compile, expr, state):
     state.sql.append(')')
 
 
-class Placeholder(Expr):
+class Param(Expr):
 
     __slots__ = ()
 
-    def __init__(self, *params):
-        super(Placeholder, self).__init__(PLACEHOLDER, *params)
+
+Placeholder = Param
 
 
 class Parentheses(Expr):
@@ -989,6 +995,11 @@ class QuerySet(Expr):
 
     def result(self):
         return self.execute()
+
+    def set_compiler(self, compile):
+        c = self.clone()
+        c.compile = compile
+        return c
 
     def _sql_extend(self, sql, parts):
         for key, clause, attr in self._clauses:
