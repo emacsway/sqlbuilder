@@ -730,7 +730,7 @@ class TableJoin(object):
         self._on = c
         return self
 
-    def group(self):
+    def __call__(self):
         return type(self)(self)
 
     def hint(self, expr):
@@ -745,7 +745,8 @@ class TableJoin(object):
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
-    as_nested = same('group')
+    as_nested = same('__call__')
+    group = same('__call__')
     __and__ = same('inner_join')
     __add__ = same('left_join')
     __sub__ = same('right_join')

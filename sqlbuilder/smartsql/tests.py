@@ -33,7 +33,7 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "t1"."id" FROM "t1" LEFT OUTER JOIN ("t2" CROSS JOIN "t3" ON ("t3"."t2_id" = "t2"."id")) ON ("t2"."t1_id" = "t1"."id") RIGHT OUTER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")', [], )
         )
         self.assertEqual(
-            QS(((t1 + t2) * t3 - t4).group().on((t2.t1_id == t1.id) & (t3.t2_id == t2.id) & (t4.t3_id == t3.id))).select(t1.id),
+            QS(((t1 + t2) * t3 - t4)().on((t2.t1_id == t1.id) & (t3.t2_id == t2.id) & (t4.t3_id == t3.id))).select(t1.id),
             ('SELECT "t1"."id" FROM ("t1" LEFT OUTER JOIN "t2" CROSS JOIN "t3" RIGHT OUTER JOIN "t4") ON ((("t2"."t1_id" = "t1"."id") AND ("t3"."t2_id" = "t2"."id")) AND ("t4"."t3_id" = "t3"."id"))', [], )
         )
         self.assertEqual(
@@ -45,7 +45,7 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT "t1"."id" FROM "t1" INNER JOIN "t2" ON ("t2"."t1_id" = "t1"."id") INNER JOIN ("t3" INNER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")) ON ("t3"."t2_id" = "t2"."id")', [], )
         )
         self.assertEqual(
-            QS((t1 & t2.on(t2.t1_id == t1.id)).group() & (t3 & t4.on(t4.t3_id == t3.id)).group().on(t3.t2_id == t2.id)).select(t1.id),
+            QS((t1 & t2.on(t2.t1_id == t1.id))() & (t3 & t4.on(t4.t3_id == t3.id))().on(t3.t2_id == t2.id)).select(t1.id),
             ('SELECT "t1"."id" FROM ("t1" INNER JOIN "t2" ON ("t2"."t1_id" = "t1"."id")) INNER JOIN ("t3" INNER JOIN "t4" ON ("t4"."t3_id" = "t3"."id")) ON ("t3"."t2_id" = "t2"."id")', [], )
         )
 
