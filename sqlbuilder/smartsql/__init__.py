@@ -40,6 +40,7 @@ class State(object):
         self.sql = []
         self.params = []
         self._stack = []
+        self._callers = []
         self.context = CONTEXT_QUERY
         self.precedence = 0
 
@@ -88,28 +89,59 @@ class Compiler(object):
     def sqlrepr(self, expr):
         state = State()
         self(expr, state)
-        return ' '.join(state.sql), state.params
+        return ''.join(state.sql), state.params
 
     def __call__(self, expr, state):
         cls = expr.__class__
+        parentheses = False
+        if state._callers:
+            if isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
+                parentheses = True
+
         # outer_precedence = state.precedence
         # if hasattr(cls, '_sql') and cls._sql in self._precedence:
         #     inner_precedence = state.precedence = self._precedence[cls._sql]
         # else:
         #     inner_precedence = state.precedence = self._precedence.get(cls, MAX_PRECEDENCE)
         # if inner_precedence < outer_precedence:
-        #     # expr = Parentheses(expr)
-        #     pass
+        #     parentheses = True
+
+        state._callers.insert(0, expr.__class__)
+
+        if parentheses:
+            state.sql.append('(')
+
         for c in cls.mro():
             if c in self._registry:
                 self._registry[c](self, expr, state)
                 break
         else:
             raise Error("Unknown compiler for {}".format(cls))
+
+        if parentheses:
+            state.sql.append(')')
+        state._callers.pop(0)
         # state.precedence = outer_precedence
 
 
 compile = Compiler()
+
+
+@compile.register(object)
+def compile_object(compile, expr, state):
+    state.sql.append('%s')
+    state.params.append(expr)
+
+
+@compile.register(None)
+def compile_none(compile, expr, state):
+    state.sql.append('NULL')
+
+
+@compile.register(list)
+@compile.register(tuple)
+def compile_list(compile, expr, state):
+    compile(Parentheses(ExprList(*expr).join(", ")), state)
 
 
 def opt_checker(k_list):
@@ -291,11 +323,11 @@ class Condition(Expr):
 
 @compile.register(Condition)
 def compile_condition(compile, expr, state):
-    compile(compile, expr._left, state)
+    compile(expr._left, state)
     state.sql.append(SPACE)
     state.sql.append(expr._sql)
     state.sql.append(SPACE)
-    compile(compile, expr._right, state)
+    compile(expr._right, state)
 
 
 class ExprList(Expr):
@@ -363,7 +395,18 @@ def compile_exprlist(compile, expr, state):
             first = False
         else:
             state.sql.append(expr._sql)
-        compile(compile, a, state)
+        compile(a, state)
+
+
+class FieldList(ExprList):
+    __slots__ = ()
+
+
+@compile.register(FieldList)
+def compile_fieldlist(compile, expr, state):
+    state.push('context', CONTEXT_COLUMN)
+    compile_exprlist(compile, expr, state)
+    state.pop()
 
 
 class Concat(ExprList):
@@ -386,11 +429,11 @@ def compile_concat(compile, expr, state):
     if not expr._ws:
         return compile_exprlist(compile, expr, state)
     state.sql.append('concat_ws(')
-    compile(compile, expr._ws, state)
+    compile(expr._ws, state)
     state.sql.append(expr._sql)
     for a in expr._args:
         state.sql.append(expr._sql)
-        compile(compile, a, state)
+        compile(a, state)
     state.sql.append(')')
 
 
@@ -413,7 +456,7 @@ class Parentheses(Expr):
 @compile.register(Parentheses)
 def compile_parentheses(compile, expr, state):
     state.sql.append('(')
-    compile(compile, expr._expr, state)
+    compile(expr._expr, state)
     state.sql.append(')')
 
 
@@ -423,7 +466,7 @@ class OmitParentheses(Parentheses):
 
 @compile.register(OmitParentheses)
 def compile_omitparentheses(compile, expr, state):
-    compile(compile, expr._expr, state)
+    compile(expr._expr, state)
 
 
 class Prefix(Expr):
@@ -437,9 +480,9 @@ class Prefix(Expr):
 
 @compile.register(Prefix)
 def compile_prefix(compile, expr, state):
-    state._sql.append(expr._sql)
-    state._sql.append(SPACE)
-    compile(compile, expr._expr, state)
+    state.sql.append(expr._sql)
+    state.sql.append(SPACE)
+    compile(expr._expr, state)
 
 
 class Postfix(Expr):
@@ -453,9 +496,9 @@ class Postfix(Expr):
 
 @compile.register(Postfix)
 def compile_postfix(compile, expr, state):
-    compile(compile, expr._expr, state)
-    state._sql.append(SPACE)
-    state._sql.append(expr._sql)
+    compile(expr._expr, state)
+    state.sql.append(SPACE)
+    state.sql.append(expr._sql)
 
 
 class Between(Expr):
@@ -470,11 +513,11 @@ class Between(Expr):
 
 @compile.register(Between)
 def compile_between(compile, expr, state):
-    compile(compile, expr._expr, state)
-    state._sql.append(' BETWEEN ')
-    compile(compile, expr._start, state)
-    state._sql.append(' AND ')
-    compile(compile, expr._end, state)
+    compile(expr._expr, state)
+    state.sql.append(' BETWEEN ')
+    compile(expr._start, state)
+    state.sql.append(' AND ')
+    compile(expr._end, state)
 
 
 class Callable(Expr):
@@ -488,10 +531,10 @@ class Callable(Expr):
 
 @compile.register(Callable)
 def compile_callable(compile, expr, state):
-    compile(compile, expr._expr, state)
-    state._sql.append('(')
-    compile(compile, expr._args, state)
-    state._sql.append(')')
+    compile(expr._expr, state)
+    state.sql.append('(')
+    compile(expr._args, state)
+    state.sql.append(')')
 
 
 class Constant(Expr):
@@ -507,7 +550,7 @@ class Constant(Expr):
 
 @compile.register(Constant)
 def compile_constant(compile, expr, state):
-    state._sql.append(expr._sql)
+    state.sql.append(expr._sql)
 
 
 class ConstantSpace(object):
@@ -546,12 +589,12 @@ class Field(MetaField(i("NewBase"), (Expr,), {})):
 @compile.register(Field)
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
-        compile(compile, expr._prefix, state)
-        state._sql.append('.')
+        compile(expr._prefix, state)
+        state.sql.append('.')
     if expr._name == '*':
-        state._sql.append(expr._name)
+        state.sql.append(expr._name)
     else:
-        compile(compile, Name(expr._name), state)
+        compile(Name(expr._name), state)
 
 
 class Alias(Expr):
@@ -566,11 +609,9 @@ class Alias(Expr):
 @compile.register(Alias)
 def compile_alias(compile, expr, state):
     if state.context == CONTEXT_COLUMN:
-        compile(compile, expr._expr, state)
-        state.sql.append(SPACE)
-        state.sql.append('AS')
-        state.sql.append(SPACE)
-    compile(compile, Name(expr._sql), state)
+        compile(expr._expr, state)
+        state.sql.append(' AS ')
+    compile(Name(expr._sql), state)
 
 
 class MetaTable(type):
@@ -623,7 +664,7 @@ class Table(MetaTable(i("NewBase"), (object, ), {})):
 
 @compile.register(Table)
 def compile_table(compile, expr, state):
-    compile(compile, Name(expr._name), state)
+    compile(Name(expr._name), state)
 
 
 class TableAlias(Table):
@@ -641,12 +682,10 @@ class TableAlias(Table):
 
 @compile.register(TableAlias)
 def compile_tablealias(compile, expr, state):
-    if state.context == CONTEXT_TABLE:
-        compile(compile, expr._table, state)
-        state.sql.append(SPACE)
-        state.sql.append('AS')
-        state.sql.append(SPACE)
-    compile(compile, Name(expr._alias), state)
+    if expr._table is not None and state.context == CONTEXT_TABLE:
+        compile(expr._table, state)
+        state.sql.append(' AS ')
+    compile(Name(expr._alias), state)
 
 
 class TableJoin(object):
@@ -711,33 +750,34 @@ class TableJoin(object):
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
-    def __sqlrepr__(self, dialect):
-        sql = ExprList().join(" ")
-        if self._left is not None:
-            sql.append(self._left)
-        if self._join_type:
-            sql.append(Constant(self._join_type))
-        if isinstance(self._table, (TableJoin, QuerySet)):
-            sql.append(Parentheses(self._table))
-        else:
-            sql.append(self._table)
-        if self._alias is not None:
-            sql.extend([Constant("AS"), self._alias])
-        if self._on is not None:
-            sql.extend([Constant("ON"), self._on])
-        if self._hint is not None:
-            sql.append(self._hint)
-        return sqlrepr(sql, dialect)
-
-    def __params__(self):
-        return sqlparams(self._left) + sqlparams(self._table) + sqlparams(self._on) + sqlparams(self._hint)
-
     as_nested = same(i('group'))
     __and__ = same(i('inner_join'))
     __add__ = same(i('left_join'))
     __sub__ = same(i('right_join'))
     __or__ = same(i('full_join'))
     __mul__ = same(i('cross_join'))
+
+
+@compile.register(TableJoin)
+def compile_tablejoin(compile, expr, state):
+    state.push('context', CONTEXT_TABLE)
+    sql = ExprList().join(" ")
+    if expr._left is not None:
+        sql.append(expr._left)
+    if expr._join_type:
+        sql.append(Constant(expr._join_type))
+    if isinstance(expr._table, (TableJoin, QuerySet)):
+        sql.append(Parentheses(expr._table))
+    else:
+        sql.append(expr._table)
+    if expr._alias is not None:
+        sql.extend([Constant("AS"), expr._alias])
+    if expr._on is not None:
+        sql.extend([Constant("ON"), expr._on])
+    if expr._hint is not None:
+        sql.append(expr._hint)
+    compile(sql, state)
+    state.pop()
 
 
 class QuerySet(Expr):
@@ -756,7 +796,7 @@ class QuerySet(Expr):
     def __init__(self, tables=None):
 
         self._distinct = False
-        self._fields = ExprList().join(", ")
+        self._fields = FieldList().join(", ")
         if tables:
             if not isinstance(tables, TableJoin):
                 tables = self._cr.TableJoin(tables)
@@ -774,20 +814,13 @@ class QuerySet(Expr):
         self._for_update = False
 
         self._action = "select"
-        self._dialect = None
+        self.compile = compile
 
     def clone(self):
         dup = copy.copy(super(QuerySet, self))
         for a in ['_fields', '_tables', '_group_by', '_order_by', '_values', '_key_values', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
-
-    def dialect(self, dialect=None):
-        if dialect is None:
-            return self._dialect
-        self = self.clone()
-        self._dialect = dialect
-        return self
 
     def tables(self, t=None):
         if t is None:
@@ -965,7 +998,7 @@ class QuerySet(Expr):
         return self._cr.UnionQuerySet(self)
 
     def execute(self):
-        return sqlrepr(self, self._dialect), sqlparams(self)  # as_sql()? compile()?
+        return self.compile.sqlrepr(self)
 
     def result(self):
         return self.execute()
@@ -1016,16 +1049,13 @@ class QuerySet(Expr):
             self._sql_extend(sql, ["from", "where", ])
         return sql
 
-    def __sqlrepr__(self, dialect):
-        sql = self._build_sql()
-        return sqlrepr(sql, dialect)
-
-    def __params__(self):
-        sql = self._build_sql()
-        return sqlparams(sql)
-
     columns = same('fields')
     __copy__ = same('clone')
+
+
+@compile.register(QuerySet)
+def compile_queryset(compile, expr, state):
+    compile(expr._build_sql(), state)
 
 
 class UnionQuerySet(QuerySet):
@@ -1065,15 +1095,12 @@ class Name(object):
     def __init__(self, name=None):
         self._name = name
 
-    def _sqlrepr_base(self, q, dialect):
-        if hasattr(self._name, '__sqlrepr__'):
-            return sqlrepr(self._name, dialect)
-        if '.' in self._name:
-            return '.'.join(map(partial(qn, dialect=dialect), self._name.split('.')))
-        return '{0}{1}{0}'.format(q, self._name.replace(q, ''))
 
-    def __sqlrepr__(self, dialect):
-        return self._sqlrepr_base('"', dialect)
+@compile.register(Name)
+def compile_name(compile, expr, state):
+    state.sql.append('"')
+    state.sql.append(expr._name)
+    state.sql.append('"')
 
 
 class ClassRegistry(object):
@@ -1094,50 +1121,26 @@ def is_list(v):
 
 
 def placeholder_conditional(expr):
+    return expr
     if not isinstance(expr, (Expr, Table, TableJoin)):
         return Placeholder(expr)
     return expr
 
 
 def parentheses_conditional(expr):
+    return expr
     if isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
         return Parentheses(expr)
     return expr
 
 
 def prepare_expr(expr):
+    return expr
     if expr is None:
         return Constant("NULL")
     if not isinstance(expr, Expr) and is_list(expr):
         expr = Parentheses(ExprList(*expr).join(", "))
     return parentheses_conditional(placeholder_conditional(expr))
-
-
-def default_dialect(dialect=None):
-    global DEFAULT_DIALECT
-    if dialect is not None:
-        DEFAULT_DIALECT = dialect
-    return DEFAULT_DIALECT
-
-
-def sqlrepr(self, obj, dialect=None, cls=None):
-    """Renders query set"""
-    dialect = dialect or DEFAULT_DIALECT
-    if dialect == DEFAULT_DIALECT:
-        return compile(cls)
-    elif dialect == 'mysql':
-        from .compilers.mysql import compile as mysql_compile
-        return mysql_compile(cls)
-    elif dialect == 'sqlite':
-        from .compilers.sqlite import compile as sqlite_compile
-        return sqlite_compile(cls)
-
-
-def sqlparams(obj):
-    """Returns query set params"""
-    if hasattr(obj, '__params__'):
-        return list(obj.__params__())
-    return []
 
 
 def warn(old, new, stacklevel=3):
