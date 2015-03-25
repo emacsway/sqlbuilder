@@ -128,6 +128,35 @@ class Compiler(object):
 compile = Compiler()
 
 
+def opt_checker(k_list):
+    def new_deco(f):
+        @wraps(f)
+        def new_func(self, *args, **opt):
+            for k, v in list(opt.items()):
+                if k not in k_list:
+                    raise TypeError("Not implemented option: {0}".format(k))
+            return f(self, *args, **opt)
+        return new_func
+    return new_deco
+
+
+def cached_compile(f):
+    @wraps(f)
+    def deco(compile, expr, state):
+        if compile not in expr.__cached__:
+            local_state = State()
+            f(compile, expr, local_state)
+            expr.__cached__[compile] = ''.join(local_state.sql)
+        state.sql.append(expr.__cached__[compile])
+    return deco
+
+
+def same(name):
+    def f(self, *a, **kw):
+        return getattr(self, name)(*a, **kw)
+    return f
+
+
 @compile.when(object)
 def compile_object(compile, expr, state):
     state.sql.append('%s')
@@ -143,24 +172,6 @@ def compile_none(compile, expr, state):
 @compile.when(tuple)
 def compile_list(compile, expr, state):
     compile(Parentheses(ExprList(*expr).join(", ")), state)
-
-
-def opt_checker(k_list):
-    def new_deco(f):
-        @wraps(f)
-        def new_func(self, *args, **opt):
-            for k, v in list(opt.items()):
-                if k not in k_list:
-                    raise TypeError("Not implemented option: {0}".format(k))
-            return f(self, *args, **opt)
-        return new_func
-    return new_deco
-
-
-def same(name):
-    def f(self, *a, **kw):
-        return getattr(self, name)(*a, **kw)
-    return f
 
 
 class Error(Exception):
@@ -402,9 +413,9 @@ class FieldList(ExprList):
 
 @compile.when(FieldList)
 def compile_fieldlist(compile, expr, state):
-    state.push('context', CONTEXT_COLUMN)
+    # state.push('context', CONTEXT_COLUMN)
     compile_exprlist(compile, expr, state)
-    state.pop()
+    # state.pop()
 
 
 class Concat(ExprList):
@@ -582,6 +593,7 @@ class Field(MetaField("NewBase", (Expr,), {})):
 
 
 @compile.when(Field)
+@cached_compile
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
         compile(expr._prefix, state)
@@ -603,9 +615,15 @@ class Alias(Expr):
 
 @compile.when(Alias)
 def compile_alias(compile, expr, state):
-    if state.context == CONTEXT_COLUMN:
-        compile(expr._expr, state)
-        state.sql.append(' AS ')
+    try:
+        render_column = state._callers[1] == FieldList
+        # render_column = state.context == CONTEXT_COLUMN
+    except IndexError:
+        pass
+    else:
+        if render_column:
+            compile(expr._expr, state)
+            state.sql.append(' AS ')
     compile(Name(expr._sql), state)
 
 
@@ -677,9 +695,16 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
-    if expr._table is not None and state.context == CONTEXT_TABLE:
-        compile(expr._table, state)
-        state.sql.append(' AS ')
+    # if expr._table is not None and state.context == CONTEXT_TABLE:
+    try:
+        render_table = expr._table is not None and state._callers[1] == TableJoin
+        # render_table = expr._table is not None and state.context == CONTEXT_TABLE
+    except IndexError:
+        pass
+    else:
+        if render_table:
+            compile(expr._table, state)
+            state.sql.append(' AS ')
     compile(Name(expr._alias), state)
 
 
@@ -688,12 +713,7 @@ class TableJoin(object):
     __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested')
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
-        if isinstance(table_or_alias, TableAlias):
-            self._table = table_or_alias._table
-            self._alias = table_or_alias
-        else:
-            self._table = table_or_alias
-            self._alias = None
+        self._table = table_or_alias
         self._join_type = join_type
         self._on = on
         self._left = left
@@ -759,21 +779,23 @@ class TableJoin(object):
 
 @compile.when(TableJoin)
 def compile_tablejoin(compile, expr, state):
-    sql = ExprList().join(" ")
-    if expr._left is not None:
-        sql.append(expr._left)
-    if expr._join_type:
-        sql.append(Constant(expr._join_type))
-    sql.append(expr._table)
-    if expr._alias is not None:
-        sql.extend([Constant("AS"), expr._alias])
-    if expr._on is not None:
-        sql.extend([Constant("ON"), expr._on])
-    if expr._hint is not None:
-        sql.append(expr._hint)
     if expr._nested:
         state.sql.append('(')
-    compile(sql, state)
+    if expr._left is not None:
+        compile(expr._left, state)
+    if expr._join_type:
+        state.sql.append(SPACE)
+        state.sql.append(expr._join_type)
+        state.sql.append(SPACE)
+    state.push('context', CONTEXT_TABLE)
+    compile(expr._table, state)
+    state.pop()
+    if expr._on is not None:
+        state.sql.append(' ON ')
+        compile(expr._on, state)
+    if expr._hint is not None:
+        state.sql.append(SPACE)
+        compile(expr._hint, state)
     if expr._nested:
         state.sql.append(')')
 
