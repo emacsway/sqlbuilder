@@ -317,9 +317,9 @@ class Condition(Expr):
     __slots__ = (i('_left'), i('_right'))
 
     def __init__(self, left, op, right):
-        self._left = prepare_expr(left)
+        self._left = left
         self._sql = op.upper()
-        self._right = prepare_expr(right)
+        self._right = right
 
 
 @compile.register(Condition)
@@ -338,7 +338,7 @@ class ExprList(Expr):
     def __init__(self, *args):
         if args and is_list(args[0]):
             return self.__init__(*args[0])
-        self._sql, self._args = " ", list(map(prepare_expr, args))
+        self._sql, self._args = " ", list(args)
 
     def join(self, sep):
         self._sql = sep
@@ -348,10 +348,7 @@ class ExprList(Expr):
         return len(self._args)
 
     def __setitem__(self, key, value):
-        if isinstance(key, slice):
-            self._args[key] = [prepare_expr(v) for v in value]
-        else:
-            self._args[key] = prepare_expr(value)
+        self._args[key] = value
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -364,13 +361,13 @@ class ExprList(Expr):
         return iter(self._args)
 
     def append(self, x):
-        return self._args.append(prepare_expr(x))
+        return self._args.append(x)
 
     def insert(self, i, x):
-        return self._args.insert(i, prepare_expr(x))
+        return self._args.insert(i, x)
 
     def extend(self, L):
-        return self._args.extend([prepare_expr(v) for v in L])
+        return self._args.extend(L)
 
     def pop(self, i):
         return self._args.pop(i)
@@ -420,7 +417,7 @@ class Concat(ExprList):
         self._ws = None
 
     def ws(self, sep):
-        self._ws = prepare_expr(sep)
+        self._ws = sep
         self._sql = ', '
         return self
 
@@ -475,7 +472,7 @@ class Prefix(Expr):
 
     def __init__(self, prefix, expr):
         self._sql = prefix
-        self._expr = prepare_expr(expr)
+        self._expr = expr
 
 
 @compile.register(Prefix)
@@ -491,7 +488,7 @@ class Postfix(Expr):
 
     def __init__(self, expr, postfix):
         self._sql = postfix
-        self._expr = prepare_expr(expr)
+        self._expr = expr
 
 
 @compile.register(Postfix)
@@ -506,9 +503,7 @@ class Between(Expr):
     __slots__ = (i('_expr'), i('_start'), i('_end'))
 
     def __init__(self, expr, start, end):
-        self._expr = prepare_expr(expr)
-        self._start = prepare_expr(start)
-        self._end = prepare_expr(end)
+        self._expr, self._start, self._end = expr, start, end
 
 
 @compile.register(Between)
@@ -1116,15 +1111,6 @@ class ClassRegistry(object):
 
 def is_list(v):
     return isinstance(v, (list, tuple))
-
-
-def prepare_expr(expr):
-    return expr
-    if expr is None:
-        return Constant("NULL")
-    if not isinstance(expr, Expr) and is_list(expr):
-        expr = Parentheses(ExprList(*expr).join(", "))
-    return expr
 
 
 def warn(old, new, stacklevel=3):
