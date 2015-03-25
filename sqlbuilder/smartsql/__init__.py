@@ -85,12 +85,12 @@ class Compiler(object):
         for child in self._children:
             child._update_cache()
 
-    def sqlrepr(self, expr):
-        state = State()
-        self(expr, state)
-        return ''.join(state.sql), state.params
+    def __call__(self, expr, state=None):
+        if state is None:
+            state = State()
+            self(expr, state)
+            return ''.join(state.sql), state.params
 
-    def __call__(self, expr, state):
         cls = expr.__class__
         parentheses = False
         if state._callers:
@@ -991,7 +991,7 @@ class QuerySet(Expr):
         return self._cr.UnionQuerySet(self)
 
     def execute(self):
-        return self.compile.sqlrepr(self)
+        return self.compile(self)
 
     def result(self):
         return self.execute()
@@ -1127,7 +1127,7 @@ qn = lambda name, compile: compile(Name(name))
 cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):
-    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile.sqlrepr(self))
+    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
 
 for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet):
     cr(cls)
