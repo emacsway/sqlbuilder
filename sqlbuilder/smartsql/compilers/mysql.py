@@ -8,14 +8,14 @@ TRANSLATION_MAP = {
 }
 
 
-@compile.register(Name)
+@compile.when(Name)
 def compile_name(compile, expr, state):
     state.sql.append('`')
     state.sql.append(expr._name)
     state.sql.append('`')
 
 
-@compile.register(Condition)
+@compile.when(Condition)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
@@ -24,7 +24,7 @@ def compile_condition(compile, expr, state):
     compile(expr._right, state)
 
 
-@compile.register(Concat)
+@compile.when(Concat)
 def compile_concat(compile, expr, state):
     if not expr._ws:
         state.sql.append('CONCAT(')

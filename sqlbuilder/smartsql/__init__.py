@@ -69,7 +69,7 @@ class Compiler(object):
     def create_child(self):
         return self.__class__(self)
 
-    def register(self, cls):
+    def when(self, cls):
         def deco(func):
             self._local_registry[cls] = func
             self._update_cache()
@@ -128,19 +128,19 @@ class Compiler(object):
 compile = Compiler()
 
 
-@compile.register(object)
+@compile.when(object)
 def compile_object(compile, expr, state):
     state.sql.append('%s')
     state.params.append(expr)
 
 
-@compile.register(type(None))
+@compile.when(type(None))
 def compile_none(compile, expr, state):
     state.sql.append('NULL')
 
 
-@compile.register(list)
-@compile.register(tuple)
+@compile.when(list)
+@compile.when(tuple)
 def compile_list(compile, expr, state):
     compile(Parentheses(ExprList(*expr).join(", ")), state)
 
@@ -306,7 +306,7 @@ class Expr(Comparable):
         self._sql, self._params = sql, params
 
 
-@compile.register(Expr)
+@compile.when(Expr)
 def compile_expr(compile, expr, state):
     state.sql.append(expr._sql)
     state.params += expr._params
@@ -322,7 +322,7 @@ class Condition(Expr):
         self._right = right
 
 
-@compile.register(Condition)
+@compile.when(Condition)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
@@ -385,7 +385,7 @@ class ExprList(Expr):
         return dup
 
 
-@compile.register(ExprList)
+@compile.when(ExprList)
 def compile_exprlist(compile, expr, state):
     first = True
     for a in expr:
@@ -400,7 +400,7 @@ class FieldList(ExprList):
     __slots__ = ()
 
 
-@compile.register(FieldList)
+@compile.when(FieldList)
 def compile_fieldlist(compile, expr, state):
     state.push('context', CONTEXT_COLUMN)
     compile_exprlist(compile, expr, state)
@@ -422,7 +422,7 @@ class Concat(ExprList):
         return self
 
 
-@compile.register(Concat)
+@compile.when(Concat)
 def compile_concat(compile, expr, state):
     if not expr._ws:
         return compile_exprlist(compile, expr, state)
@@ -450,7 +450,7 @@ class Parentheses(Expr):
         self._expr = expr
 
 
-@compile.register(Parentheses)
+@compile.when(Parentheses)
 def compile_parentheses(compile, expr, state):
     state.sql.append('(')
     compile(expr._expr, state)
@@ -461,7 +461,7 @@ class OmitParentheses(Parentheses):
     pass
 
 
-@compile.register(OmitParentheses)
+@compile.when(OmitParentheses)
 def compile_omitparentheses(compile, expr, state):
     compile(expr._expr, state)
 
@@ -475,7 +475,7 @@ class Prefix(Expr):
         self._expr = expr
 
 
-@compile.register(Prefix)
+@compile.when(Prefix)
 def compile_prefix(compile, expr, state):
     state.sql.append(expr._sql)
     state.sql.append(SPACE)
@@ -491,7 +491,7 @@ class Postfix(Expr):
         self._expr = expr
 
 
-@compile.register(Postfix)
+@compile.when(Postfix)
 def compile_postfix(compile, expr, state):
     compile(expr._expr, state)
     state.sql.append(SPACE)
@@ -506,7 +506,7 @@ class Between(Expr):
         self._expr, self._start, self._end = expr, start, end
 
 
-@compile.register(Between)
+@compile.when(Between)
 def compile_between(compile, expr, state):
     compile(expr._expr, state)
     state.sql.append(' BETWEEN ')
@@ -524,7 +524,7 @@ class Callable(Expr):
         self._args = ExprList(*args).join(", ")
 
 
-@compile.register(Callable)
+@compile.when(Callable)
 def compile_callable(compile, expr, state):
     compile(expr._expr, state)
     state.sql.append('(')
@@ -543,7 +543,7 @@ class Constant(Expr):
         return Callable(self, *args)
 
 
-@compile.register(Constant)
+@compile.when(Constant)
 def compile_constant(compile, expr, state):
     state.sql.append(expr._sql)
 
@@ -581,7 +581,7 @@ class Field(MetaField("NewBase", (Expr,), {})):
         self.__cached__ = {}
 
 
-@compile.register(Field)
+@compile.when(Field)
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
         compile(expr._prefix, state)
@@ -601,7 +601,7 @@ class Alias(Expr):
         super(Alias, self).__init__(alias)
 
 
-@compile.register(Alias)
+@compile.when(Alias)
 def compile_alias(compile, expr, state):
     if state.context == CONTEXT_COLUMN:
         compile(expr._expr, state)
@@ -657,7 +657,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
     __mul__ = same('cross_join')
 
 
-@compile.register(Table)
+@compile.when(Table)
 def compile_table(compile, expr, state):
     compile(Name(expr._name), state)
 
@@ -675,7 +675,7 @@ class TableAlias(Table):
         return type(self)(alias, self._table)
 
 
-@compile.register(TableAlias)
+@compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
     if expr._table is not None and state.context == CONTEXT_TABLE:
         compile(expr._table, state)
@@ -753,7 +753,7 @@ class TableJoin(object):
     __mul__ = same('cross_join')
 
 
-@compile.register(TableJoin)
+@compile.when(TableJoin)
 def compile_tablejoin(compile, expr, state):
     sql = ExprList().join(" ")
     if expr._left is not None:
@@ -1051,7 +1051,7 @@ class QuerySet(Expr):
     __copy__ = same('clone')
 
 
-@compile.register(QuerySet)
+@compile.when(QuerySet)
 def compile_queryset(compile, expr, state):
     compile(expr._build_sql(), state)
 
@@ -1094,7 +1094,7 @@ class Name(object):
         self._name = name
 
 
-@compile.register(Name)
+@compile.when(Name)
 def compile_name(compile, expr, state):
     state.sql.append('"')
     state.sql.append(expr._name)
