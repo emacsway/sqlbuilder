@@ -20,7 +20,7 @@ except NameError:
 
 DEFAULT_DIALECT = 'postgres'
 PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
-LOOKUP_SEP = i('__')
+LOOKUP_SEP = '__'
 MAX_PRECEDENCE = 1000
 SPACE = " "
 
@@ -292,7 +292,7 @@ class Comparable(object):
 
 class Expr(Comparable):
 
-    __slots__ = (i('_sql'), i('_params'))
+    __slots__ = ('_sql', '_params')
 
     def __init__(self, sql, *params):
         if params and is_list(params[0]):
@@ -308,7 +308,7 @@ def compile_expr(compile, expr, state):
 
 class Condition(Expr):
 
-    __slots__ = (i('_left'), i('_right'))
+    __slots__ = ('_left', '_right')
 
     def __init__(self, left, op, right):
         self._left = left
@@ -327,7 +327,7 @@ def compile_condition(compile, expr, state):
 
 class ExprList(Expr):
 
-    __slots__ = (i('data'), )
+    __slots__ = ('data', )
 
     def __init__(self, *args):
         if args and is_list(args[0]):
@@ -403,7 +403,7 @@ def compile_fieldlist(compile, expr, state):
 
 class Concat(ExprList):
 
-    __slots__ = (i('_ws'), )
+    __slots__ = ('_ws', )
 
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
@@ -438,7 +438,7 @@ class Placeholder(Expr):
 
 class Parentheses(Expr):
 
-    __slots__ = (i('_expr', ))
+    __slots__ = ('_expr', )
 
     def __init__(self, expr):
         self._expr = expr
@@ -462,7 +462,7 @@ def compile_omitparentheses(compile, expr, state):
 
 class Prefix(Expr):
 
-    __slots__ = (i('_expr', ))
+    __slots__ = ('_expr', )
 
     def __init__(self, prefix, expr):
         self._sql = prefix
@@ -478,7 +478,7 @@ def compile_prefix(compile, expr, state):
 
 class Postfix(Expr):
 
-    __slots__ = (i('_expr', ))
+    __slots__ = ('_expr', )
 
     def __init__(self, expr, postfix):
         self._sql = postfix
@@ -494,7 +494,7 @@ def compile_postfix(compile, expr, state):
 
 class Between(Expr):
 
-    __slots__ = (i('_expr'), i('_start'), i('_end'))
+    __slots__ = ('_expr', '_start', '_end')
 
     def __init__(self, expr, start, end):
         self._expr, self._start, self._end = expr, start, end
@@ -511,7 +511,7 @@ def compile_between(compile, expr, state):
 
 class Callable(Expr):
 
-    __slots__ = (i('_expr'), i('_args'))
+    __slots__ = ('_expr', '_args')
 
     def __init__(self, expr, *args):
         self._expr = expr
@@ -563,9 +563,9 @@ class MetaField(type):
         return f.as_(alias) if alias else f
 
 
-class Field(MetaField(i("NewBase"), (Expr,), {})):
+class Field(MetaField("NewBase", (Expr,), {})):
 
-    __slots__ = (i('_name'), i('_prefix'), i('__cached__'))
+    __slots__ = ('_name', '_prefix', '__cached__')
 
     def __init__(self, name, prefix=None):
         self._name = name
@@ -588,7 +588,7 @@ def compile_field(compile, expr, state):
 
 class Alias(Expr):
 
-    __slots__ = (i('_expr'), i('_sql'))
+    __slots__ = ('_expr', '_sql')
 
     def __init__(self, alias, expr=None):
         self._expr = expr
@@ -609,7 +609,7 @@ class MetaTable(type):
         def _f(attr):
             return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
-        for a in [i('inner_join'), i('left_join'), i('right_join'), i('full_join'), i('cross_join'), i('join'), i('on'), i('hint')]:
+        for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
             attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
 
@@ -622,9 +622,9 @@ class MetaTable(type):
         return table.as_(alias) if alias else table
 
 
-class Table(MetaTable(i("NewBase"), (object, ), {})):
+class Table(MetaTable("NewBase", (object, ), {})):
 
-    __slots__ = (i('_name'), i('__cached__'))
+    __slots__ = ('_name', '__cached__')
 
     def __init__(self, name):
         self._name = name
@@ -644,11 +644,11 @@ class Table(MetaTable(i("NewBase"), (object, ), {})):
         setattr(self, name, f)
         return f
 
-    __and__ = same(i('inner_join'))
-    __add__ = same(i('left_join'))
-    __sub__ = same(i('right_join'))
-    __or__ = same(i('full_join'))
-    __mul__ = same(i('cross_join'))
+    __and__ = same('inner_join')
+    __add__ = same('left_join')
+    __sub__ = same('right_join')
+    __or__ = same('full_join')
+    __mul__ = same('cross_join')
 
 
 @compile.register(Table)
@@ -658,7 +658,7 @@ def compile_table(compile, expr, state):
 
 class TableAlias(Table):
 
-    __slots__ = (i('_table'), i('_alias'))
+    __slots__ = ('_table', '_alias')
 
     def __init__(self, alias, table=None):
         self._table = table
@@ -679,7 +679,7 @@ def compile_tablealias(compile, expr, state):
 
 class TableJoin(object):
 
-    __slots__ = (i('_table'), i('_alias'), i('_join_type'), i('_on'), i('_left'), i('_hint'), )
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', )
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         if isinstance(table_or_alias, TableAlias):
@@ -739,12 +739,12 @@ class TableJoin(object):
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
-    as_nested = same(i('group'))
-    __and__ = same(i('inner_join'))
-    __add__ = same(i('left_join'))
-    __sub__ = same(i('right_join'))
-    __or__ = same(i('full_join'))
-    __mul__ = same(i('cross_join'))
+    as_nested = same('group')
+    __and__ = same('inner_join')
+    __add__ = same('left_join')
+    __sub__ = same('right_join')
+    __or__ = same('full_join')
+    __mul__ = same('cross_join')
 
 
 @compile.register(TableJoin)
@@ -770,14 +770,14 @@ def compile_tablejoin(compile, expr, state):
 class QuerySet(Expr):
 
     _clauses = (
-        ('fields', None, i('_fields')),
-        ('tables', None, i('_tables')),
-        ('from', 'FROM', i('_tables')),
-        ('where', 'WHERE', i('_wheres')),
-        ('group', 'GROUP BY', i('_group_by')),
-        ('having', 'HAVING', i('_havings')),
-        ('order', 'ORDER BY', i('_order_by')),
-        ('limit', None, i('_limit'))
+        ('fields', None, '_fields'),
+        ('tables', None, '_tables'),
+        ('from', 'FROM', '_tables'),
+        ('where', 'WHERE', '_wheres'),
+        ('group', 'GROUP BY', '_group_by'),
+        ('having', 'HAVING', '_havings'),
+        ('order', 'ORDER BY', '_order_by'),
+        ('limit', None, '_limit')
     )
 
     def __init__(self, tables=None):
@@ -823,7 +823,7 @@ class QuerySet(Expr):
         self._distinct = val
         return self
 
-    @opt_checker([i("reset"), ])
+    @opt_checker(["reset", ])
     def fields(self, *args, **opts):
         if not args and not opts:
             return self._fields
@@ -832,7 +832,7 @@ class QuerySet(Expr):
             return self.fields(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(i("reset")):
+        if opts.get("reset"):
             c._fields.reset()
         if args:
             c._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
@@ -856,7 +856,7 @@ class QuerySet(Expr):
         self._wheres = c if self._wheres is None else self._wheres | c
         return self
 
-    @opt_checker([i("reset"), ])
+    @opt_checker(["reset", ])
     def group_by(self, *args, **opts):
         if not args and not opts:
             return self._group_by
@@ -865,7 +865,7 @@ class QuerySet(Expr):
             return self.group_by(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(i("reset")):
+        if opts.get("reset"):
             c._group_by.reset()
         if args:
             c._group_by.extend(args)
@@ -881,7 +881,7 @@ class QuerySet(Expr):
         c._havings = cond if c._havings is None else c._havings | cond
         return c
 
-    @opt_checker([i("desc"), i("reset"), ])
+    @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):
         if not args and not opts:
             return self._order_by
@@ -890,7 +890,7 @@ class QuerySet(Expr):
             return self.order_by(*args[0], reset=True)
 
         c = self.clone()
-        if opts.get(i("reset")):
+        if opts.get("reset"):
             c._order_by.reset()
         if args:
             direct = "DESC" if opts.get("desc") else "ASC"
@@ -922,15 +922,15 @@ class QuerySet(Expr):
             offset, limit = key, 1
         return self.limit(offset, limit)
 
-    @opt_checker([i("distinct"), i("for_update")])
+    @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
         c = self.clone()
         c._action = "select"
         if args:
             c = c.fields(*args)
-        if opts.get(i("distinct")):
+        if opts.get("distinct"):
             c = c.distinct(True)
-        if opts.get(i("for_update")):
+        if opts.get("for_update"):
             c._for_update = True
         return c.result()
 
@@ -943,16 +943,16 @@ class QuerySet(Expr):
         items = list(fv_dict.items())
         return self.insert_many([x[0] for x in items], ([x[1] for x in items], ), **opts)
 
-    @opt_checker([i("ignore"), i("on_duplicate_key_update")])
+    @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, fields, values, **opts):
         c = self.fields(fields, reset=True)
         c._action = "insert"
-        if opts.get(i("ignore")):
+        if opts.get("ignore"):
             c._ignore = True
         c._values = ExprList().join(", ")
         for row in values:
             c._values.append(ExprList(*row).join(", "))
-        if opts.get(i("on_duplicate_key_update")):
+        if opts.get("on_duplicate_key_update"):
             c._on_duplicate_key_update = ExprList().join(", ")
             for f, v in opts.get("on_duplicate_key_update").items():
                 if not isinstance(f, Expr):
@@ -960,11 +960,11 @@ class QuerySet(Expr):
                 c._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
         return c.result()
 
-    @opt_checker([i("ignore")])
+    @opt_checker(["ignore"])
     def update(self, key_values, **opts):
         c = self.clone()
         c._action = "update"
-        if opts.get(i("ignore")):
+        if opts.get("ignore"):
             c._ignore = True
         c._key_values = ExprList().join(", ")
         for f, v in key_values.items():
@@ -1077,7 +1077,7 @@ class UnionQuerySet(QuerySet):
 
 class Name(object):
 
-    __slots__ = (i('_name'), )
+    __slots__ = ('_name', )
 
     def __init__(self, name=None):
         self._name = name
