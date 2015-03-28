@@ -304,7 +304,7 @@ class TestSmartSQL(unittest.TestCase):
         a = QS(T.item).where(T.item.status != -1).fields(T.item.type, T.item.name, T.item.img)
         b = QS(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
         self.assertEqual(
-            (a.as_union() + b).order_by("type", "name", desc=True).limit(100, 10).select(),
+            (a.set(True) | b).order_by("type", "name", desc=True).limit(100, 10).select(),
             ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE ("item"."status" <> %s)) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE ("gift"."storage" > %s)) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100 ], )
         )
 

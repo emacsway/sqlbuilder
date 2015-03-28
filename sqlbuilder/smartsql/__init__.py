@@ -1004,8 +1004,8 @@ class QuerySet(Expr):
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
 
-    def as_union(self):
-        return self._cr.UnionQuerySet(self)
+    def set(self, all=False):
+        return self._cr.SetExpr([self], all=all)
 
     def execute(self):
         return self.compile(self)
@@ -1154,36 +1154,44 @@ def compile_delete(compile, expr, state):
 
 
 @cr
-class UnionQuerySet(QuerySet):
+class SetExpr(QuerySet):
 
-    def __init__(self, qs):
-        super(UnionQuerySet, self).__init__()
-        self._union_list = ExprList(qs).join(" ")
+    op = None
 
-    def __mul__(self, qs):
-        if not isinstance(qs, QuerySet):
-            raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_list.append(Prefix("UNION DISTINCT", qs))
-        return self
+    def __init__(self, exprs, op=None, all=False):
+        super(SetExpr, self).__init__()
+        self.op, self.all = op, all
+        # import ipdb; ipdb.set_trace()
+        self._exprs = ExprList(*exprs)
 
-    def __add__(self, qs):
-        if not isinstance(qs, QuerySet):
-            raise TypeError("Can't do operation with {0}".format(str(type(qs))))
-        self._union_list.append(Prefix("UNION ALL", qs))
-        return self
+    def _f(op):
+        def f(self, qs):
+            c = self
+            if self.op is None:
+                self.op = op
+            elif self.op != op:
+                c = self._cr.SetExpr(self, op, self.all)
+            c._exprs.append(qs)
+            return c
+        return f
+
+    __or__ = _f('UNION')
+    __and__ = _f('INTERSECT')
+    __sub__ = _f('EXCEPT')
 
     def clone(self):
-        self = super(UnionQuerySet, self).clone()
-        self._union_list = copy.copy(self._union_list)
+        self = super(SetExpr, self).clone()
+        self._exprs = copy.copy(self._exprs)
         return self
 
 
-@compile.when(UnionQuerySet)
-def compile_union(compile, expr, state):
-    compile(expr._union_list, state)
-    if expr._wheres:
-        state.sql.append(" WHERE ")
-        compile(expr._wheres, state)
+@compile.when(SetExpr)
+def compile_set(compile, expr, state):
+    if expr.all:
+        op = ' {} ALL '.format(expr.op)
+    else:
+        op = ' {} '.format(expr.op)
+    compile(expr._exprs.join(op), state)
     if expr._order_by:
         state.sql.append(" ORDER BY ")
         compile(expr._order_by, state)
