@@ -1058,10 +1058,12 @@ class Insert(QuerySet):
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self._table = table
         self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
-        self._values = [tuple(map.values())] if map else values
+        self._values = (tuple(map.values()),) if map else values
         self._ignore = ignore
-        self._on_duplicate_key_update = {k if isinstance(k, Expr) else Field(k): v
-                                         for k, v in on_duplicate_key_update.items()} if on_duplicate_key_update else None
+        self._on_duplicate_key_update = tuple(
+            (k if isinstance(k, Expr) else Field(k), v)
+            for k, v in on_duplicate_key_update.items()
+        ) if on_duplicate_key_update else None
 
 
 @compile.when(Insert)
@@ -1078,7 +1080,7 @@ def compile_insert(compile, expr, state):
     if expr._on_duplicate_key_update:
         state.sql.append(" ON DUPLICATE KEY UPDATE ")
         first = True
-        for f, v in expr._on_duplicate_key_update.items():
+        for f, v in expr._on_duplicate_key_update:
             if first:
                 first = False
             else:
