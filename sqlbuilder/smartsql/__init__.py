@@ -1005,7 +1005,7 @@ class QuerySet(Expr):
         return self._cr.TableAlias(alias, self)
 
     def set(self, all=False):
-        return self._cr.SetExpr([self], all=all)
+        return self._cr.Set([self], all=all)
 
     def execute(self):
         return self.compile(self)
@@ -1156,14 +1156,13 @@ def compile_delete(compile, expr, state):
 
 
 @cr
-class SetExpr(QuerySet):
+class Set(QuerySet):
 
     op = None
 
     def __init__(self, exprs, op=None, all=False):
-        super(SetExpr, self).__init__()
+        super(Set, self).__init__()
         self.op, self.all = op, all
-        # import ipdb; ipdb.set_trace()
         self._exprs = ExprList(*exprs)
 
     def _f(op):
@@ -1172,7 +1171,7 @@ class SetExpr(QuerySet):
             if self.op is None:
                 self.op = op
             elif self.op != op:
-                c = self._cr.SetExpr(self, op, self.all)
+                c = self._cr.Set(self, op, self.all)
             c._exprs.append(qs)
             return c
         return f
@@ -1182,12 +1181,12 @@ class SetExpr(QuerySet):
     __sub__ = _f('EXCEPT')
 
     def clone(self):
-        self = super(SetExpr, self).clone()
+        self = super(Set, self).clone()
         self._exprs = copy.copy(self._exprs)
         return self
 
 
-@compile.when(SetExpr)
+@compile.when(Set)
 def compile_set(compile, expr, state):
     if expr.all:
         op = ' {} ALL '.format(expr.op)
@@ -1203,6 +1202,8 @@ def compile_set(compile, expr, state):
     if expr._offset:
         state.sql.append(" OFFSET ")
         compile(expr._offset, state)
+    if expr._for_update:
+        state.sql.append(" FOR UPDATE")
 
 
 class Name(object):
