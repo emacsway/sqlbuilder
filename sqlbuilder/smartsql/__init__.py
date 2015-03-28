@@ -1235,7 +1235,7 @@ def is_list(v):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-A, C, E, F, P, T, TA, S, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
+A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
