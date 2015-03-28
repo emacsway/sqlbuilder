@@ -305,7 +305,7 @@ class Comparable(object):
         else:
             return self.__eq__(key)
 
-    __hash__ = None
+    # __hash__ = None
 
 
 class Expr(Comparable):
@@ -348,8 +348,8 @@ class ExprList(Expr):
     __slots__ = ('data', )
 
     def __init__(self, *args):
-        if args and is_list(args[0]):
-            return self.__init__(*args[0])
+        # if args and is_list(args[0]):
+        #     return self.__init__(*args[0])
         self._sql, self.data = " ", list(args)
 
     def join(self, sep):
@@ -410,6 +410,11 @@ def compile_exprlist(compile, expr, state):
 
 class FieldList(ExprList):
     __slots__ = ()
+
+    def __init__(self, *args):
+        # if args and is_list(args[0]):
+        #     return self.__init__(*args[0])
+        self._sql, self.data = ", ", list(args)
 
 
 @compile.when(FieldList)
@@ -814,6 +819,8 @@ class QuerySet(Expr):
         ('limit', None, '_limit')
     )
 
+    compile = compile
+
     def __init__(self, tables=None):
 
         self._distinct = False
@@ -828,14 +835,9 @@ class QuerySet(Expr):
         self._order_by = ExprList().join(", ")
         self._limit = None
 
-        self._values = ExprList().join(", ")
         self._key_values = ExprList().join(", ")
-        self._ignore = False
-        self._on_duplicate_key_update = False
         self._for_update = False
-
         self._action = "select"
-        self.compile = compile
 
     def clone(self):
         dup = copy.copy(super(QuerySet, self))
@@ -974,25 +976,10 @@ class QuerySet(Expr):
         return qs.result()
 
     def insert(self, fv_dict, **opts):
-        items = list(fv_dict.items())
-        return self.insert_many([x[0] for x in items], ([x[1] for x in items], ), **opts)
+        return self._cr.Insert(table=self._tables, map=fv_dict, **opts).result()
 
-    @opt_checker(["ignore", "on_duplicate_key_update"])
     def insert_many(self, fields, values, **opts):
-        c = self.fields(fields, reset=True)
-        c._action = "insert"
-        if opts.get("ignore"):
-            c._ignore = True
-        c._values = ExprList().join(", ")
-        for row in values:
-            c._values.append(ExprList(*row).join(", "))
-        if opts.get("on_duplicate_key_update"):
-            c._on_duplicate_key_update = ExprList().join(", ")
-            for f, v in opts.get("on_duplicate_key_update").items():
-                if not isinstance(f, Expr):
-                    f = Field(f)
-                c._on_duplicate_key_update.append(ExprList(f, Constant("="), v))
-        return c.result()
+        return self._cr.Insert(table=self._tables, fields=fields, values=values, **opts).result()
 
     @opt_checker(["ignore"])
     def update(self, key_values, **opts):
@@ -1047,20 +1034,6 @@ class QuerySet(Expr):
             if self._for_update:
                 sql.append(Constant("FOR UPDATE"))
 
-        elif self._action == "insert":
-            sql.append(Constant("INSERT"))
-            if self._ignore:
-                sql.append(Constant("IGNORE"))
-            sql.append(Constant("INTO"))
-            self._sql_extend(sql, ["tables", ])
-            sql.append(Parentheses(self._fields))
-            sql.append(Constant("VALUES"))
-            for row in self._values:
-                sql.append(Parentheses(row))
-            if self._on_duplicate_key_update:
-                sql.append(Constant("ON DUPLICATE KEY UPDATE"))
-                sql.append(self._on_duplicate_key_update)
-
         elif self._action == "update":
             sql.append(Constant("UPDATE"))
             if self._ignore:
@@ -1082,6 +1055,38 @@ class QuerySet(Expr):
 @compile.when(QuerySet)
 def compile_queryset(compile, expr, state):
     compile(expr._build_sql(), state)
+
+
+class Insert(QuerySet):
+
+    def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
+        self._table = table
+        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self._values = [tuple(map.values())] if map else values
+        self._ignore = ignore
+        self._on_duplicate_key_update = {k if isinstance(k, Expr) else Field(k): v
+                                         for k, v in on_duplicate_key_update.items()} if on_duplicate_key_update else None
+
+
+@compile.when(Insert)
+def compile_insert(compile, expr, state):
+
+    state.sql.append("INSERT ")
+    if expr._ignore:
+        state.sql.append("IGNORE ")
+    state.sql.append("INTO ")
+    compile(expr._table, state)
+    state.sql.append(SPACE)
+    compile(Parentheses(expr._fields), state)
+    state.sql.append(SPACE)
+    state.sql.append("VALUES ")
+    compile(ExprList(*expr._values).join(', '), state)
+    if expr._on_duplicate_key_update:
+        state.sql.append(" ON DUPLICATE KEY UPDATE ")
+        for k, v in expr._on_duplicate_key_update.items():
+            compile(k, state)
+            state.sql.append(" = ")
+            compile(v, state)
 
 
 class UnionQuerySet(QuerySet):
@@ -1157,5 +1162,5 @@ cr = ClassRegistry()
 for cls in (Expr, Table, TableJoin, ):
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
 
-for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet):
+for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet, Insert):
     cr(cls)
