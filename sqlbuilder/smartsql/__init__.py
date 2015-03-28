@@ -112,7 +112,7 @@ class Compiler(object):
         if state._callers:
             if state._callers[0] in (OmitParentheses, Parentheses):
                 pass
-            elif isinstance(expr, (Condition, QuerySet)) or type(expr) == Expr:
+            elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
                 parentheses = True
 
         # outer_precedence = state.precedence
@@ -826,7 +826,7 @@ def compile_tablejoin(compile, expr, state):
 
 
 @cr
-class QuerySet(Expr):
+class Query(Expr):
 
     compile = compile
 
@@ -846,10 +846,9 @@ class QuerySet(Expr):
         self._offset = None
 
         self._for_update = False
-        self._action = "select"
 
     def clone(self):
-        dup = copy.copy(super(QuerySet, self))
+        dup = copy.copy(super(Query, self))
         for a in ['_fields', '_tables', '_group_by', '_order_by']:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
@@ -964,7 +963,6 @@ class QuerySet(Expr):
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
         c = self.clone()
-        c._action = "select"
         if args:
             c = c.fields(*args)
         if opts.get("distinct"):
@@ -974,9 +972,7 @@ class QuerySet(Expr):
         return c.result()
 
     def count(self):
-        qs = type(self)().fields(Constant('COUNT')(Constant('1')).as_('count_value')).tables(self.order_by(reset=True).as_table('count_list'))
-        qs._action = 'count'
-        return qs.result()
+        return CountQuery(self).result()
 
     def insert(self, fv_dict=None, **kw):
         kw.setdefault('table', self._tables)
@@ -1022,7 +1018,10 @@ class QuerySet(Expr):
     __copy__ = same('clone')
 
 
-@compile.when(QuerySet)
+QuerySet = Query
+
+
+@compile.when(Query)
 def compile_queryset(compile, expr, state):
     state.sql.append("SELECT ")
     if expr._distinct:
@@ -1053,7 +1052,15 @@ def compile_queryset(compile, expr, state):
 
 
 @cr
-class Insert(QuerySet):
+class CountQuery(Query):
+
+    def __init__(self, qs):
+        Query.__init__(self, qs.order_by(reset=True).as_table('count_list'))
+        self._fields.append(Constant('COUNT')(Constant('1')).as_('count_value'))
+
+
+@cr
+class Insert(Query):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self._table = table
@@ -1091,7 +1098,7 @@ def compile_insert(compile, expr, state):
 
 
 @cr
-class Update(QuerySet):
+class Update(Query):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
         self._table = table
@@ -1131,7 +1138,7 @@ def compile_update(compile, expr, state):
 
 
 @cr
-class Delete(QuerySet):
+class Delete(Query):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
         self._table = table
@@ -1156,7 +1163,7 @@ def compile_delete(compile, expr, state):
 
 
 @cr
-class Set(QuerySet):
+class Set(Query):
 
     op = None
 
@@ -1228,7 +1235,7 @@ def is_list(v):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
+A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
