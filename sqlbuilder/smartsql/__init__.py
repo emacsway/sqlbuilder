@@ -972,12 +972,12 @@ class Query(Expr):
         return c.result()
 
     def count(self):
-        return CountQuery(self).result()
+        return self.result(SelectCount(self))
 
     def insert(self, fv_dict=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self._cr.Insert(map=fv_dict, **kw).result()
+        return self.result(self._cr.Insert(map=fv_dict, **kw))
 
     def insert_many(self, fields, values, **kw):
         return self.insert(fields=fields, values=values, **kw)
@@ -988,14 +988,14 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self._cr.Update(map=key_values, **kw).result()
+        return self.result(self._cr.Update(map=key_values, **kw))
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self._cr.Delete(**kw).result()
+        return self.result(self._cr.Delete(**kw))
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1003,11 +1003,11 @@ class Query(Expr):
     def set(self, all=False):
         return self._cr.Set([self], all=all)
 
-    def execute(self):
-        return self.compile(self)
+    def execute(self, expr):
+        return self.compile(expr)
 
-    def result(self):
-        return self.execute()
+    def result(self, expr=None):
+        return self.execute(self if expr is None else expr)
 
     def set_compiler(self, compile):
         c = self.clone()
@@ -1052,7 +1052,7 @@ def compile_queryset(compile, expr, state):
 
 
 @cr
-class CountQuery(Query):
+class SelectCount(Query):
 
     def __init__(self, qs):
         Query.__init__(self, qs.order_by(reset=True).as_table('count_list'))
@@ -1060,7 +1060,7 @@ class CountQuery(Query):
 
 
 @cr
-class Insert(Query):
+class Insert(object):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self._table = table
@@ -1098,7 +1098,7 @@ def compile_insert(compile, expr, state):
 
 
 @cr
-class Update(Query):
+class Update(object):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
         self._table = table
@@ -1138,7 +1138,7 @@ def compile_update(compile, expr, state):
 
 
 @cr
-class Delete(Query):
+class Delete(object):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
         self._table = table
@@ -1235,7 +1235,7 @@ def is_list(v):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query
+A, C, E, F, P, T, TA, S, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 

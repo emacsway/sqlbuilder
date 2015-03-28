@@ -39,7 +39,7 @@ class classproperty(object):
         return self.getter(owner)
 
 
-@cr('QuerySet')
+@cr('Query')
 class QS(smartsql.QS):
     """Query Set adapted for Django."""
 
@@ -105,9 +105,10 @@ class QS(smartsql.QS):
         self.compile = SMARTSQL_COMPILERS[engine]
         return self
 
-    def execute(self):
+    def execute(self, expr=None):
         """Implementation of query execution"""
-        if self._action == "select":
+        expr = self if expr is None else self
+        if isinstance(expr, smartsql.Query) and not isinstance(expr, smartsql.CountQuery):
             return self.model.objects.raw(*self.compile(self)).using(self.using())
         return self._execute(*self.compile(self))
 
@@ -116,22 +117,23 @@ class QS(smartsql.QS):
         cursor.execute(sql, params)
         return cursor
 
-    def result(self):
+    def result(self, expr=None):
         """Result"""
-        if self._action == 'select':
+        expr = self if expr is None else self
+        if isinstance(expr, smartsql.CountQuery):
+            return self.execute(expr).fetchone()[0]
+        elif isinstance(expr, smartsql.Query):
             return self
-        if self._action == 'count':
-            return self.execute().fetchone()[0]
-        return self.execute()
+        return self.execute(expr)
 
 
 @cr
-class UnionQuerySet(smartsql.UnionQuerySet, QS):
+class Set(smartsql.Set, QS):
     """Union query class"""
-    def __init__(self, qs):
-        super(UnionQuerySet, self).__init__(qs)
-        self.model = qs.model
-        self._using = qs.using()
+    def __init__(self, exprs, *a, **kw):
+        super(Set, self).__init__(exprs, *a, **kw)
+        self.model = exprs[0].model
+        self._using = exprs[0]._using
 
 
 @cr
