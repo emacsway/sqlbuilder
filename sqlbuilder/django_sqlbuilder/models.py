@@ -76,7 +76,7 @@ class QS(smartsql.QS):
         return super(QS, self).count()
 
     def iterator(self):
-        return self.execute()
+        return self.execute(self)
 
     def __iter__(self):
         """Returns iterator."""
@@ -105,10 +105,11 @@ class QS(smartsql.QS):
         self.compile = SMARTSQL_COMPILERS[engine]
         return self
 
-    def execute(self, expr=None):
+    def execute(self, expr):
         """Implementation of query execution"""
-        expr = self if expr is None else self
-        if isinstance(expr, smartsql.Query) and not isinstance(expr, smartsql.CountQuery):
+        if isinstance(expr, smartsql.SelectCount):
+            pass
+        elif isinstance(expr, smartsql.Query):
             return self.model.objects.raw(*self.compile(self)).using(self.using())
         return self._execute(*self.compile(self))
 
@@ -119,8 +120,8 @@ class QS(smartsql.QS):
 
     def result(self, expr=None):
         """Result"""
-        expr = self if expr is None else self
-        if isinstance(expr, smartsql.CountQuery):
+        expr = self if expr is None else expr
+        if isinstance(expr, smartsql.SelectCount):
             return self.execute(expr).fetchone()[0]
         elif isinstance(expr, smartsql.Query):
             return self

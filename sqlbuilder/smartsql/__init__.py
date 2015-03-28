@@ -827,6 +827,7 @@ def compile_tablejoin(compile, expr, state):
 
 @cr
 class Query(Expr):
+    # Without methods like insert, delete, update etc. it will be named Select.
 
     compile = compile
 
@@ -1059,8 +1060,12 @@ class SelectCount(Query):
         self._fields.append(Constant('COUNT')(Constant('1')).as_('count_value'))
 
 
+class Modify(object):
+    pass
+
+
 @cr
-class Insert(object):
+class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self._table = table
@@ -1098,7 +1103,7 @@ def compile_insert(compile, expr, state):
 
 
 @cr
-class Update(object):
+class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
         self._table = table
@@ -1138,7 +1143,7 @@ def compile_update(compile, expr, state):
 
 
 @cr
-class Delete(object):
+class Delete(Modify):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
         self._table = table
@@ -1239,5 +1244,5 @@ A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table,
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
-for cls in (Expr, Table, TableJoin, ):
+for cls in (Expr, Table, TableJoin, Modify):
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
