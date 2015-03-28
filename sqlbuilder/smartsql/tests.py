@@ -1,4 +1,4 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import
 import datetime
 import unittest
 from collections import OrderedDict
@@ -221,7 +221,7 @@ class TestSmartSQL(unittest.TestCase):
         t = T.grade
         self.assertEqual(
             QS(t).limit(0, 100).select(F.name),
-            ('SELECT "name" FROM "grade" LIMIT 100', [], )
+            ('SELECT "name" FROM "grade" LIMIT %s', [100], )
         )
         t = (t & T.base).on(F.grade__item_type == F.base__type)
         self.assertEqual(
@@ -243,7 +243,7 @@ class TestSmartSQL(unittest.TestCase):
         w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= now)
         self.assertEqual(
             QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT 1', [1, 0, 1, '2009-01-01', now, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT %s', [1, 0, 1, '2009-01-01', now, 1], )
         )
         w = w & (F.base__status != [1, 2])
         self.assertEqual(
@@ -276,18 +276,18 @@ class TestSmartSQL(unittest.TestCase):
         )
 
     def test_subquery(self):
-        sub_q = QS(T.tb2).where(T.tb2.id == T.tb1.tb2_id).limit(1)
+        sub_q = QS(T.tb2).fields(T.tb2.id2).where(T.tb2.id == T.tb1.tb2_id).limit(1)
         self.assertEqual(
             QS(T.tb1).where(T.tb1.tb2_id == sub_q).select(T.tb1.id),
-            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" = (SELECT FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT 1))', [], )
+            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" = (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s))', [1], )
         )
         self.assertEqual(
             QS(T.tb1).where(T.tb1.tb2_id.in_(sub_q)).select(T.tb1.id),
-            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" IN (SELECT FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT 1))', [], )
+            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" IN (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s))', [1], )
         )
         self.assertEqual(
             QS(T.tb1).select(sub_q.as_('sub_value')),
-            ('SELECT (SELECT FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT 1) AS "sub_value" FROM "tb1"', [], )
+            ('SELECT (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s) AS "sub_value" FROM "tb1"', [1], )
         )
 
     def test_expression(self):
@@ -305,7 +305,7 @@ class TestSmartSQL(unittest.TestCase):
         b = QS(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
         self.assertEqual(
             (a.as_union() + b).order_by("type", "name", desc=True).limit(100, 10).select(),
-            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE ("item"."status" <> %s)) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE ("gift"."storage" > %s)) ORDER BY %s DESC, %s DESC LIMIT 10 OFFSET 100', [-1, 0, 'type', 'name', ], )
+            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE ("item"."status" <> %s)) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE ("gift"."storage" > %s)) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100 ], )
         )
 
     def test_count(self):

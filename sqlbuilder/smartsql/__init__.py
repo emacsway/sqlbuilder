@@ -29,6 +29,22 @@ CONTEXT_COLUMN = 1
 CONTEXT_TABLE = 2
 
 
+class ClassRegistry(object):
+    def __call__(self, name_or_cls):
+        name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
+
+        def deco(cls):
+            setattr(self, name, cls)
+            if not getattr(cls, '_cr', None) is self:  # save mem
+                cls._cr = self
+            return cls
+
+        return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
+
+
+cr = ClassRegistry()
+
+
 class State(object):
 
     def __init__(self):
@@ -652,6 +668,7 @@ class MetaTable(type):
         return table.as_(alias) if alias else table
 
 
+@cr
 class Table(MetaTable("NewBase", (object, ), {})):
 
     __slots__ = ('_name', '__cached__')
@@ -686,6 +703,7 @@ def compile_table(compile, expr, state):
     compile(Name(expr._name), state)
 
 
+@cr
 class TableAlias(Table):
 
     __slots__ = ('_table', '_alias')
@@ -714,6 +732,7 @@ def compile_tablealias(compile, expr, state):
     compile(Name(expr._alias), state)
 
 
+@cr
 class TableJoin(object):
 
     __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested')
@@ -806,18 +825,8 @@ def compile_tablejoin(compile, expr, state):
         state.sql.append(')')
 
 
+@cr
 class QuerySet(Expr):
-
-    _clauses = (
-        ('fields', None, '_fields'),
-        ('tables', None, '_tables'),
-        ('from', 'FROM', '_tables'),
-        ('where', 'WHERE', '_wheres'),
-        ('group', 'GROUP BY', '_group_by'),
-        ('having', 'HAVING', '_havings'),
-        ('order', 'ORDER BY', '_order_by'),
-        ('limit', None, '_limit')
-    )
 
     compile = compile
 
@@ -834,14 +843,14 @@ class QuerySet(Expr):
         self._group_by = ExprList().join(", ")
         self._order_by = ExprList().join(", ")
         self._limit = None
+        self._offset = None
 
-        self._key_values = ExprList().join(", ")
         self._for_update = False
         self._action = "select"
 
     def clone(self):
         dup = copy.copy(super(QuerySet, self))
-        for a in ['_fields', '_tables', '_group_by', '_order_by', '_values', '_key_values', ]:
+        for a in ['_fields', '_tables', '_group_by', '_order_by']:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
@@ -938,16 +947,10 @@ class QuerySet(Expr):
         if args:
             if len(args) < 2:
                 args = (0,) + args
-            offset, limit = args
+            c._offset, c._limit = args
         else:
-            limit = kwargs.get('limit')
-            offset = kwargs.get('offset', 0)
-        sql = ""
-        if limit:
-            sql = "LIMIT {0:d}".format(limit)
-        if offset:
-            sql = "{0} OFFSET {1:d}".format(sql, offset)
-        c._limit = Constant(sql)
+            c._limit = kwargs.get('limit')
+            c._offset = kwargs.get('offset', 0)
         return c
 
     def __getitem__(self, key):
@@ -983,23 +986,20 @@ class QuerySet(Expr):
     def insert_many(self, fields, values, **kw):
         return self.insert(fields=fields, values=values, **kw)
 
-    @opt_checker(["ignore"])
-    def update(self, key_values, **opts):
-        c = self.clone()
-        c._action = "update"
-        if opts.get("ignore"):
-            c._ignore = True
-        c._key_values = ExprList().join(", ")
-        for f, v in key_values.items():
-            if not isinstance(f, Expr):
-                f = Field(f)
-            c._key_values.append(ExprList(f, Constant("="), v))
-        return c.result()
+    def update(self, key_values, **kw):
+        kw.setdefault('table', self._tables)
+        kw.setdefault('fields', self._fields)
+        kw.setdefault('where', self._wheres)
+        kw.setdefault('order_by', self._order_by)
+        kw.setdefault('limit', self._limit)
+        return self._cr.Update(map=key_values, **kw).result()
 
-    def delete(self):
-        c = self.clone()
-        c._action = "delete"
-        return c.result()
+    def delete(self, **kw):
+        kw.setdefault('table', self._tables)
+        kw.setdefault('where', self._wheres)
+        kw.setdefault('order_by', self._order_by)
+        kw.setdefault('limit', self._limit)
+        return self._cr.Delete(**kw).result()
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1018,47 +1018,41 @@ class QuerySet(Expr):
         c.compile = compile
         return c
 
-    def _sql_extend(self, sql, parts):
-        for key, clause, attr in self._clauses:
-            if key in parts and getattr(self, attr):
-                if clause:
-                    sql.append(Constant(clause))
-                sql.append(getattr(self, attr))
-
-    def _build_sql(self):
-        sql = ExprList().join(" ")
-
-        if self._action in ("select", "count"):
-            sql.append(Constant("SELECT"))
-            if self._distinct:
-                sql.append(Constant("DISTINCT"))
-            self._sql_extend(sql, ["fields", "from", "where", "group", "having", "order", "limit", ])
-            if self._for_update:
-                sql.append(Constant("FOR UPDATE"))
-
-        elif self._action == "update":
-            sql.append(Constant("UPDATE"))
-            if self._ignore:
-                sql.append(Constant("IGNORE"))
-            self._sql_extend(sql, ["tables"])
-            sql.append(Constant("SET"))
-            sql.append(self._key_values)
-            self._sql_extend(sql, ["where", "limit", ])
-
-        elif self._action == "delete":
-            sql.append(Constant("DELETE"))
-            self._sql_extend(sql, ["from", "where", ])
-        return sql
-
     columns = same('fields')
     __copy__ = same('clone')
 
 
 @compile.when(QuerySet)
 def compile_queryset(compile, expr, state):
-    compile(expr._build_sql(), state)
+    state.sql.append("SELECT ")
+    if expr._distinct:
+        state.sql.append("DISTINCT ")
+    compile(expr._fields, state)
+    state.sql.append(" FROM ")
+    compile(expr._tables, state)
+    if expr._wheres:
+        state.sql.append(" WHERE ")
+        compile(expr._wheres, state)
+    if expr._group_by:
+        state.sql.append(" GROUP BY ")
+        compile(expr._group_by, state)
+    if expr._havings:
+        state.sql.append(" HAVING ")
+        compile(expr._havings, state)
+    if expr._order_by:
+        state.sql.append(" ORDER BY ")
+        compile(expr._order_by, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+    if expr._offset:
+        state.sql.append(" OFFSET ")
+        compile(expr._offset, state)
+    if expr._for_update:
+        state.sql.append(" FOR UPDATE")
 
 
+@cr
 class Insert(QuerySet):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
@@ -1072,7 +1066,6 @@ class Insert(QuerySet):
 
 @compile.when(Insert)
 def compile_insert(compile, expr, state):
-
     state.sql.append("INSERT ")
     if expr._ignore:
         state.sql.append("IGNORE ")
@@ -1080,17 +1073,87 @@ def compile_insert(compile, expr, state):
     compile(expr._table, state)
     state.sql.append(SPACE)
     compile(Parentheses(expr._fields), state)
-    state.sql.append(SPACE)
-    state.sql.append("VALUES ")
+    state.sql.append(" VALUES ")
     compile(ExprList(*expr._values).join(', '), state)
     if expr._on_duplicate_key_update:
         state.sql.append(" ON DUPLICATE KEY UPDATE ")
-        for k, v in expr._on_duplicate_key_update.items():
-            compile(k, state)
+        first = True
+        for f, v in expr._on_duplicate_key_update.items():
+            if first:
+                first = False
+            else:
+                state.sql.append(", ")
+            compile(f, state)
             state.sql.append(" = ")
             compile(v, state)
 
 
+@cr
+class Update(QuerySet):
+
+    def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
+        self._table = table
+        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self._values = tuple(map.values()) if map else values
+        self._ignore = ignore
+        self._where = where
+        self._order_by = order_by
+        self._limit = limit
+
+
+@compile.when(Update)
+def compile_update(compile, expr, state):
+    state.sql.append("UPDATE ")
+    if expr._ignore:
+        state.sql.append("IGNORE ")
+    compile(expr._table, state)
+    state.sql.append(" SET ")
+    first = True
+    for f, v in zip(expr._fields, expr._values):
+        if first:
+            first = False
+        else:
+            state.sql.append(", ")
+        compile(f, state)
+        state.sql.append(" = ")
+        compile(v, state)
+    if expr._where:
+        state.sql.append(" WHERE ")
+        compile(expr._where, state)
+    if expr._order_by:
+        state.sql.append(" ORDER BY ")
+        compile(expr._order_by, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+
+
+@cr
+class Delete(QuerySet):
+
+    def __init__(self, table, where=None, order_by=None, limit=None):
+        self._table = table
+        self._where = where
+        self._order_by = order_by
+        self._limit = limit
+
+
+@compile.when(Delete)
+def compile_delete(compile, expr, state):
+    state.sql.append("DELETE FROM ")
+    compile(expr._table, state)
+    if expr._where:
+        state.sql.append(" WHERE ")
+        compile(expr._where, state)
+    if expr._order_by:
+        state.sql.append(" ORDER BY ")
+        compile(expr._order_by, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+
+
+@cr
 class UnionQuerySet(QuerySet):
 
     def __init__(self, qs):
@@ -1109,16 +1172,27 @@ class UnionQuerySet(QuerySet):
         self._union_list.append(Prefix("UNION ALL", qs))
         return self
 
-    def _build_sql(self):
-        sql = ExprList().join(" ")
-        sql.append(self._union_list)
-        self._sql_extend(sql, ["order", "limit"])
-        return sql
-
     def clone(self):
         self = super(UnionQuerySet, self).clone()
         self._union_list = copy.copy(self._union_list)
         return self
+
+
+@compile.when(UnionQuerySet)
+def compile_union(compile, expr, state):
+    compile(expr._union_list, state)
+    if expr._wheres:
+        state.sql.append(" WHERE ")
+        compile(expr._wheres, state)
+    if expr._order_by:
+        state.sql.append(" ORDER BY ")
+        compile(expr._order_by, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+    if expr._offset:
+        state.sql.append(" OFFSET ")
+        compile(expr._offset, state)
 
 
 class Name(object):
@@ -1136,19 +1210,6 @@ def compile_name(compile, expr, state):
     state.sql.append('"')
 
 
-class ClassRegistry(object):
-    def __call__(self, name_or_cls):
-        name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
-
-        def deco(cls):
-            setattr(self, name, cls)
-            if not getattr(cls, '_cr', None) is self:  # save mem
-                cls._cr = self
-            return cls
-
-        return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
-
-
 def is_list(v):
     return isinstance(v, (list, tuple))
 
@@ -1159,10 +1220,6 @@ def warn(old, new, stacklevel=3):
 A, C, E, F, P, T, TA, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, QuerySet
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
-cr = ClassRegistry()
 
 for cls in (Expr, Table, TableJoin, ):
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
-
-for cls in (Table, TableAlias, TableJoin, QuerySet, UnionQuerySet, Insert):
-    cr(cls)
