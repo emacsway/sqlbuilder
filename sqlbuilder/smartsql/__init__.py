@@ -144,9 +144,10 @@ def cached_compile(f):
     @wraps(f)
     def deco(compile, expr, state):
         if compile not in expr.__cached__:
-            local_state = State()
-            f(compile, expr, local_state)
-            expr.__cached__[compile] = ''.join(local_state.sql)
+            state.push('sql', [])
+            f(compile, expr, state)
+            expr.__cached__[compile] = ''.join(state.sql)
+            state.pop()
         state.sql.append(expr.__cached__[compile])
     return deco
 
