@@ -975,11 +975,13 @@ class QuerySet(Expr):
         qs._action = 'count'
         return qs.result()
 
-    def insert(self, fv_dict, **opts):
-        return self._cr.Insert(table=self._tables, map=fv_dict, **opts).result()
+    def insert(self, fv_dict=None, **kw):
+        kw.setdefault('table', self._tables)
+        kw.setdefault('fields', self._fields)
+        return self._cr.Insert(map=fv_dict, **kw).result()
 
-    def insert_many(self, fields, values, **opts):
-        return self._cr.Insert(table=self._tables, fields=fields, values=values, **opts).result()
+    def insert_many(self, fields, values, **kw):
+        return self.insert(fields=fields, values=values, **kw)
 
     @opt_checker(["ignore"])
     def update(self, key_values, **opts):
