@@ -54,8 +54,8 @@ class QS(smartsql.QS):
             self._using = self.model.objects.db
         self.set_compiler()
 
-    def clone(self):
-        self = super(QS, self).clone()
+    def clone(self, *attrs):
+        self = smartsql.QS.clone(self, *attrs)
         self._cache = None
         return self
 
@@ -101,7 +101,7 @@ class QS(smartsql.QS):
         return self
 
     def set_compiler(self):
-        engine = connections.databases[self.using()]['ENGINE'].rsplit('.')[-1]
+        engine = connections.databases[self._using]['ENGINE'].rsplit('.')[-1]
         self.compile = SMARTSQL_COMPILERS[engine]
         return self
 
@@ -110,11 +110,11 @@ class QS(smartsql.QS):
         if isinstance(expr, smartsql.SelectCount):
             pass
         elif isinstance(expr, smartsql.Query):
-            return self.model.objects.raw(*self.compile(self)).using(self.using())
+            return self.model.objects.raw(*self.compile(self)).using(self._using)
         return self._execute(*self.compile(self))
 
     def _execute(self, sql, params):
-        cursor = connections[self.using()].cursor()
+        cursor = connections[self._using].cursor()
         cursor.execute(sql, params)
         return cursor
 

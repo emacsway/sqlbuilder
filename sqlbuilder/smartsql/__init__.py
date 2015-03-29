@@ -848,16 +848,18 @@ class Query(Expr):
 
         self._for_update = False
 
-    def clone(self):
+    def clone(self, *attrs):
         dup = copy.copy(super(Query, self))
-        for a in ['_fields', '_tables', '_group_by', '_order_by']:
+        # if not attrs:
+        #     attrs = ('_fields', '_tables', '_group_by', '_order_by')
+        for a in attrs:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
 
     def tables(self, t=None):
         if t is None:
             return self._tables
-        self = self.clone()
+        self = self.clone('_tables')
         self._tables = t if isinstance(t, TableJoin) else self._cr.TableJoin(t)
         return self
 
@@ -876,7 +878,7 @@ class Query(Expr):
         if args and is_list(args[0]):
             return self.fields(*args[0], reset=True)
 
-        c = self.clone()
+        c = self.clone('_fields')
         if opts.get("reset"):
             c._fields.reset()
         if args:
@@ -909,7 +911,7 @@ class Query(Expr):
         if args and is_list(args[0]):
             return self.group_by(*args[0], reset=True)
 
-        c = self.clone()
+        c = self.clone('_group_by')
         if opts.get("reset"):
             c._group_by.reset()
         if args:
@@ -934,7 +936,7 @@ class Query(Expr):
         if args and is_list(args[0]):
             return self.order_by(*args[0], reset=True)
 
-        c = self.clone()
+        c = self.clone('_order_by')
         if opts.get("reset"):
             c._order_by.reset()
         if args:
@@ -1194,8 +1196,8 @@ class Set(Query):
         self._all = all
         return self
 
-    def clone(self):
-        self = super(Set, self).clone()
+    def clone(self, *attrs):
+        self = Query.clone(self, *attrs)
         self._exprs = copy.copy(self._exprs)
         return self
 
