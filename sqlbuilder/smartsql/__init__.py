@@ -1025,7 +1025,7 @@ QuerySet = Query
 
 
 @compile.when(Query)
-def compile_queryset(compile, expr, state):
+def compile_query(compile, expr, state):
     state.sql.append("SELECT ")
     if expr._distinct:
         state.sql.append("DISTINCT ")
