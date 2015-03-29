@@ -1002,7 +1002,7 @@ class Query(Expr):
         return self._cr.TableAlias(alias, self)
 
     def set(self, all=False):
-        return self._cr.Set([self], all=all)
+        return self._cr.Set(self, all=all)
 
     def execute(self, expr):
         return self.compile(expr)
@@ -1170,20 +1170,18 @@ def compile_delete(compile, expr, state):
 @cr
 class Set(Query):
 
-    op = None
-
-    def __init__(self, exprs, op=None, all=False):
+    def __init__(self, *exprs, **kw):
         super(Set, self).__init__()
-        self.op, self.all = op, all
+        self._sql, self._all = kw.get('op'), kw.get('all', False)
         self._exprs = ExprList(*exprs)
 
     def _f(op):
         def f(self, qs):
             c = self
-            if self.op is None:
-                self.op = op
-            elif self.op != op:
-                c = self._cr.Set(self, op, self.all)
+            if self._sql is None:
+                self._sql = op
+            elif self._sql != op:
+                c = self._cr.Set(self, op, self._all)
             c._exprs.append(qs)
             return c
         return f
@@ -1191,6 +1189,10 @@ class Set(Query):
     __or__ = _f('UNION')
     __and__ = _f('INTERSECT')
     __sub__ = _f('EXCEPT')
+
+    def all(self, all=True):
+        self._all = all
+        return self
 
     def clone(self):
         self = super(Set, self).clone()
@@ -1200,10 +1202,10 @@ class Set(Query):
 
 @compile.when(Set)
 def compile_set(compile, expr, state):
-    if expr.all:
-        op = ' {} ALL '.format(expr.op)
+    if expr._all:
+        op = ' {} ALL '.format(expr._sql)
     else:
-        op = ' {} '.format(expr.op)
+        op = ' {} '.format(expr._sql)
     compile(expr._exprs.join(op), state)
     if expr._order_by:
         state.sql.append(" ORDER BY ")
