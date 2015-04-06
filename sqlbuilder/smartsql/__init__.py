@@ -652,11 +652,12 @@ def compile_alias(compile, expr, state):
 class MetaTable(type):
 
     def __new__(cls, name, bases, attrs):
-        def _f(attr):
-            return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
+        if bases[0] is object:
+            def _f(attr):
+                return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
-        for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
-            attrs[a] = _f(a)
+            for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
+                attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
 
     def __getattr__(cls, key):
