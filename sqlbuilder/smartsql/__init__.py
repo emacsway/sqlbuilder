@@ -1310,7 +1310,7 @@ def warn(old, new, stacklevel=3):
 
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
-compile.set_precedence(210, '[ ]')  # array element selection
+compile.set_precedence(210, '[', ']')  # array element selection
 compile.set_precedence(200, '-')  # unary minus
 compile.set_precedence(190, '^')
 compile.set_precedence(180, '*', '/', '%')
@@ -1324,7 +1324,7 @@ compile.set_precedence(110, Between)
 compile.set_precedence(100, 'OVERLAPS')
 compile.set_precedence(90, 'LIKE', 'ILIKE', 'SIMILAR')
 compile.set_precedence(80, '<', '>')
-compile.set_precedence(70, '<=', '>=', '!=')
+compile.set_precedence(70, '<=', '>=', '!=', '<>')
 compile.set_precedence(60, '=')
 compile.set_precedence(50, 'NOT')
 compile.set_precedence(40, 'AND')
