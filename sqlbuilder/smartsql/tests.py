@@ -10,7 +10,7 @@ if __name__ == '__main__':
         os.path.dirname(os.path.abspath(__file__))
     )))
 
-from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, func, const
+from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, func, const, CompositeExpr
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
@@ -164,6 +164,28 @@ class TestSmartSQL(unittest.TestCase):
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
             ('SELECT * FROM `tb` WHERE (CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [' + ', 1, 2, 'str', 'str2'], )
+        )
+
+    def test_compositeexpr(self):
+        pk = CompositeExpr(T.tb.obj_id, T.tb.land_id, T.tb.date)
+        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.assertEqual(
+            QS(T.tb).fields(pk, T.tb.title).where(pk == (1, 'en', today)).select(),
+            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE ((("tb"."obj_id" = %s) AND ("tb"."land_id" = %s)) AND ("tb"."date" = %s))', [1, 'en', today])
+        )
+        pk2 = pk.as_(('al1', 'al2', 'al3'))
+        self.assertEqual(
+            QS(T.tb).fields(pk2, T.tb.title).where(pk2 == (1, 'en', today)).select(),
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE ((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s))', [1, 'en', today])
+        )
+        self.assertEqual(
+            QS(T.tb).fields(pk2, T.tb.title).where(pk2.in_(((1, 'en', today), (2, 'en', today)))).select(),
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE (((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s)) OR ((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s)))', [1, 'en', today, 2, 'en', today])
+        )
+
+        self.assertEqual(
+            QS(T.tb).fields(pk2, T.tb.title).where(pk2.not_in(((1, 'en', today), (2, 'en', today)))).select(),
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE NOT (((("al1" IN %s) AND ("al2" IN %s)) AND ("al3" IN %s)) OR ((("al1" IN %s) AND ("al2" IN %s)) AND ("al3" IN %s)))', [1, 'en', today, 2, 'en', today])
         )
 
     def test_alias(self):

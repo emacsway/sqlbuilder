@@ -6,7 +6,7 @@ import sys
 import copy
 import operator
 import warnings
-from functools import wraps
+from functools import wraps, reduce
 from weakref import WeakKeyDictionary
 
 try:
@@ -52,15 +52,15 @@ class State(object):
         self.sql = []
         self.params = []
         self._stack = []
-        self._callers = []
+        self.callers = []
         self.context = CONTEXT_QUERY
         self.precedence = 0
 
-    def push(self, attr, new_value):
+    def push(self, attr, new_value=None):
         old_value = getattr(self, attr, None)
         self._stack.append((attr, old_value))
         if new_value is None:
-            new_value = copy(old_value)
+            new_value = copy.copy(old_value)
         setattr(self, attr, new_value)
         return old_value
 
@@ -110,8 +110,8 @@ class Compiler(object):
 
         cls = expr.__class__
         parentheses = False
-        if state._callers:
-            if state._callers[0] in (OmitParentheses, Parentheses):
+        if state.callers:
+            if state.callers[0] in (OmitParentheses, Parentheses):
                 pass
             elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
                 parentheses = True
@@ -124,7 +124,7 @@ class Compiler(object):
         # if inner_precedence < outer_precedence:
         #     parentheses = True
 
-        state._callers.insert(0, expr.__class__)
+        state.callers.insert(0, expr.__class__)
 
         if parentheses:
             state.sql.append('(')
@@ -138,7 +138,7 @@ class Compiler(object):
 
         if parentheses:
             state.sql.append(')')
-        state._callers.pop(0)
+        state.callers.pop(0)
         # state.precedence = outer_precedence
 
 
@@ -163,6 +163,7 @@ def cached_compile(f):
         if compile not in expr.__cached__:
             state.push('sql', [])
             f(compile, expr, state)
+            # TODO: also cache state.tables?
             expr.__cached__[compile] = ''.join(state.sql)
             state.pop()
         state.sql.append(expr.__cached__[compile])
@@ -347,7 +348,10 @@ class MetaCompositeExpr(type):
         if bases[0] is object:
             def _c(name):
                 def f(self, other):
-                    return reduce(operator.and_, (getattr(operator, name)(expr, val) for (expr, val) in zip(self.data, other)))
+                    if hasattr(operator, name):
+                        return reduce(operator.and_, (getattr(operator, name)(expr, val) for (expr, val) in zip(self.data, other)))
+                    else:
+                        return reduce(operator.and_, (getattr(expr, name)(val) for (expr, val) in zip(self.data, other)))
                 return f
 
             for a in ('__eq__', '__neg__'):
@@ -361,13 +365,33 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
         self.data = args
         self._sql = ", "
 
+    def as_(self, aliases):
+        return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
+
+    def in_(self, others):
+        return reduce(operator.or_,
+                      (reduce(operator.and_,
+                              ((expr == (other))
+                               for expr, other in zip(self.data, composite_other)))
+                       for composite_other in others))
+
+    def not_in(self, others):
+        return ~reduce(operator.or_,
+                      (reduce(operator.and_,
+                              (expr.in_(other)
+                               for expr, other in zip(self.data, composite_other)))
+                       for composite_other in others))
+
     def __iter__(self):
         return iter(self.data)
 
 
 @compile.when(CompositeExpr)
 def compile_compositeexpr(compile, expr, state):
+    state.push('callers')
+    state.callers.pop(0)  # pop CompositeExpr from caller's stack to correct render of aliases.
     compile_exprlist(compile, expr, state)
+    state.pop()
 
 
 class Condition(Expr):
@@ -668,7 +692,7 @@ class Alias(Expr):
 @compile.when(Alias)
 def compile_alias(compile, expr, state):
     try:
-        render_column = state._callers[1] in (FieldList, CompositeExpr)
+        render_column = state.callers[1] == FieldList
         # render_column = state.context == CONTEXT_COLUMN
     except IndexError:
         pass
@@ -752,7 +776,7 @@ class TableAlias(Table):
 def compile_tablealias(compile, expr, state):
     # if expr._table is not None and state.context == CONTEXT_TABLE:
     try:
-        render_table = expr._table is not None and state._callers[1] == TableJoin
+        render_table = expr._table is not None and state.callers[1] == TableJoin
         # render_table = expr._table is not None and state.context == CONTEXT_TABLE
     except IndexError:
         pass
@@ -913,7 +937,7 @@ class Query(Expr):
         if opts.get("reset"):
             c._fields.reset()
         if args:
-            c._fields.extend([f if isinstance(f, Expr) else Field(f) for f in args])
+            c._fields.extend([Field(f) if isinstance(f, string_types) else f for f in args])
         return c
 
     def on(self, c):
@@ -1279,5 +1303,5 @@ A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table,
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
-for cls in (Expr, Table, TableJoin, Modify):
+for cls in (Expr, Table, TableJoin, Modify, CompositeExpr):
     cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
