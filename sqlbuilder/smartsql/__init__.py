@@ -131,7 +131,7 @@ class Compiler(object):
 
         state._precedence = inner_precedence
         if inner_precedence < outer_precedence:
-            pass # parentheses = True
+            pass  # parentheses = True
 
         state.callers.insert(0, expr.__class__)
 
@@ -386,10 +386,10 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
 
     def not_in(self, others):
         return ~reduce(operator.or_,
-                      (reduce(operator.and_,
-                              (expr.in_(other)
-                               for expr, other in zip(self.data, composite_other)))
-                       for composite_other in others))
+                       (reduce(operator.and_,
+                               (expr.in_(other)
+                                for expr, other in zip(self.data, composite_other)))
+                        for composite_other in others))
 
     def __iter__(self):
         return iter(self.data)
