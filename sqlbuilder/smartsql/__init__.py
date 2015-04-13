@@ -93,6 +93,11 @@ class Compiler(object):
             return func
         return deco
 
+    def set_precedence(self, precedence, *types):
+        for type in types:
+            self._local_precedence[type] = precedence
+        self._update_cache()
+
     def _update_cache(self):
         for parent in self._parents:
             self._registry.update(parent._local_registry)
@@ -116,13 +121,17 @@ class Compiler(object):
             elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
                 parentheses = True
 
-        # outer_precedence = state.precedence
-        # if hasattr(cls, '_sql') and cls._sql in self._precedence:
-        #     inner_precedence = state.precedence = self._precedence[cls._sql]
-        # else:
-        #     inner_precedence = state.precedence = self._precedence.get(cls, MAX_PRECEDENCE)
-        # if inner_precedence < outer_precedence:
-        #     parentheses = True
+        outer_precedence = state.precedence
+        if hasattr(cls, '_sql') and cls._sql in self._precedence:
+            inner_precedence = self._precedence[cls._sql]
+        elif cls in self._precedence:
+            inner_precedence = self._precedence[cls]
+        else:
+            inner_precedence = self._precedence.get('(any other)', MAX_PRECEDENCE)
+
+        state._precedence = inner_precedence
+        if inner_precedence < outer_precedence:
+            pass # parentheses = True
 
         state.callers.insert(0, expr.__class__)
 
@@ -139,7 +148,7 @@ class Compiler(object):
         if parentheses:
             state.sql.append(')')
         state.callers.pop(0)
-        # state.precedence = outer_precedence
+        state.precedence = outer_precedence
 
 
 compile = Compiler()
@@ -1298,6 +1307,28 @@ def is_list(v):
 
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
+
+compile.set_precedence(230, '.')
+compile.set_precedence(220, '::')
+compile.set_precedence(210, '[ ]')  # array element selection
+compile.set_precedence(200, '-')  # unary minus
+compile.set_precedence(190, '^')
+compile.set_precedence(180, '*', '/', '%')
+compile.set_precedence(170, '+', '-')
+compile.set_precedence(160, 'IS')
+compile.set_precedence(150, 'ISNULL')
+compile.set_precedence(140, 'NOTNULL')
+compile.set_precedence(130, '(any other)')  # all other native and user-defined operators
+compile.set_precedence(120, 'IN')
+compile.set_precedence(110, Between)
+compile.set_precedence(100, 'OVERLAPS')
+compile.set_precedence(90, 'LIKE', 'ILIKE', 'SIMILAR')
+compile.set_precedence(80, '<', '>')
+compile.set_precedence(70, '<=', '>=', '!=')
+compile.set_precedence(60, '=')
+compile.set_precedence(50, 'NOT')
+compile.set_precedence(40, 'AND')
+compile.set_precedence(30, 'OR')
 
 A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
 func = const = ConstantSpace()
