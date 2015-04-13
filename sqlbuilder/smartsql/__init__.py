@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 import sys
 import copy
+import operator
 import warnings
 from functools import wraps
 from weakref import WeakKeyDictionary
@@ -340,6 +341,35 @@ def compile_expr(compile, expr, state):
     state.params += expr._params
 
 
+class MetaCompositeExpr(type):
+
+    def __new__(cls, name, bases, attrs):
+        if bases[0] is object:
+            def _c(name):
+                def f(self, other):
+                    return reduce(operator.and_, (getattr(operator, name)(expr, val) for (expr, val) in zip(self.data, other)))
+                return f
+
+            for a in ('__eq__', '__neg__'):
+                attrs[a] = _c(a)
+        return type.__new__(cls, name, bases, attrs)
+
+
+class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
+
+    def __init__(self, *args):
+        self.data = args
+        self._sql = ", "
+
+    def __iter__(self):
+        return iter(self.data)
+
+
+@compile.when(CompositeExpr)
+def compile_compositeexpr(compile, expr, state):
+    compile_exprlist(compile, expr, state)
+
+
 class Condition(Expr):
 
     __slots__ = ('_left', '_right')
@@ -638,7 +668,7 @@ class Alias(Expr):
 @compile.when(Alias)
 def compile_alias(compile, expr, state):
     try:
-        render_column = state._callers[1] == FieldList
+        render_column = state._callers[1] in (FieldList, CompositeExpr)
         # render_column = state.context == CONTEXT_COLUMN
     except IndexError:
         pass
