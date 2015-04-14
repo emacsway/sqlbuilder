@@ -10,7 +10,7 @@ if __name__ == '__main__':
         os.path.dirname(os.path.abspath(__file__))
     )))
 
-from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Prefix, Constant, func, const, CompositeExpr
+from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Not, func, const, CompositeExpr
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
@@ -64,7 +64,7 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT * FROM "tb" WHERE NOT "tb"."cl" = %s', [3, ], )
         )
         self.assertEqual(
-            QS(T.tb).where(Prefix("NOT", (T.tb.cl == 3))).select('*'),
+            QS(T.tb).where(Not(T.tb.cl == 3)).select('*'),
             ('SELECT * FROM "tb" WHERE NOT "tb"."cl" = %s', [3, ], )
         )
 
@@ -327,7 +327,7 @@ class TestSmartSQL(unittest.TestCase):
         b = QS(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
         self.assertEqual(
             (a.set(True) | b).order_by("type", "name", desc=True).limit(100, 10).select(),
-            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE "item"."status" <> %s) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE "gift"."storage" > %s) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100 ], )
+            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE "item"."status" <> %s) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE "gift"."storage" > %s) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100], )
         )
 
     def test_count(self):

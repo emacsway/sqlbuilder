@@ -212,14 +212,8 @@ class Comparable(object):
 
     __slots__ = ()
 
-    def _c(op, inv=False):
-        return (lambda self, other: Condition(self, op, other)) if not inv else (lambda self, other: Condition(other, op, self))
-
     def _ca(op, inv=False):
         return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
-
-    def _p(op):
-        return lambda self: Prefix(op, self)
 
     def _l(mask, ci=False, inv=False):
         a = 'like'
@@ -237,42 +231,91 @@ class Comparable(object):
             return getattr(self, a)(Concat(*args))
         return f
 
-    __add__ = _c("+")
-    __radd__ = _c("+", 1)
-    __sub__ = _c("-")
-    __rsub__ = _c("-", 1)
-    __mul__ = _c("*")
-    __rmul__ = _c("*", 1)
-    __div__ = _c("/")
-    __rdiv__ = _c("/", 1)
-    __and__ = _c("AND")
-    __rand__ = _c("AND", 1)
-    __or__ = _c("OR")
-    __ror__ = _c("OR", 1)
-    __gt__ = _c(">")
-    __lt__ = _c("<")
-    __ge__ = _c(">=")
-    __le__ = _c("<=")
-    is_ = _c("IS")
-    is_not = _c("IS NOT")
-    in_ = _c("IN")
-    not_in = _c("NOT IN")
-    like = _c("LIKE")
-    ilike = _c("ILIKE")
-    rlike = _c("LIKE", 1)
-    rilike = _c("ILIKE", 1)
+    def __add__(self, other):
+        return Add(self, other)
 
-    __pos__ = _p("+")
-    __neg__ = _p("-")
-    __invert__ = _p("NOT")
-    distinct = _p("DISTINCT")
+    def __radd__(self, other):
+        return Add(other, self)
 
-    __pow__ = _ca("POW")
-    __rpow__ = _ca("POW", 1)
-    __mod__ = _ca("MOD")
-    __rmod__ = _ca("MOD", 1)
-    __abs__ = _ca("ABS")
-    count = _ca("COUNT")
+    def __sub__(self, other):
+        return Sub(self, other)
+
+    def __rsub__(self, other):
+        return Sub(other, self)
+
+    def __mul__(self, other):
+        return Mul(self, other)
+
+    def __rmul__(self, other):
+        return Mul(other, self)
+
+    def __div__(self, other):
+        return Div(self, other)
+
+    def __rdiv__(self, other):
+        return Div(other, self)
+
+    def __and__(self, other):
+        return And(self, other)
+
+    def __rand__(self, other):
+        return And(other, self)
+
+    def __or__(self, other):
+        return Or(self, other)
+
+    def __ror__(self, other):
+        return Or(other, self)
+
+    def __gt__(self, other):
+        return Gt(self, other)
+
+    def __lt__(self, other):
+        return Lt(self, other)
+
+    def __ge__(self, other):
+        return Ge(self, other)
+
+    def __le__(self, other):
+        return Le(self, other)
+
+    def __eq__(self, other):
+        if other is None:
+            return self.is_(None)
+        if is_list(other):
+            return self.in_(other)
+        return Eq(self, other)
+
+    def __ne__(self, other):
+        if other is None:
+            return self.is_not(None)
+        if is_list(other):
+            return self.not_in(other)
+        return Ne(self, other)
+
+    def is_(self, other):
+        return Is(self, other)
+
+    def is_not(self, other):
+        return Is(self, Not(other))
+
+    def in_(self, other):
+        return In(self, other)
+
+    def not_in(self, other):
+        return NotIn(self, other)
+
+    def like(self, other):
+        return Like(self, other)
+
+    def ilike(self, other):
+        return Ilike(self, other)
+
+    def rlike(self, other):
+        return Like(other, self)
+
+    def rilike(self, other):
+        return Ilike(other, self)
 
     startswith = _l(1)
     istartswith = _l(1, 1)
@@ -287,19 +330,24 @@ class Comparable(object):
     rendswith = _l(4, 0, 1)
     riendswith = _l(4, 1, 1)
 
-    def __eq__(self, other):
-        if other is None:
-            return self.is_(None)
-        if is_list(other):
-            return self.in_(other)
-        return Condition(self, "=", other)
+    def __pos__(self):
+        return Pos(self)
 
-    def __ne__(self, other):
-        if other is None:
-            return self.is_not(None)
-        if is_list(other):
-            return self.not_in(other)
-        return Condition(self, "<>", other)
+    def __neg__(self):
+        return Neg(self)
+
+    def __invert__(self):
+        return Not(self)
+
+    def distinct(self):
+        return Distinct(self)
+
+    __pow__ = _ca("POW")
+    __rpow__ = _ca("POW", 1)
+    __mod__ = _ca("MOD")
+    __rmod__ = _ca("MOD", 1)
+    __abs__ = _ca("ABS")
+    count = _ca("COUNT")
 
     def as_(self, alias):
         return Alias(alias, self)
@@ -320,10 +368,10 @@ class Comparable(object):
         return lambda other: Condition(other, op, self)
 
     def asc(self):
-        return Postfix(self, "ASC")
+        return Asc(self)
 
     def desc(self):
-        return Postfix(self, "DESC")
+        return Desc(self)
 
     def __getitem__(self, key):
         """Returns self.between()"""
@@ -408,7 +456,6 @@ def compile_compositeexpr(compile, expr, state):
 
 
 class Condition(Expr):
-
     __slots__ = ('_left', '_right')
 
     def __init__(self, left, op, right):
@@ -424,6 +471,98 @@ def compile_condition(compile, expr, state):
     state.sql.append(expr._sql)
     state.sql.append(SPACE)
     compile(expr._right, state)
+
+
+class NamedCondition(Condition):
+    __slots__ = ()
+
+    def __init__(self, left, right):
+        self._left = left
+        self._right = right
+
+
+class Add(NamedCondition):
+    _sql = '+'
+
+
+class Sub(NamedCondition):
+    __slots__ = ()
+    _sql = '-'
+
+
+class Mul(NamedCondition):
+    __slots__ = ()
+    _sql = '*'
+
+
+class Div(NamedCondition):
+    __slots__ = ()
+    _sql = '/'
+
+
+class Gt(NamedCondition):
+    __slots__ = ()
+    _sql = '>'
+
+
+class Lt(NamedCondition):
+    __slots__ = ()
+    _sql = '<'
+
+
+class Ge(NamedCondition):
+    __slots__ = ()
+    _sql = '>='
+
+
+class Le(NamedCondition):
+    __slots__ = ()
+    _sql = '<='
+
+
+class And(NamedCondition):
+    __slots__ = ()
+    _sql = 'AND'
+
+
+class Or(NamedCondition):
+    __slots__ = ()
+    _sql = 'OR'
+
+
+class Eq(NamedCondition):
+    __slots__ = ()
+    _sql = '='
+
+
+class Ne(NamedCondition):
+    __slots__ = ()
+    _sql = '<>'
+
+
+class Is(NamedCondition):
+    __slots__ = ()
+    _sql = 'IS'
+
+
+class In(NamedCondition):
+    __slots__ = ()
+    _sql = 'IN'
+
+
+class NotIn(NamedCondition):
+    __slots__ = ()
+    _sql = 'NOT IN'
+
+
+class Like(NamedCondition):
+    __slots__ = ()
+    _sql = 'LIKE'
+
+
+class Ilike(NamedCondition):
+    __slots__ = ()
+    _sql = 'ILIKE'
 
 
 class ExprList(Expr):
@@ -582,8 +721,56 @@ def compile_prefix(compile, expr, state):
     compile(expr._expr, state)
 
 
-class Postfix(Expr):
+class NamedPrefix(Prefix):
+    __slots__ = ()
 
+    def __init__(self, expr):
+        self._expr = expr
+
+
+class Not(NamedPrefix):
+    __slots__ = ()
+    _sql = 'NOT'
+
+
+class Distinct(NamedPrefix):
+    __slots__ = ()
+    _sql = 'DISTINCT'
+
+
+class Exists(NamedPrefix):
+    __slots__ = ()
+    _sql = 'EXISTS'
+
+
+class Unary(Prefix):
+    __slots__ = ()
+
+
+@compile.when(Unary)
+def compile_unary(compile, expr, state):
+    state.sql.append(expr._sql)
+    compile(expr._expr, state)
+
+
+class NamedUnary(Unary):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        self._expr = expr
+
+
+class Pos(NamedUnary):
+    __slots__ = ()
+    _sql = '+'
+
+
+class Neg(NamedUnary):
+    __slots__ = ()
+    _sql = '-'
+
+
+class Postfix(Expr):
     __slots__ = ('_expr', )
 
     def __init__(self, expr, postfix):
@@ -596,6 +783,23 @@ def compile_postfix(compile, expr, state):
     compile(expr._expr, state)
     state.sql.append(SPACE)
     state.sql.append(expr._sql)
+
+
+class NamedPostfix(Postfix):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        self._expr = expr
+
+
+class Asc(NamedPostfix):
+    __slots__ = ()
+    _sql = 'ASC'
+
+
+class Desc(NamedPostfix):
+    __slots__ = ()
+    _sql = 'DESC'
 
 
 class Between(Expr):
@@ -1008,8 +1212,8 @@ class Query(Expr):
         if opts.get("reset"):
             c._order_by.reset()
         if args:
-            direct = "DESC" if opts.get("desc") else "ASC"
-            c._order_by.extend([f if isinstance(f, Postfix) and f._sql in ("ASC", "DESC") else Postfix(f, direct) for f in args])
+            wraps = Desc if opts.get("desc") else Asc
+            c._order_by.extend([f if isinstance(f, (Asc, Desc)) else wraps(f) for f in args])
         return c
 
     def limit(self, *args, **kwargs):
@@ -1315,24 +1519,24 @@ def warn(old, new, stacklevel=3):
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
 compile.set_precedence(210, '[', ']')  # array element selection
-compile.set_precedence(200, (Prefix, '-'))  # unary minus
+compile.set_precedence(200, Pos, Neg)  # unary minus
 compile.set_precedence(190, '^')
-compile.set_precedence(180, '*', '/', '%')
-compile.set_precedence(170, '+', '-')
-compile.set_precedence(160, 'IS')
+compile.set_precedence(180, Mul, Div, '%')
+compile.set_precedence(170, Add, Sub)
+compile.set_precedence(160, Is)
 compile.set_precedence(150, 'ISNULL')
 compile.set_precedence(140, 'NOTNULL')
 compile.set_precedence(130, '(any other)')  # all other native and user-defined operators
-compile.set_precedence(120, 'IN')
+compile.set_precedence(120, In, NotIn)
 compile.set_precedence(110, Between)
 compile.set_precedence(100, 'OVERLAPS')
-compile.set_precedence(90, 'LIKE', 'ILIKE', 'SIMILAR')
-compile.set_precedence(80, '<', '>')
-compile.set_precedence(70, '<=', '>=', '!=', '<>')
-compile.set_precedence(60, '=')
-compile.set_precedence(50, 'NOT')
-compile.set_precedence(40, 'AND')
-compile.set_precedence(30, 'OR')
+compile.set_precedence(90, Like, Ilike, 'SIMILAR')
+compile.set_precedence(80, Lt, Gt)
+compile.set_precedence(70, Le, Ge, Ne)
+compile.set_precedence(60, Eq)
+compile.set_precedence(50, Not)
+compile.set_precedence(40, And)
+compile.set_precedence(30, Or)
 compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
 
 A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
