@@ -114,24 +114,24 @@ class Compiler(object):
             return ''.join(state.sql), state.params
 
         cls = expr.__class__
-        parentheses = False
+        parentheses = None
         if state.callers:
             if state.callers[0] in (OmitParentheses, Parentheses):
-                pass
+                parentheses = False
             elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
-                parentheses = True
+                pass  # parentheses = True
 
         outer_precedence = state.precedence
-        if hasattr(cls, '_sql') and cls._sql in self._precedence:
-            inner_precedence = self._precedence[cls._sql]
+        if hasattr(expr, '_sql') and expr._sql in self._precedence:
+            inner_precedence = self._precedence[expr._sql]
         elif cls in self._precedence:
             inner_precedence = self._precedence[cls]
         else:
-            inner_precedence = self._precedence.get('(any other)', MAX_PRECEDENCE)
+            inner_precedence = MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
 
-        state._precedence = inner_precedence
-        if inner_precedence < outer_precedence:
-            pass  # parentheses = True
+        state.precedence = inner_precedence
+        if inner_precedence < outer_precedence and parentheses is None:
+            parentheses = True
 
         state.callers.insert(0, expr.__class__)
 
@@ -380,14 +380,14 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
     def in_(self, others):
         return reduce(operator.or_,
                       (reduce(operator.and_,
-                              ((expr == (other))
+                              ((expr == other)
                                for expr, other in zip(self.data, composite_other)))
                        for composite_other in others))
 
     def not_in(self, others):
         return ~reduce(operator.or_,
                        (reduce(operator.and_,
-                               (expr.in_(other)
+                               ((expr == other)
                                 for expr, other in zip(self.data, composite_other)))
                         for composite_other in others))
 
@@ -1308,6 +1308,7 @@ def is_list(v):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
+compile.set_precedence(230, Expr)
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
 compile.set_precedence(210, '[', ']')  # array element selection
@@ -1329,6 +1330,7 @@ compile.set_precedence(60, '=')
 compile.set_precedence(50, 'NOT')
 compile.set_precedence(40, 'AND')
 compile.set_precedence(30, 'OR')
+compile.set_precedence(10, Query, Insert, Update, Delete)
 
 A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
 func = const = ConstantSpace()

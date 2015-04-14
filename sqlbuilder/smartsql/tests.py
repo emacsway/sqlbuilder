@@ -34,7 +34,7 @@ class TestSmartSQL(unittest.TestCase):
         )
         self.assertEqual(
             QS(((t1 + t2) * t3 - t4)().on((t2.t1_id == t1.id) & (t3.t2_id == t2.id) & (t4.t3_id == t3.id))).select(t1.id),
-            ('SELECT "t1"."id" FROM ("t1" LEFT OUTER JOIN "t2" AS "al2" CROSS JOIN "t3" RIGHT OUTER JOIN "t4") ON ((("al2"."t1_id" = "t1"."id") AND ("t3"."t2_id" = "al2"."id")) AND ("t4"."t3_id" = "t3"."id"))', [], )
+            ('SELECT "t1"."id" FROM ("t1" LEFT OUTER JOIN "t2" AS "al2" CROSS JOIN "t3" RIGHT OUTER JOIN "t4") ON ("al2"."t1_id" = "t1"."id" AND "t3"."t2_id" = "al2"."id" AND "t4"."t3_id" = "t3"."id")', [], )
         )
         self.assertEqual(
             QS((t1 & t2.on(t2.t1_id == t1.id) & (t3 & t4.on(t4.t3_id == t3.id))()).on(t3.t2_id == t2.id)).select(t1.id),
@@ -61,25 +61,25 @@ class TestSmartSQL(unittest.TestCase):
     def test_prefix(self):
         self.assertEqual(
             QS(T.tb).where(~(T.tb.cl == 3)).select('*'),
-            ('SELECT * FROM "tb" WHERE NOT ("tb"."cl" = %s)', [3, ], )
+            ('SELECT * FROM "tb" WHERE NOT "tb"."cl" = %s', [3, ], )
         )
         self.assertEqual(
             QS(T.tb).where(Prefix("NOT", (T.tb.cl == 3))).select('*'),
-            ('SELECT * FROM "tb" WHERE NOT ("tb"."cl" = %s)', [3, ], )
+            ('SELECT * FROM "tb" WHERE NOT "tb"."cl" = %s', [3, ], )
         )
 
     def test_mod(self):
         self.assertEqual(
             QS(T.tb).where((T.tb.cl % 5) == 3).select('*'),
-            ('SELECT * FROM "tb" WHERE (MOD("tb"."cl", %s) = %s)', [5, 3, ], )
+            ('SELECT * FROM "tb" WHERE MOD("tb"."cl", %s) = %s', [5, 3, ], )
         )
         self.assertEqual(
             QS(T.tb).where((T.tb.cl % T.tb.cl2) == 3).select('*'),
-            ('SELECT * FROM "tb" WHERE (MOD("tb"."cl", "tb"."cl2") = %s)', [3, ], )
+            ('SELECT * FROM "tb" WHERE MOD("tb"."cl", "tb"."cl2") = %s', [3, ], )
         )
         self.assertEqual(
             QS(T.tb).where((100 % T.tb.cl2) == 3).select('*'),
-            ('SELECT * FROM "tb" WHERE (MOD(%s, "tb"."cl2") = %s)', [100, 3, ], )
+            ('SELECT * FROM "tb" WHERE MOD(%s, "tb"."cl2") = %s', [100, 3, ], )
         )
 
     def test_distinct(self):
@@ -99,35 +99,35 @@ class TestSmartSQL(unittest.TestCase):
     def test_function(self):
         self.assertEqual(
             QS(T.tb).where(func.FUNC_NAME(T.tb.cl) == 5).select('*'),
-            ('SELECT * FROM "tb" WHERE (FUNC_NAME("tb"."cl") = %s)', [5, ], )
+            ('SELECT * FROM "tb" WHERE FUNC_NAME("tb"."cl") = %s', [5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl == func.RAND()).select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" = RAND())', [], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" = RAND()', [], )
         )
 
     def test_constant(self):
         self.assertEqual(
             QS(T.tb).where(const.CONST_NAME == 5).select('*'),
-            ('SELECT * FROM "tb" WHERE (CONST_NAME = %s)', [5, ], )
+            ('SELECT * FROM "tb" WHERE CONST_NAME = %s', [5, ], )
         )
 
     def test_in(self):
         self.assertEqual(
             QS(T.tb).where(T.tb.cl == [1, T.tb.cl3, 5, ]).where(T.tb.cl2 == [1, T.tb.cl4, ]).select('*'),
-            ('SELECT * FROM "tb" WHERE (("tb"."cl" IN (%s, "tb"."cl3", %s)) AND ("tb"."cl2" IN (%s, "tb"."cl4")))', [1, 5, 1, ], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" IN (%s, "tb"."cl3", %s) AND "tb"."cl2" IN (%s, "tb"."cl4")', [1, 5, 1, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl != [1, 3, 5, ]).select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" NOT IN (%s, %s, %s))', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" NOT IN (%s, %s, %s)', [1, 3, 5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.in_([1, 3, 5, ])).select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" IN (%s, %s, %s))', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" IN (%s, %s, %s)', [1, 3, 5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.not_in([1, 3, 5, ])).select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" NOT IN (%s, %s, %s))', [1, 3, 5, ], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" NOT IN (%s, %s, %s)', [1, 3, 5, ], )
         )
 
     def test_between(self):
@@ -151,19 +151,19 @@ class TestSmartSQL(unittest.TestCase):
     def test_concat(self):
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
-            ('SELECT * FROM "tb" WHERE ("tb"."cl" || %s || %s || %s || "tb"."cl2" <> %s)', [1, 2, 'str', 'str2'], )
+            ('SELECT * FROM "tb" WHERE "tb"."cl" || %s || %s || %s || "tb"."cl2" <> %s', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
-            ('SELECT * FROM "tb" WHERE (concat_ws(%s, "tb"."cl", %s, %s, %s, "tb"."cl2") <> %s)', [' + ', 1, 2, 'str', 'str2'], )
+            ('SELECT * FROM "tb" WHERE concat_ws(%s, "tb"."cl", %s, %s, %s, "tb"."cl2") <> %s', [' + ', 1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
-            ('SELECT * FROM `tb` WHERE (CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [1, 2, 'str', 'str2'], )
+            ('SELECT * FROM `tb` WHERE CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
             QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
-            ('SELECT * FROM `tb` WHERE (CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s)', [' + ', 1, 2, 'str', 'str2'], )
+            ('SELECT * FROM `tb` WHERE CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s', [' + ', 1, 2, 'str', 'str2'], )
         )
 
     def test_compositeexpr(self):
@@ -171,42 +171,42 @@ class TestSmartSQL(unittest.TestCase):
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self.assertEqual(
             QS(T.tb).fields(pk, T.tb.title).where(pk == (1, 'en', today)).select(),
-            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE ((("tb"."obj_id" = %s) AND ("tb"."land_id" = %s)) AND ("tb"."date" = %s))', [1, 'en', today])
+            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE "tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s', [1, 'en', today])
         )
         pk2 = pk.as_(('al1', 'al2', 'al3'))
         self.assertEqual(
             QS(T.tb).fields(pk2, T.tb.title).where(pk2 == (1, 'en', today)).select(),
-            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE ((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s))', [1, 'en', today])
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE "al1" = %s AND "al2" = %s AND "al3" = %s', [1, 'en', today])
         )
         self.assertEqual(
             QS(T.tb).fields(pk2, T.tb.title).where(pk2.in_(((1, 'en', today), (2, 'en', today)))).select(),
-            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE (((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s)) OR ((("al1" = %s) AND ("al2" = %s)) AND ("al3" = %s)))', [1, 'en', today, 2, 'en', today])
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE "al1" = %s AND "al2" = %s AND "al3" = %s OR "al1" = %s AND "al2" = %s AND "al3" = %s', [1, 'en', today, 2, 'en', today])
         )
 
         self.assertEqual(
             QS(T.tb).fields(pk2, T.tb.title).where(pk2.not_in(((1, 'en', today), (2, 'en', today)))).select(),
-            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE NOT (((("al1" IN %s) AND ("al2" IN %s)) AND ("al3" IN %s)) OR ((("al1" IN %s) AND ("al2" IN %s)) AND ("al3" IN %s)))', [1, 'en', today, 2, 'en', today])
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE NOT ("al1" = %s AND "al2" = %s AND "al3" = %s OR "al1" = %s AND "al2" = %s AND "al3" = %s)', [1, 'en', today, 2, 'en', today])
         )
 
     def test_alias(self):
         self.assertEqual(
             QS(T.tb).where(A('al') == 5).select(F.tb__cl__al),
-            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE ("al" = %s)', [5, ], )
+            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(A('al') == 5).select(T.tb.cl__al),
-            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE ("al" = %s)', [5, ], )
+            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
         self.assertEqual(
             QS(T.tb).where(A('al') == 5).select(T.tb.cl.as_('al')),
-            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE ("al" = %s)', [5, ], )
+            ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
 
     def test_qs_as_alias(self):
         t1 = QS(T.tb).where(T.tb.cl == 5).fields(T.tb.cl).as_table('t1')
         self.assertEqual(
             QS(t1).where(t1.cl == 5).select(t1.cl),
-            ('SELECT "t1"."cl" FROM (SELECT "tb"."cl" FROM "tb" WHERE ("tb"."cl" = %s)) AS "t1" WHERE ("t1"."cl" = %s)', [5, 5, ], )
+            ('SELECT "t1"."cl" FROM (SELECT "tb"."cl" FROM "tb" WHERE "tb"."cl" = %s) AS "t1" WHERE "t1"."cl" = %s', [5, 5, ], )
         )
 
     def test_order_by(self):
@@ -238,7 +238,7 @@ class TestSmartSQL(unittest.TestCase):
             ).where(
                 (F.name == "name") & (F.status == 0) | (F.name == None)
             ).group_by(T.base.type).having(E("count(*)") > 1).select(F.type, F.grade__grade, F.lottery__grade),
-            ('SELECT "type", "grade"."grade", "lottery"."grade" FROM "base" LEFT OUTER JOIN "grade" ON (("base"."type" = "grade"."item_type") AND ("base"."type" = %s)) LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("name" = %s) AND ("status" = %s)) OR ("name" IS NULL)) GROUP BY "base"."type" HAVING ((count(*)) > %s)', [1, 'name', 0, 1, ], )
+            ('SELECT "type", "grade"."grade", "lottery"."grade" FROM "base" LEFT OUTER JOIN "grade" ON ("base"."type" = "grade"."item_type" AND "base"."type" = %s) LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE "name" = %s AND "status" = %s OR "name" IS NULL GROUP BY "base"."type" HAVING count(*) > %s', [1, 'name', 0, 1, ], )
         )
         t = T.grade
         self.assertEqual(
@@ -253,28 +253,28 @@ class TestSmartSQL(unittest.TestCase):
         t = (t + T.lottery).on(F.base__type == F.lottery__item_type)
         self.assertEqual(
             QS(t).group_by(F.grade__grade).having(F.grade__grade > 0).select(F.grade__name, F.base__img, F.lottery__price),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") GROUP BY "grade"."grade" HAVING ("grade"."grade" > %s)', [0, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") GROUP BY "grade"."grade" HAVING "grade"."grade" > %s', [0, ], )
         )
         w = (F.base__type == 1)
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, for_update=True),
-            ('SELECT "grade"."name" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ("base"."type" = %s) FOR UPDATE', [1, ], )
+            ('SELECT "grade"."name" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE "base"."type" = %s FOR UPDATE', [1, ], )
         )
         w = w & (F.grade__status == [0, 1])
         now = datetime.datetime.now()
         w = w | (F.lottery__add_time > "2009-01-01") & (F.lottery__add_time <= now)
         self.assertEqual(
             QS(t).where(w).limit(1).select(F.grade__name, F.base__img, F.lottery__price),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) LIMIT %s', [1, 0, 1, '2009-01-01', now, 1], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE "base"."type" = %s AND "grade"."status" IN (%s, %s) OR "lottery"."add_time" > %s AND "lottery"."add_time" <= %s LIMIT %s', [1, 0, 1, '2009-01-01', now, 1], )
         )
         w = w & (F.base__status != [1, 2])
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN 1")),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN 1) FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND ("base"."status" NOT IN (%s, %s)))', [1, 0, 1, '2009-01-01', now, 1, 2, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN 1) FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ("base"."type" = %s AND "grade"."status" IN (%s, %s) OR "lottery"."add_time" > %s AND "lottery"."add_time" <= %s) AND "base"."status" NOT IN (%s, %s)', [1, 0, 1, '2009-01-01', now, 1, 2, ], )
         )
         self.assertEqual(
             QS(t).where(w).select(F.grade__name, F.base__img, F.lottery__price, E("CASE 1 WHEN " + PLACEHOLDER, 'exp_value').as_("exp_result")),
-            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN %s) AS "exp_result" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE (((("base"."type" = %s) AND ("grade"."status" IN (%s, %s))) OR (("lottery"."add_time" > %s) AND ("lottery"."add_time" <= %s))) AND ("base"."status" NOT IN (%s, %s)))', ['exp_value', 1, 0, 1, '2009-01-01', now, 1, 2, ], )
+            ('SELECT "grade"."name", "base"."img", "lottery"."price", (CASE 1 WHEN %s) AS "exp_result" FROM "grade" INNER JOIN "base" ON ("grade"."item_type" = "base"."type") LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE ("base"."type" = %s AND "grade"."status" IN (%s, %s) OR "lottery"."add_time" > %s AND "lottery"."add_time" <= %s) AND "base"."status" NOT IN (%s, %s)', ['exp_value', 1, 0, 1, '2009-01-01', now, 1, 2, ], )
         )
         qs = QS(T.user)
         self.assertEqual(
@@ -289,27 +289,27 @@ class TestSmartSQL(unittest.TestCase):
         qs = qs.where(F.id == 1)
         self.assertEqual(
             qs.select(F.name, F.id),
-            ('SELECT "name", "id" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE ("id" = %s)', [1, ], )
+            ('SELECT "name", "id" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE "id" = %s', [1, ], )
         )
         qs = qs.where((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
         self.assertEqual(
-            qs.select(F.user__name, F.address__street, func.COUNT(Constant("*")).as_("count")),
-            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE (("id" = %s) AND (("address"."city_id" IN (%s, %s)) OR (address.city_id IS NULL)))', [1, 111, 112, ], )
+            qs.select(F.user__name, F.address__street, func.COUNT(F("*")).as_("count")),
+            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE "id" = %s AND ("address"."city_id" IN (%s, %s) OR address.city_id IS NULL)', [1, 111, 112, ], )
         )
 
     def test_subquery(self):
         sub_q = QS(T.tb2).fields(T.tb2.id2).where(T.tb2.id == T.tb1.tb2_id).limit(1)
         self.assertEqual(
             QS(T.tb1).where(T.tb1.tb2_id == sub_q).select(T.tb1.id),
-            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" = (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s))', [1], )
+            ('SELECT "tb1"."id" FROM "tb1" WHERE "tb1"."tb2_id" = (SELECT "tb2"."id2" FROM "tb2" WHERE "tb2"."id" = "tb1"."tb2_id" LIMIT %s)', [1], )
         )
         self.assertEqual(
             QS(T.tb1).where(T.tb1.tb2_id.in_(sub_q)).select(T.tb1.id),
-            ('SELECT "tb1"."id" FROM "tb1" WHERE ("tb1"."tb2_id" IN (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s))', [1], )
+            ('SELECT "tb1"."id" FROM "tb1" WHERE "tb1"."tb2_id" IN (SELECT "tb2"."id2" FROM "tb2" WHERE "tb2"."id" = "tb1"."tb2_id" LIMIT %s)', [1], )
         )
         self.assertEqual(
             QS(T.tb1).select(sub_q.as_('sub_value')),
-            ('SELECT (SELECT "tb2"."id2" FROM "tb2" WHERE ("tb2"."id" = "tb1"."tb2_id") LIMIT %s) AS "sub_value" FROM "tb1"', [1], )
+            ('SELECT (SELECT "tb2"."id2" FROM "tb2" WHERE "tb2"."id" = "tb1"."tb2_id" LIMIT %s) AS "sub_value" FROM "tb1"', [1], )
         )
 
     def test_expression(self):
@@ -327,13 +327,13 @@ class TestSmartSQL(unittest.TestCase):
         b = QS(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
         self.assertEqual(
             (a.set(True) | b).order_by("type", "name", desc=True).limit(100, 10).select(),
-            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE ("item"."status" <> %s)) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE ("gift"."storage" > %s)) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100 ], )
+            ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE "item"."status" <> %s) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE "gift"."storage" > %s) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100 ], )
         )
 
     def test_count(self):
         self.assertEqual(
             QS(T.tb1).fields(T.tb1.f1, T.tb1.f1).where(T.tb1.f1 > 10).order_by(T.tb1.f1).count(),
-            ('SELECT COUNT(1) AS "count_value" FROM (SELECT "tb1"."f1", "tb1"."f1" FROM "tb1" WHERE ("tb1"."f1" > %s)) AS "count_list"', [10])
+            ('SELECT COUNT(1) AS "count_value" FROM (SELECT "tb1"."f1", "tb1"."f1" FROM "tb1" WHERE "tb1"."f1" > %s) AS "count_list"', [10])
         )
 
     def test_insert(self):
@@ -349,19 +349,19 @@ class TestSmartSQL(unittest.TestCase):
         vl = (("garfield", "male", 0, 1), ("superwoman", "female", 0, 10))
         self.assertEqual(
             QS(T.user).insert_many(fl, vl, on_duplicate_key_update={"age": E("age + VALUES(age)")}),
-            ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s), (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" = (age + VALUES(age))', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
+            ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s), (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" = age + VALUES(age)', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
         )
 
     def test_update(self):
         self.assertEqual(
             QS(T.user).where(F.id == 100).update(OrderedDict((("status", 1), ("name", "nobody"))), ignore=True),
-            ('UPDATE IGNORE "user" SET "status" = %s, "name" = %s WHERE ("id" = %s)', [1, 'nobody', 100, ], )
+            ('UPDATE IGNORE "user" SET "status" = %s, "name" = %s WHERE "id" = %s', [1, 'nobody', 100, ], )
         )
 
     def test_delete(self):
         self.assertEqual(
             QS(T.user).where(F.status == 1).delete(),
-            ('DELETE FROM "user" WHERE ("status" = %s)', [1, ], )
+            ('DELETE FROM "user" WHERE "status" = %s', [1, ], )
         )
 
 if __name__ == '__main__':
