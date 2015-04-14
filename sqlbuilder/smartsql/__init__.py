@@ -122,6 +122,8 @@ class Compiler(object):
             #     parentheses = True
 
         outer_precedence = state.precedence
+        if hasattr(expr, '_sql') and (cls, expr._sql) in self._precedence:
+            inner_precedence = self._precedence[(cls, expr._sql)]
         if hasattr(expr, '_sql') and expr._sql in self._precedence:
             inner_precedence = self._precedence[expr._sql]
         elif cls in self._precedence:
@@ -369,6 +371,8 @@ class MetaCompositeExpr(type):
 
 
 class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
+
+    __slots__ = ('data', '_sql')
 
     def __init__(self, *args):
         self.data = args
@@ -1311,7 +1315,7 @@ def warn(old, new, stacklevel=3):
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
 compile.set_precedence(210, '[', ']')  # array element selection
-compile.set_precedence(200, '-')  # unary minus
+compile.set_precedence(200, (Prefix, '-'))  # unary minus
 compile.set_precedence(190, '^')
 compile.set_precedence(180, '*', '/', '%')
 compile.set_precedence(170, '+', '-')
