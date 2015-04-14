@@ -2,7 +2,7 @@
 SQLBuilder
 ===========
 
-SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 35 Kb.
+SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 50 Kb.
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/emacsway/autumn>`_.
 
