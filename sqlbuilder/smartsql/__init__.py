@@ -1308,7 +1308,6 @@ def is_list(v):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-compile.set_precedence(230, Expr)
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
 compile.set_precedence(210, '[', ']')  # array element selection
@@ -1330,7 +1329,7 @@ compile.set_precedence(60, '=')
 compile.set_precedence(50, 'NOT')
 compile.set_precedence(40, 'AND')
 compile.set_precedence(30, 'OR')
-compile.set_precedence(10, Query, Insert, Update, Delete)
+compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
 
 A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
 func = const = ConstantSpace()

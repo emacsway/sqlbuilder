@@ -238,7 +238,7 @@ class TestSmartSQL(unittest.TestCase):
             ).where(
                 (F.name == "name") & (F.status == 0) | (F.name == None)
             ).group_by(T.base.type).having(E("count(*)") > 1).select(F.type, F.grade__grade, F.lottery__grade),
-            ('SELECT "type", "grade"."grade", "lottery"."grade" FROM "base" LEFT OUTER JOIN "grade" ON ("base"."type" = "grade"."item_type" AND "base"."type" = %s) LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE "name" = %s AND "status" = %s OR "name" IS NULL GROUP BY "base"."type" HAVING count(*) > %s', [1, 'name', 0, 1, ], )
+            ('SELECT "type", "grade"."grade", "lottery"."grade" FROM "base" LEFT OUTER JOIN "grade" ON ("base"."type" = "grade"."item_type" AND "base"."type" = %s) LEFT OUTER JOIN "lottery" ON ("base"."type" = "lottery"."item_type") WHERE "name" = %s AND "status" = %s OR "name" IS NULL GROUP BY "base"."type" HAVING (count(*)) > %s', [1, 'name', 0, 1, ], )
         )
         t = T.grade
         self.assertEqual(
@@ -294,7 +294,7 @@ class TestSmartSQL(unittest.TestCase):
         qs = qs.where((F.address__city_id == [111, 112]) | E("address.city_id IS NULL"))
         self.assertEqual(
             qs.select(F.user__name, F.address__street, func.COUNT(F("*")).as_("count")),
-            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE "id" = %s AND ("address"."city_id" IN (%s, %s) OR address.city_id IS NULL)', [1, 111, 112, ], )
+            ('SELECT "user"."name", "address"."street", COUNT(*) AS "count" FROM "user" INNER JOIN "address" ON ("user"."id" = "address"."user_id") WHERE "id" = %s AND ("address"."city_id" IN (%s, %s) OR (address.city_id IS NULL))', [1, 111, 112, ], )
         )
 
     def test_subquery(self):
