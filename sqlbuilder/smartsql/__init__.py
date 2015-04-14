@@ -1519,24 +1519,24 @@ def warn(old, new, stacklevel=3):
 compile.set_precedence(230, '.')
 compile.set_precedence(220, '::')
 compile.set_precedence(210, '[', ']')  # array element selection
-compile.set_precedence(200, Pos, Neg)  # unary minus
+compile.set_precedence(200, Pos, Neg, (Unary, '+'), (Unary, '-'))  # unary minus
 compile.set_precedence(190, '^')
-compile.set_precedence(180, Mul, Div, '%')
-compile.set_precedence(170, Add, Sub)
-compile.set_precedence(160, Is)
+compile.set_precedence(180, Mul, Div, '*', '/', '%')
+compile.set_precedence(170, Add, Sub, (Condition, '+'), (Condition, '-'))
+compile.set_precedence(160, Is, 'IS')
 compile.set_precedence(150, 'ISNULL')
 compile.set_precedence(140, 'NOTNULL')
 compile.set_precedence(130, '(any other)')  # all other native and user-defined operators
-compile.set_precedence(120, In, NotIn)
-compile.set_precedence(110, Between)
+compile.set_precedence(120, In, NotIn, 'IN')
+compile.set_precedence(110, Between, 'BETWEEN')
 compile.set_precedence(100, 'OVERLAPS')
-compile.set_precedence(90, Like, Ilike, 'SIMILAR')
-compile.set_precedence(80, Lt, Gt)
-compile.set_precedence(70, Le, Ge, Ne)
-compile.set_precedence(60, Eq)
-compile.set_precedence(50, Not)
-compile.set_precedence(40, And)
-compile.set_precedence(30, Or)
+compile.set_precedence(90, Like, Ilike, 'LIKE', 'ILIKE', 'SIMILAR')
+compile.set_precedence(80, Lt, Gt, '<', '>')
+compile.set_precedence(70, Le, Ge, Ne, '<=', '>=', '<>', '!=')
+compile.set_precedence(60, Eq, '=')
+compile.set_precedence(50, Not, 'NOT')
+compile.set_precedence(40, And, 'AND')
+compile.set_precedence(30, Or, 'OR')
 compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
 
 A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
