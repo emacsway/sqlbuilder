@@ -118,8 +118,8 @@ class Compiler(object):
         if state.callers:
             if state.callers[0] in (OmitParentheses, Parentheses):
                 parentheses = False
-            elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
-                pass  # parentheses = True
+            # elif isinstance(expr, (Condition, Query)) or type(expr) == Expr:
+            #     parentheses = True
 
         outer_precedence = state.precedence
         if hasattr(expr, '_sql') and expr._sql in self._precedence:
