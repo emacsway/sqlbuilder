@@ -1456,7 +1456,7 @@ class Set(Query):
         if self.__class__ is self._cr.Set:
             c = cls(*self._exprs, all=self._all)
         elif self.__class__ is not cls:
-            c = cls(self, self._all)
+            c = cls(self, all=self._all)
         c._exprs.append(other)
         return c
 
