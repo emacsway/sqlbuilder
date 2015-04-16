@@ -1446,23 +1446,28 @@ class Set(Query):
 
     def __init__(self, *exprs, **kw):
         super(Set, self).__init__()
-        self._sql, self._all = kw.get('op'), kw.get('all', False)
+        if 'op' in kw:
+            self._sql = kw['op']
+        self._all = kw.get('all', False)
         self._exprs = ExprList(*exprs)
 
-    def _f(op):
-        def f(self, qs):
-            c = self
-            if self._sql is None:
-                self._sql = op
-            elif self._sql != op:
-                c = self._cr.Set(self, op, self._all)
-            c._exprs.append(qs)
-            return c
-        return f
+    def _op(self, cls, other):
+        c = self
+        if self.__class__ is self._cr.Set:
+            c = cls(*self._exprs, all=self._all)
+        elif self.__class__ is not cls:
+            c = cls(self, self._all)
+        c._exprs.append(other)
+        return c
 
-    __or__ = _f('UNION')
-    __and__ = _f('INTERSECT')
-    __sub__ = _f('EXCEPT')
+    def __or__(self, other):
+        return self._op(self._cr.Union, other)
+
+    def __and__(self, other):
+        return self._op(self._cr.Intersect, other)
+
+    def __sub__(self, other):
+        return self._op(self._cr.Except, other)
 
     def all(self, all=True):
         self._all = all
@@ -1472,6 +1477,24 @@ class Set(Query):
         self = Query.clone(self, *attrs)
         self._exprs = copy.copy(self._exprs)
         return self
+
+
+@cr
+class Union(Set):
+    __slots__ = ()
+    _sql = 'UNION'
+
+
+@cr
+class Intersect(Set):
+    __slots__ = ()
+    _sql = 'INTERSECT'
+
+
+@cr
+class Except(Set):
+    __slots__ = ()
+    _sql = 'EXCEPT'
 
 
 @compile.when(Set)
