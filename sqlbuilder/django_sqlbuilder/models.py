@@ -74,14 +74,13 @@ class Result(smartsql.Result):
         if self._cache:
             return self._cache[key]
         if isinstance(key, integer_types):
-            self._query = self._query.__getitem__(key)
+            self._query = self._query.__getitem__(key, True)
             return list(self)[0]
-        return self._query.__getitem__(key)
+        return self._query.__getitem__(key, True)
 
     def using(self, alias=None):
         if alias is None:
             return self._using
-        self = self.clone()
         self._using = alias
         self.set_compiler()
         return self

@@ -1128,7 +1128,7 @@ class Result(object):
         raise NotImplementedError
 
     def __getitem__(self, key):
-        raise NotImplementedError
+        return self._query.__getitem__(key, True)
 
 
 @cr
@@ -1266,7 +1266,9 @@ class Query(Expr):
             c._offset = kwargs.get('offset', 0)
         return c
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, do=False):
+        if not do:
+            return self.result.set_query(self).__getitem__(key)
         if isinstance(key, slice):
             offset = key.start or 0
             limit = key.stop - offset if key.stop else None
