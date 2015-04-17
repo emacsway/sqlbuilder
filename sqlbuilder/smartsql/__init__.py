@@ -1097,17 +1097,51 @@ def compile_tablejoin(compile, expr, state):
         state.sql.append(')')
 
 
+class Result(object):
+
+    compile = compile
+
+    def __init__(self, compile=None):
+        if compile is not None:
+            self.compile = compile
+
+    def execute(self):
+        return self.compile(self._query)
+
+    def set_query(self, query):
+        c = self  # self.clone()
+        c._query = query
+        return c
+
+    def clone(self):
+        c = copy.copy(super(Result, self))
+        c._query = None
+        return c
+
+    def __call__(self, query):
+        return self.set_query(query).execute()
+
+    def __iter__(self):
+        raise NotImplementedError
+
+    def __len__(self):
+        raise NotImplementedError
+
+    def __getitem__(self, key):
+        raise NotImplementedError
+
+
 @cr
 class Query(Expr):
     # Without methods like insert, delete, update etc. it will be named Select.
 
-    compile = compile
+    result = Result()
 
-    def __init__(self, tables=None):
+    def __init__(self, tables=None, result=None):
 
         self._distinct = False
         self._fields = FieldList().join(", ")
-        if tables:
+        if tables is not None:
             if not isinstance(tables, TableJoin):
                 tables = self._cr.TableJoin(tables)
         self._tables = tables
@@ -1117,16 +1151,21 @@ class Query(Expr):
         self._order_by = ExprList().join(", ")
         self._limit = None
         self._offset = None
-
         self._for_update = False
 
+        if result is not None:
+            self.result = result
+        else:
+            self.result = self.result.clone()
+
     def clone(self, *attrs):
-        dup = copy.copy(super(Query, self))
+        c = copy.copy(super(Query, self))
         # if not attrs:
         #     attrs = ('_fields', '_tables', '_group_by', '_order_by')
         for a in attrs:
-            setattr(dup, a, copy.copy(getattr(dup, a, None)))
-        return dup
+            setattr(c, a, copy.copy(getattr(c, a, None)))
+        c.result = c.result.clone()
+        return c
 
     def tables(self, t=None):
         if t is None:
@@ -1157,22 +1196,22 @@ class Query(Expr):
             c._fields.extend([Field(f) if isinstance(f, string_types) else f for f in args])
         return c
 
-    def on(self, c):
+    def on(self, cond):
         # TODO: Remove?
         self = self.clone()
         if not isinstance(self._tables, TableJoin):
             raise Error("Can't set on without join table")
-        self._tables = self._tables.on(c)
+        self._tables = self._tables.on(cond)
         return self
 
-    def where(self, c):
+    def where(self, cond):
         self = self.clone()
-        self._wheres = c if self._wheres is None else self._wheres & c
+        self._wheres = cond if self._wheres is None else self._wheres & cond
         return self
 
-    def or_where(self, c):
+    def or_where(self, cond):
         self = self.clone()
-        self._wheres = c if self._wheres is None else self._wheres | c
+        self._wheres = cond if self._wheres is None else self._wheres | cond
         return self
 
     @opt_checker(["reset", ])
@@ -1235,6 +1274,12 @@ class Query(Expr):
             offset, limit = key, 1
         return self.limit(offset, limit)
 
+    def __len__(self):
+        return self.result.set_query(self).__len__()
+
+    def __iter__(self):
+        return self.result.set_query(self).__iter__()
+
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
         c = self.clone()
@@ -1244,7 +1289,7 @@ class Query(Expr):
             c = c.distinct(True)
         if opts.get("for_update"):
             c._for_update = True
-        return c.result()
+        return c.result(c)
 
     def count(self):
         return self.result(SelectCount(self))
@@ -1276,18 +1321,7 @@ class Query(Expr):
         return self._cr.TableAlias(alias, self)
 
     def set(self, all=False):
-        return self._cr.Set(self, all=all)
-
-    def execute(self, expr):
-        return self.compile(expr)
-
-    def result(self, expr=None):
-        return self.execute(self if expr is None else expr)
-
-    def set_compiler(self, compile):
-        c = self.clone()
-        c.compile = compile
-        return c
+        return self._cr.Set(self, all=all, result=self.result)
 
     columns = same('fields')
     __copy__ = same('clone')
@@ -1450,6 +1484,10 @@ class Set(Query):
             self._sql = kw['op']
         self._all = kw.get('all', False)
         self._exprs = ExprList(*exprs)
+        if 'result' in kw:
+            self.result = kw['result']
+        else:
+            self.result = self.result.clone()
 
     def _op(self, cls, other):
         c = self

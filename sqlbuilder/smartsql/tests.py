@@ -10,7 +10,7 @@ if __name__ == '__main__':
         os.path.dirname(os.path.abspath(__file__))
     )))
 
-from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Not, func, const, CompositeExpr
+from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Not, func, const, CompositeExpr, Result
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
@@ -52,7 +52,8 @@ class TestSmartSQL(unittest.TestCase):
     def test_hint(self):
         t1 = T.tb1
         t2 = T.tb1.as_('al2')
-        q = QS(t1 & t2.hint(E('USE INDEX (`index1`, `index2`)')).on(t2.parent_id == t1.id)).set_compiler(mysql_compile)
+        q = QS(t1 & t2.hint(E('USE INDEX (`index1`, `index2`)')).on(t2.parent_id == t1.id))
+        q.result.compile = mysql_compile
         self.assertEqual(
             q.select(t2.id),
             ('SELECT `al2`.`id` FROM `tb1` INNER JOIN `tb1` AS `al2` ON (`al2`.`parent_id` = `tb1`.`id`) USE INDEX (`index1`, `index2`)', [], )
@@ -158,11 +159,11 @@ class TestSmartSQL(unittest.TestCase):
             ('SELECT * FROM "tb" WHERE concat_ws(%s, "tb"."cl", %s, %s, %s, "tb"."cl2") <> %s', [' + ', 1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
+            QS(T.tb, result=Result(compile=mysql_compile)).where(T.tb.cl.concat(1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
             ('SELECT * FROM `tb` WHERE CONCAT(`tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s', [1, 2, 'str', 'str2'], )
         )
         self.assertEqual(
-            QS(T.tb).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').set_compiler(mysql_compile).select('*'),
+            QS(T.tb, result=Result(compile=mysql_compile)).where(T.tb.cl.concat_ws(' + ', 1, 2, 'str', T.tb.cl2) != 'str2').select('*'),
             ('SELECT * FROM `tb` WHERE CONCAT_WS(%s, `tb`.`cl`, %s, %s, %s, `tb`.`cl2`) <> %s', [' + ', 1, 2, 'str', 'str2'], )
         )
 
