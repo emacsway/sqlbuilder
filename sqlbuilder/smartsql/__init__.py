@@ -1325,6 +1325,9 @@ class Query(Expr):
     def set(self, all=False):
         return self._cr.Set(self, all=all, result=self.result)
 
+    def raw(self, sql, params=()):
+        return self._cr.Raw(sql, params, result=self.result)
+
     columns = same('fields')
     __copy__ = same('clone')
 
@@ -1368,6 +1371,25 @@ class SelectCount(Query):
     def __init__(self, qs):
         Query.__init__(self, qs.order_by(reset=True).as_table('count_list'))
         self._fields.append(Constant('COUNT')(Constant('1')).as_('count_value'))
+
+
+@cr
+class Raw(Query):
+
+    def __init__(self, sql, params, result=None):
+        Query.__init__(self, result=result)
+        self._raw = OmitParentheses(Expr(sql, params))
+
+
+@compile.when(Raw)
+def compile_raw(compile, expr, state):
+    compile(expr._raw, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+    if expr._offset:
+        state.sql.append(" OFFSET ")
+        compile(expr._offset, state)
 
 
 class Modify(object):
