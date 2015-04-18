@@ -4,7 +4,7 @@ SQLBuilder
 
 SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 50 Kb.
 
-You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/emacsway/autumn>`_.
+You can use SmartSQL separatelly, or with Django, or with super-lightweight `Autumn ORM <https://bitbucket.org/emacsway/autumn>`_, or with super-lightweight datamapper `Openorm <http://code.google.com/p/openorm/source/browse/python/>`_ etc.
 
 Home Page: https://bitbucket.org/emacsway/sqlbuilder
 
@@ -64,10 +64,10 @@ table operator::
 condition operator::
 
     In [19]: (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[19]: <Condition: ("author"."first_name" <> %s) AND ("author"."last_name" IN (%s, %s)), ['Tom', 'Smith', 'Johnson']>
+    Out[19]: <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
     In [20]: (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[20]: <Condition: ("author"."first_name" <> %s) OR ("author"."last_name" IN (%s, %s)), ['Tom', 'Smith', 'Johnson']>
+    Out[20]: <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
     In [21]: T.author.last_name.startswith('Sm')
     Out[21]: <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
@@ -100,7 +100,7 @@ usage eg::
     ).where(
         (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
     )[20:30]
-    Out[31]: <QuerySet: SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE (("author"."first_name" <> %s) AND ("author"."last_name" <> %s)) LIMIT 10 OFFSET 20, ['Tom', 'Smith']>
+    Out[31]: <QuerySet: SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT 10 OFFSET 20, ['Tom', 'Smith']>
 
 
 
