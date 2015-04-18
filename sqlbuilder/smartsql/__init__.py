@@ -6,7 +6,7 @@ import sys
 import copy
 import operator
 import warnings
-from functools import wraps, reduce
+from functools import wraps, reduce, partial
 from weakref import WeakKeyDictionary
 
 try:
@@ -1134,6 +1134,8 @@ class Result(object):
             offset, limit = key, 1
         return self._query.limit(offset, limit)
 
+    __copy__ = clone
+
 
 @cr
 class Query(Expr):
@@ -1318,8 +1320,9 @@ class Query(Expr):
 
     def result_wraps(self, name, *args, **kwargs):
         """Configure result factory."""
-        getattr(self.result, name)(*args, **kwargs)
-        return self
+        c = self.clone()
+        getattr(c.result, name)(*args, **kwargs)
+        return c
 
     def __getitem__(self, key):
         return self.result(self).__getitem__(key)
@@ -1332,7 +1335,7 @@ class Query(Expr):
 
     def __getattr__(self, name):
         if hasattr(self.result, name):
-            return self.result_wraps
+            return partial(self.result_wraps, name)
         raise AttributeError
 
     columns = same('fields')
