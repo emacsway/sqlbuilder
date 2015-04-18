@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 import sys
 import copy
+import types
 import operator
 import warnings
 from functools import wraps, reduce, partial
@@ -1335,7 +1336,11 @@ class Query(Expr):
 
     def __getattr__(self, name):
         if hasattr(self.result, name):
-            return partial(self.result_wraps, name)
+            attr = getattr(self.result, name)
+            if isinstance(attr, types.MethodType):
+                return partial(self.result_wraps, name)
+            else:
+                return attr
         raise AttributeError
 
     columns = same('fields')
