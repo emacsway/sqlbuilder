@@ -1108,7 +1108,9 @@ class Result(object):
     def execute(self):
         return self.compile(self._query)
 
-    def set_query(self, query):
+    select = count = insert = update = delete = execute
+
+    def __call__(self, query):
         c = self  # self.clone()
         c._query = query
         return c
@@ -1118,9 +1120,6 @@ class Result(object):
         c._query = None
         return c
 
-    def __call__(self, query):
-        return self.set_query(query).execute()
-
     def __iter__(self):
         raise NotImplementedError
 
@@ -1128,7 +1127,12 @@ class Result(object):
         raise NotImplementedError
 
     def __getitem__(self, key):
-        return self._query.__getitem__(key, True)
+        if isinstance(key, slice):
+            offset = key.start or 0
+            limit = key.stop - offset if key.stop else None
+        else:
+            offset, limit = key, 1
+        return self._query.limit(offset, limit)
 
 
 @cr
@@ -1266,22 +1270,6 @@ class Query(Expr):
             c._offset = kwargs.get('offset', 0)
         return c
 
-    def __getitem__(self, key, do=False):
-        if not do:
-            return self.result.set_query(self).__getitem__(key)
-        if isinstance(key, slice):
-            offset = key.start or 0
-            limit = key.stop - offset if key.stop else None
-        else:
-            offset, limit = key, 1
-        return self.limit(offset, limit)
-
-    def __len__(self):
-        return self.result.set_query(self).__len__()
-
-    def __iter__(self):
-        return self.result.set_query(self).__iter__()
-
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
         c = self.clone()
@@ -1291,15 +1279,15 @@ class Query(Expr):
             c = c.distinct(True)
         if opts.get("for_update"):
             c._for_update = True
-        return c.result(c)
+        return c.result(c).select()
 
     def count(self):
-        return self.result(SelectCount(self))
+        return self.result(SelectCount(self)).count()
 
     def insert(self, fv_dict=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(self._cr.Insert(map=fv_dict, **kw))
+        return self.result(self._cr.Insert(map=fv_dict, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         return self.insert(fields=fields, values=values, **kw)
@@ -1310,14 +1298,14 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Update(map=key_values, **kw))
+        return self.result(self._cr.Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Delete(**kw))
+        return self.result(self._cr.Delete(**kw)).delete()
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1327,6 +1315,25 @@ class Query(Expr):
 
     def raw(self, sql, params=()):
         return self._cr.Raw(sql, params, result=self.result)
+
+    def result_wraps(self, name, *args, **kwargs):
+        """Configure result factory."""
+        getattr(self.result, name)(*args, **kwargs)
+        return self
+
+    def __getitem__(self, key):
+        return self.result(self).__getitem__(key)
+
+    def __len__(self):
+        return self.result(self).__len__()
+
+    def __iter__(self):
+        return self.result(self).__iter__()
+
+    def __getattr__(self, name):
+        if hasattr(self.result, name):
+            return self.result_wraps
+        raise AttributeError
 
     columns = same('fields')
     __copy__ = same('clone')
