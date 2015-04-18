@@ -45,24 +45,15 @@ class Result(smartsql.Result):
     _using = 'default'
     model = None
 
-    def __init__(self, model, compile):
-        Result.__init__(self, compile)
+    def __init__(self, model):
         self.model = model
         self._using = self.model.objects.db
         self.set_compiler()
-
-    def fill_cache(self):
-        if self._cache is None:
-            self._cache = list(self.iterator())
-        return self
 
     def __len__(self):
         """Returns length or list."""
         self.fill_cache()
         return len(self._cache)
-
-    def iterator(self):
-        return self.execute(self)
 
     def __iter__(self):
         """Returns iterator."""
@@ -74,107 +65,34 @@ class Result(smartsql.Result):
         if self._cache:
             return self._cache[key]
         if isinstance(key, integer_types):
-            self._query = self._query.__getitem__(key, True)
+            self._query = super(Result, self).__getitem__(key)
             return list(self)[0]
-        return self._query.__getitem__(key, True)
+        return super(Result, self).__getitem__(key)
 
-    def using(self, alias=None):
-        if alias is None:
-            return self._using
-        self._using = alias
-        self.set_compiler()
-        return self
-
-    def set_compiler(self):
-        engine = connections.databases[self._using]['ENGINE'].rsplit('.')[-1]
-        self.compile = SMARTSQL_COMPILERS[engine]
-        return self
-
-    def execute(self, expr):
-        """Implementation of query execution"""
-        if isinstance(expr, smartsql.SelectCount):
-            pass
-        elif isinstance(expr, smartsql.Query):
-            return self.model.objects.raw(*self.compile(self)).using(self._using)
-        return self._execute(*self.compile(self))
-
-    def _execute(self, sql, params):
+    def execute(self):
         cursor = connections[self._using].cursor()
-        cursor.execute(sql, params)
+        cursor.execute(*self.compile(self._query))
         return cursor
 
-    def __call__(self, expr=None):
-        """Result"""
-        expr = self if expr is None else expr
-        if isinstance(expr, smartsql.SelectCount):
-            return self.execute(expr).fetchone()[0]
-        elif isinstance(expr, smartsql.Query):
-            return self
-        return self.execute(expr)
+    insert = update = delete = execute
+
+    def select(self):
+        return self
+
+    def count(self):
+        """Returns length or list."""
+        if self._cache is not None:
+            return len(self._cache)
+        return self.execute().fetchone()[0]
 
     def clone(self):
         c = smartsql.Result.clone(self)
         c._cache = None
         return c
 
-
-@cr('Query')
-class QS(smartsql.QS):
-    """Query Set adapted for Django."""
-
-    _cache = None
-    _using = 'default'
-    model = None
-
-    def __init__(self, tables=None):
-        super(QS, self).__init__(tables=tables)
-        if isinstance(tables, (Table, TableAlias)):
-            self.model = tables.model
-            self._using = self.model.objects.db
-        self.set_compiler()
-
-    def clone(self, *attrs):
-        self = smartsql.QS.clone(self, *attrs)
-        self._cache = None
-        return self
-
-    def fill_cache(self):
-        if self._cache is None:
-            self._cache = list(self.iterator())
-        return self
-
-    def __len__(self):
-        """Returns length or list."""
-        self.fill_cache()
-        return len(self._cache)
-
-    def count(self):
-        """Returns length or list."""
-        if self._cache is not None:
-            return len(self._cache)
-        return super(QS, self).count()
-
-    def iterator(self):
-        return self.execute(self)
-
-    def __iter__(self):
-        """Returns iterator."""
-        self.fill_cache()
-        return iter(self._cache)
-
-    def __getitem__(self, key):
-        """Returns sliced self or item."""
-        if self._cache:
-            return self._cache[key]
-        if isinstance(key, integer_types):
-            self = super(QS, self).__getitem__(key)
-            return list(self)[0]
-        return super(QS, self).__getitem__(key)
-
     def using(self, alias=None):
         if alias is None:
             return self._using
-        self = self.clone()
         self._using = alias
         self.set_compiler()
         return self
@@ -184,36 +102,13 @@ class QS(smartsql.QS):
         self.compile = SMARTSQL_COMPILERS[engine]
         return self
 
-    def execute(self, expr):
-        """Implementation of query execution"""
-        if isinstance(expr, smartsql.SelectCount):
-            pass
-        elif isinstance(expr, smartsql.Query):
-            return self.model.objects.raw(*self.compile(self)).using(self._using)
-        return self._execute(*self.compile(self))
+    def fill_cache(self):
+        if self._cache is None:
+            self._cache = list(self.iterator())
+        return self
 
-    def _execute(self, sql, params):
-        cursor = connections[self._using].cursor()
-        cursor.execute(sql, params)
-        return cursor
-
-    def result(self, expr=None):
-        """Result"""
-        expr = self if expr is None else expr
-        if isinstance(expr, smartsql.SelectCount):
-            return self.execute(expr).fetchone()[0]
-        elif isinstance(expr, smartsql.Query):
-            return self
-        return self.execute(expr)
-
-
-@cr
-class Set(smartsql.Set, QS):
-    """Union query class"""
-    def __init__(self, exprs, *a, **kw):
-        super(Set, self).__init__(exprs, *a, **kw)
-        self.model = exprs[0].model
-        self._using = exprs[0]._using
+    def iterator(self):
+        return self.model.objects.raw(*self.compile(self._query)).using(self._using)
 
 
 @cr
@@ -230,7 +125,7 @@ class Table(smartsql.Table):
         if isinstance(self._qs, collections.Callable):
             self._qs = self._qs(self)
         elif self._qs is None:
-            self._qs = QS(self).fields(self.get_fields())
+            self._qs = smartsql.QS(self, result=Result(self.model)).fields(self.get_fields())
         return self._qs.clone()
 
     def _set_qs(self, val):
@@ -285,14 +180,6 @@ class Table(smartsql.Table):
             parts[0] = m._meta.get_field(parts[0]).column
 
         return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
-
-
-@cr
-class TableAlias(smartsql.TableAlias, Table):
-    """Table alias class"""
-    @property
-    def model(self):
-        return getattr(self._table, 'model', None)  # Can be subquery
 
 
 @classproperty
