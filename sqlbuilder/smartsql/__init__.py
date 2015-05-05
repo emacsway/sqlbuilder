@@ -961,7 +961,8 @@ class Table(MetaTable("NewBase", (object, ), {})):
         f = Field(name, self)
         if alias:
             f = f.as_(alias)
-        setattr(self, name, f)
+        if not hasattr(self, name):  # for case table.__getattr__('as_')
+            setattr(self, name, f)
         return f
 
     __and__ = same('inner_join')
