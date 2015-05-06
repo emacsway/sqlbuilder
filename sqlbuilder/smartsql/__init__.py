@@ -32,6 +32,10 @@ CONTEXT_TABLE = 2
 
 
 class ClassRegistry(object):
+    """Minimalistic factory for related classes.
+
+    Allows use extended subclasses, if need.
+    """
     def __call__(self, name_or_cls):
         name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
 
@@ -1100,6 +1104,10 @@ def compile_tablejoin(compile, expr, state):
 
 
 class Result(object):
+    """Default implementation of Query class.
+
+    It uses the Bridge pattern to separate implementation from interface.
+    """
 
     compile = compile
 
@@ -1146,7 +1154,15 @@ class Query(Expr):
     result = Result()
 
     def __init__(self, tables=None, result=None):
+        """ Query class.
 
+        It uses the Bridge pattern to separate implementation from interface.
+
+        :param tables: tables
+        :type tables: Table, TableJoin, None
+        :param result: Object of implementation.
+        :type tables: Result
+        """
         self._distinct = False
         self._fields = FieldList().join(", ")
         if tables is not None:
@@ -1321,7 +1337,7 @@ class Query(Expr):
         return self._cr.Raw(sql, params, result=self.result)
 
     def result_wraps(self, name, *args, **kwargs):
-        """Configure result factory."""
+        """Wrapper to call implementation method."""
         c = self.clone()
         getattr(c.result, name)(*args, **kwargs)
         return c
@@ -1336,6 +1352,7 @@ class Query(Expr):
         return self.result(self).__iter__()
 
     def __getattr__(self, name):
+        """Delegates unknown attributes to object of implementation."""
         if hasattr(self.result, name):
             attr = getattr(self.result, name)
             if isinstance(attr, types.MethodType):

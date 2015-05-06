@@ -3,13 +3,6 @@ import datetime
 import unittest
 from collections import OrderedDict
 
-if __name__ == '__main__':
-    import os
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))
-    )))
-
 from sqlbuilder.smartsql import PLACEHOLDER, QS, T, F, A, E, Not, func, const, CompositeExpr, Result
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
@@ -364,6 +357,3 @@ class TestSmartSQL(unittest.TestCase):
             QS(T.user).where(F.status == 1).delete(),
             ('DELETE FROM "user" WHERE "status" = %s', [1, ], )
         )
-
-if __name__ == '__main__':
-    unittest.main()
