@@ -1401,8 +1401,8 @@ def compile_query(compile, expr, state):
 @cr
 class SelectCount(Query):
 
-    def __init__(self, qs):
-        Query.__init__(self, qs.order_by(reset=True).as_table('count_list'))
+    def __init__(self, q):
+        Query.__init__(self, q.order_by(reset=True).as_table('count_list'))
         self._fields.append(Constant('COUNT')(Constant('1')).as_('count_value'))
 
 

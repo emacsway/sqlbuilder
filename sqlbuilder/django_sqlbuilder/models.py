@@ -115,23 +115,24 @@ class Result(smartsql.Result):
 class Table(smartsql.Table):
     """Table class for Django model"""
 
-    def __init__(self, model, qs=None, *args, **kwargs):
+    def __init__(self, model, q=None, *args, **kwargs):
         """Constructor"""
         super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
         self.model = model
-        self._qs = qs
+        self._q = q
 
-    def _get_qs(self):
-        if isinstance(self._qs, collections.Callable):
-            self._qs = self._qs(self)
-        elif self._qs is None:
-            self._qs = smartsql.QS(self, result=Result(self.model)).fields(self.get_fields())
-        return self._qs.clone()
+    def _get_q(self):
+        if isinstance(self._q, collections.Callable):
+            self._q = self._q(self)
+        elif self._q is None:
+            self._q = smartsql.Q(self, result=Result(self.model)).fields(self.get_fields())
+        return self._q.clone()
 
-    def _set_qs(self, val):
-        self._qs = val
+    def _set_q(self, val):
+        self._q = val
 
-    qs = property(_get_qs, _set_qs)
+    qs = property(_get_q, _set_q)
+    q = property(_get_q, _set_q)
 
     def get_fields(self, prefix=None):
         """Returns field list."""
