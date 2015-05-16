@@ -435,6 +435,8 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
         return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
 
     def in_(self, others):
+        if len(self.data) == 1:
+            return self.data[0].in_(others)
         return reduce(operator.or_,
                       (reduce(operator.and_,
                               ((expr == other)
@@ -442,6 +444,8 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
                        for composite_other in others))
 
     def not_in(self, others):
+        if len(self.data) == 1:
+            return self.data[0].not_in(others)
         return ~reduce(operator.or_,
                        (reduce(operator.and_,
                                ((expr == other)
