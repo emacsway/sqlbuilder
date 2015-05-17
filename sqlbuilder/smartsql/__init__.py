@@ -129,7 +129,7 @@ class Compiler(object):
         outer_precedence = state.precedence
         if hasattr(expr, '_sql') and (cls, expr._sql) in self._precedence:
             inner_precedence = self._precedence[(cls, expr._sql)]
-        if hasattr(expr, '_sql') and expr._sql in self._precedence:
+        elif hasattr(expr, '_sql') and expr._sql in self._precedence:
             inner_precedence = self._precedence[expr._sql]
         elif cls in self._precedence:
             inner_precedence = self._precedence[cls]
