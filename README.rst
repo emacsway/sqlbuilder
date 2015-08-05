@@ -111,7 +111,7 @@ Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
 ::
 
-    object_list = Book.s.qs.tables(
+    object_list = Book.s.q.tables(
         (Book.s & Author.s).on(Book.s.author == Author.s.pk)
     ).where(
         (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
