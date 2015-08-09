@@ -1306,12 +1306,12 @@ class Query(Expr):
         return c.result(c).select()
 
     def count(self):
-        return self.result(SelectCount(self)).count()
+        return self.result.clone()(SelectCount(self)).count()
 
     def insert(self, fv_dict=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(self._cr.Insert(map=fv_dict, **kw)).insert()
+        return self.result.clone()(self._cr.Insert(map=fv_dict, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         return self.insert(fields=fields, values=values, **kw)
@@ -1322,14 +1322,14 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Update(map=key_values, **kw)).update()
+        return self.result.clone()(self._cr.Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Delete(**kw)).delete()
+        return self.result.clone()(self._cr.Delete(**kw)).delete()
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
