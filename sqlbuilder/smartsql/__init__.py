@@ -1125,7 +1125,7 @@ class Result(object):
     select = count = insert = update = delete = execute
 
     def __call__(self, query):
-        c = self  # self.clone()
+        c = self  # Don't clone here to keep link to cache in this instance
         c._query = query
         return c
 
