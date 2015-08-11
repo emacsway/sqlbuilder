@@ -213,6 +213,17 @@ class Error(Exception):
     pass
 
 
+class UndefType(object):
+
+    def __repr__(self):
+        return "Undef"
+
+    def __reduce__(self):
+        return "Undef"
+
+Undef = UndefType()
+
+
 class Comparable(object):
 
     __slots__ = ()
@@ -826,6 +837,43 @@ def compile_between(compile, expr, state):
     compile(expr._start, state)
     state.sql.append(' AND ')
     compile(expr._end, state)
+
+
+class Case(Expr):
+    """A CASE statement.
+
+    @params cases: a list of tuples of (condition, result) or (value, result),
+        if an expression is passed too.
+    @param expression: the expression to compare (if the simple form is used).
+    @param default: an optional default condition if no other case matches.
+    """
+
+    __slots__ = ('_cases', '_expr', '_default')
+
+    def __init__(self, cases, expr=Undef, default=Undef):
+        self._cases = cases
+        self._expr = expr
+        self._default = default
+
+
+@compile.when(Case)
+def compile_case(compile, expr, state):
+    cases = [
+        "WHEN %s THEN %s" % (
+            compile(condition, state), compile(value, state))
+        for condition, value in expr._cases]
+
+    if expr._expr is not Undef:
+        expression = compile(expr._expr, state) + " "
+    else:
+        expression = ""
+
+    if expr._default is not Undef:
+        default = " ELSE %s" % compile(expr._default, state)
+    else:
+        default = ""
+
+    state.sql.append("CASE %s%s%s END" % (expression, " ".join(cases), default))
 
 
 class Callable(Expr):
