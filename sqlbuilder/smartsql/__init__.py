@@ -1017,7 +1017,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         f = Field(name, self)
         if alias:
             f = f.as_(alias)
-        if not hasattr(self, name):  # for case table.__getattr__('as_')
+        if name not in dir(self):  # for case table.__getattr__('as_')
             setattr(self, name, f)
         return f
 
