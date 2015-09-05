@@ -69,7 +69,7 @@ field::
 table operator::
 
     >>> (T.book & T.author).on(T.book.author_id == T.author.id)
-    Out[4]: <TableJoin: "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+    <TableJoin: "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
     >>> (T.book + T.author).on(T.book.author_id == T.author.id)
     <TableJoin: "book" LEFT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
