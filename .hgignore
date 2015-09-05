@@ -14,3 +14,4 @@
 ^dist/
 ^sqlbuilder.egg-info/
 ^build/
+^docs/_build

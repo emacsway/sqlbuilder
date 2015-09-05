@@ -2,7 +2,7 @@
 SQLBuilder
 ===========
 
-SmartSQL - lightweight sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 50 Kb.
+SmartSQL - lightweight Python sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 50 Kb.
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Ascetic ORM <https://bitbucket.org/emacsway/ascetic>`_, or with super-lightweight datamapper `Openorm <http://code.google.com/p/openorm/source/browse/python/>`_ (`miror <https://bitbucket.org/emacsway/openorm/src/default/python/>`__) etc.
 
@@ -15,93 +15,92 @@ LICENSE:
 Short manual for sqlbuilder.smartsql
 =====================================
 
+Quick start::
+
+    >>> from sqlbuilder.smartsql import Q, T, compile
+    >>> compile(Q().tables(
+    ...     (T.book & T.author).on(T.book.author_id == T.author.id)
+    ... ).columns(
+    ...     T.book.name, T.author.first_name, T.author.last_name
+    ... ).where(
+    ...     (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
+    ... )[20:30])
+    ('SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT %s OFFSET %s', ['Tom', 'Smith', 10, 20])
+
 table::
 
-    In [9]: T.book
-    Out[9]: <Table: "book", []>
+    >>> T.book
+    <Table: "book", []>
 
-    In [10]: T.book__a
-    Out[10]: <TableAlias: "a", []>
+    >>> T.book__a
+    <TableAlias: "a", []>
 
-    In [11]: T.book.as_('a')
-    Out[11]: <TableAlias: "a", []>
+    >>> T.book.as_('a')
+    <TableAlias: "a", []>
 
 field::
 
-    In [13]: T.book.name
-    Out[13]: <Field: "book"."name", []>
+    >>> T.book.name
+    <Field: "book"."name", []>
 
-    In [14]: T.book.name.as_('a')
-    Out[14]: <Alias: "a", []>
+    >>> T.book.name.as_('a')
+    <Alias: "a", []>
 
-    In [15]: F.book__name
-    Out[15]: <Field: "book"."name", []>
+    >>> F.book__name
+    <Field: "book"."name", []>
 
-    In [16]: F.book__name__a
-    Out[16]: <Alias: "a", []>
+    >>> F.book__name__a
+    <Alias: "a", []>
 
-    In [17]: F.book__name.as_('a')
-    Out[17]: <Alias: "a", []>
+    >>> F.book__name.as_('a')
+    <Alias: "a", []>
 
 
 table operator::
 
-    In [4]: (T.book & T.author).on(T.book.author_id == T.author.id)
+    >>> (T.book & T.author).on(T.book.author_id == T.author.id)
     Out[4]: <TableJoin: "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
-    In [5]: (T.book + T.author).on(T.book.author_id == T.author.id)
-    Out[5]: <TableJoin: "book" LEFT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+    >>> (T.book + T.author).on(T.book.author_id == T.author.id)
+    <TableJoin: "book" LEFT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
-    In [6]: (T.book - T.author).on(T.book.author_id == T.author.id)
-    Out[6]: <TableJoin: "book" RIGHT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+    >>> (T.book - T.author).on(T.book.author_id == T.author.id)
+    <TableJoin: "book" RIGHT OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
-    In [7]: (T.book | T.author).on(T.book.author_id == T.author.id)
-    Out[7]: <TableJoin: "book" FULL OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+    >>> (T.book | T.author).on(T.book.author_id == T.author.id)
+    <TableJoin: "book" FULL OUTER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
-    In [8]: (T.book * T.author).on(T.book.author_id == T.author.id)
-    Out[8]: <TableJoin: "book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+    >>> (T.book * T.author).on(T.book.author_id == T.author.id)
+    <TableJoin: "book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
 condition operator::
 
-    In [19]: (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[19]: <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    >>> (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
+    <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
-    In [20]: (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
-    Out[20]: <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    >>> (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
+    <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
-    In [21]: T.author.last_name.startswith('Sm')
-    Out[21]: <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
+    >>> T.author.last_name.startswith('Sm')
+    <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
 
-    In [22]: T.author.last_name.istartswith('Sm')
-    Out[22]: <Condition: "author"."last_name" ILIKE %s || %s, ['Sm', u'%']>
+    >>> T.author.last_name.istartswith('Sm')
+    <Condition: "author"."last_name" ILIKE %s || %s, ['Sm', u'%']>
 
-    In [23]: T.author.last_name.contains('Sm')
-    Out[23]: <Condition: "author"."last_name" LIKE %s || %s || %s, [u'%', 'Sm', u'%']>
+    >>> T.author.last_name.contains('Sm')
+    <Condition: "author"."last_name" LIKE %s || %s || %s, [u'%', 'Sm', u'%']>
 
-    In [24]: T.author.last_name.icontains('Sm')
-    Out[24]: <Condition: "author"."last_name" ILIKE %s || %s || %s, [u'%', 'Sm', u'%']>
+    >>> T.author.last_name.icontains('Sm')
+    <Condition: "author"."last_name" ILIKE %s || %s || %s, [u'%', 'Sm', u'%']>
 
-    In [25]: T.author.last_name.endswith('Sm')
-    Out[25]: <Condition: "author"."last_name" LIKE %s || %s, [u'%', 'Sm']>
+    >>> T.author.last_name.endswith('Sm')
+    <Condition: "author"."last_name" LIKE %s || %s, [u'%', 'Sm']>
 
-    In [26]: T.author.last_name.iendswith('Sm')
-    Out[26]: <Condition: "author"."last_name" ILIKE %s || %s, [u'%', 'Sm']>
+    >>> T.author.last_name.iendswith('Sm')
+    <Condition: "author"."last_name" ILIKE %s || %s, [u'%', 'Sm']>
 
-    In [27]: T.author.age.between(20, 30)
-    Out[27]: <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
-
-
-usage eg::
-
-    In [31]: QS().tables(
-        (T.book & T.author).on(T.book.author_id == T.author.id)
-    ).columns(
-        T.book.name, T.author.first_name, T.author.last_name
-    ).where(
-        (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
-    )[20:30]
-    Out[31]: <QuerySet: SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT 10 OFFSET 20, ['Tom', 'Smith']>
-
+    >>> T.author.age.between(20, 30)
+    <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
 
 
 Django integration.
@@ -111,9 +110,9 @@ Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
 ::
 
-    object_list = Book.s.q.tables(
-        (Book.s & Author.s).on(Book.s.author == Author.s.pk)
-    ).where(
-        (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
-    )[:10]
+    >>> object_list = Book.s.q.tables(
+    ...     (Book.s & Author.s).on(Book.s.author == Author.s.pk)
+    ... ).where(
+    ...     (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
+    ... )[:10]
 
