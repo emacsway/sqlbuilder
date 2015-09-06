@@ -313,7 +313,7 @@ class Comparable(object):
         return Is(self, other)
 
     def is_not(self, other):
-        return Is(self, Not(other))
+        return IsNot(self, other)
 
     def in_(self, other):
         return In(self, other)
@@ -565,6 +565,11 @@ class Is(NamedCondition):
     _sql = 'IS'
 
 
+class IsNot(NamedCondition):
+    __slots__ = ()
+    _sql = 'IS NOT'
+
+
 class In(NamedCondition):
     __slots__ = ()
     _sql = 'IN'
@@ -696,6 +701,14 @@ def compile_concat(compile, expr, state):
 class Param(Expr):
 
     __slots__ = ()
+
+    def __init__(self, params):
+        self._params = params
+
+
+@compile.when(Param)
+def compile_param(compile, expr, state):
+    compile(expr._params, state)
 
 
 Placeholder = Param
@@ -1714,4 +1727,4 @@ func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
 for cls in (Expr, Table, TableJoin, Modify, CompositeExpr):
-    cls.__repr__ = lambda self: "<{0}: {1}, {2}>".format(type(self).__name__, *compile(self))
+    cls.__repr__ = lambda self: "<{0}: {1}, {2!r}>".format(type(self).__name__, *compile(self))

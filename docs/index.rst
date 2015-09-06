@@ -25,7 +25,11 @@ LICENSE:
 Short manual for sqlbuilder.smartsql
 =====================================
 
-Quick start::
+
+Quick start
+-----------
+
+::
 
     >>> from sqlbuilder.smartsql import Q, T, compile
     >>> compile(Q().tables(
@@ -37,7 +41,11 @@ Quick start::
     ... )[20:30])
     ('SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT %s OFFSET %s', ['Tom', 'Smith', 10, 20])
 
-table::
+
+Table
+-----
+
+::
 
     >>> T.book
     <Table: "book", []>
@@ -48,7 +56,11 @@ table::
     >>> T.book.as_('a')
     <TableAlias: "a", []>
 
-field::
+
+Field
+-----
+
+::
 
     >>> T.book.name
     <Field: "book"."name", []>
@@ -66,7 +78,10 @@ field::
     <Alias: "a", []>
 
 
-table operator::
+Table operators
+---------------
+
+::
 
     >>> (T.book & T.author).on(T.book.author_id == T.author.id)
     <TableJoin: "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id"), []>
@@ -83,31 +98,151 @@ table operator::
     >>> (T.book * T.author).on(T.book.author_id == T.author.id)
     <TableJoin: "book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id"), []>
 
-condition operator::
+
+Condition operators
+-------------------
+
+::
+
+    >>> from sqlbuilder.smartsql import Table as T, Param as P
+    >>> tb = T.author
+
+    >>> tb.name == 'Tom'
+    <Eq: "author"."name" = %s, ['Tom']>
+
+    >>> tb.name != 'Tom'
+    <Ne: "author"."name" <> %s, ['Tom']>
+
+    >>> tb.counter + 1
+    <Add: "author"."counter" + %s, [1]>
+
+    >>> 1 + tb.counter
+    <Add: %s + "author"."counter", [1]>
+
+    >>> tb.counter - 1
+    <Sub: "author"."counter" - %s, [1]>
+
+    >>> 10 - tb.counter
+    <Sub: %s - "author"."counter", [10]>
+
+    >>> tb.counter * 2
+    <Mul: "author"."counter" * %s, [2]>
+
+    >>> 2 * tb.counter
+    <Mul: %s * "author"."counter", [2]>
+
+    >>> tb.counter / 2
+    <Div: "author"."counter" / %s, [2]>
+
+    >>> 10 / tb.counter
+    <Div: %s / "author"."counter", [10]>
+
+    >>> tb.is_staff & tb.is_admin
+    <And: "author"."is_staff" AND "author"."is_admin", []>
+
+    >>> tb.is_staff | tb.is_admin
+    <Or: "author"."is_staff" OR "author"."is_admin", []>
+
+    >>> tb.counter > 10
+    <Gt: "author"."counter" > %s, [10]>
+
+    >>> 10 > tb.counter
+    <Lt: "author"."counter" < %s, [10]>
+
+    >>> tb.counter >= 10
+    <Ge: "author"."counter" >= %s, [10]>
+
+    >>> 10 >= tb.counter
+    <Le: "author"."counter" <= %s, [10]>
+
+    >>> tb.counter < 10
+    <Lt: "author"."counter" < %s, [10]>
+
+    >>> 10 < tb.counter
+    <Gt: "author"."counter" > %s, [10]>
+
+    >>> tb.counter <= 10
+    <Le: "author"."counter" <= %s, [10]>
+
+    >>> 10 <= tb.counter
+    <Ge: "author"."counter" >= %s, [10]>
+
+    >>> tb.is_staff.is_(True)
+    <Is: "author"."is_staff" IS %s, [True]>
+
+    >>> tb.is_staff.is_not(True)
+    <IsNot: "author"."is_staff" IS NOT %s, [True]>
+
+    >>> tb.status.in_(('new', 'approved'))
+    <In: "author"."status" IN (%s, %s), ['new', 'approved']>
+
+    >>> tb.status.not_in(('new', 'approved'))
+    <NotIn: "author"."status" NOT IN (%s, %s), ['new', 'approved']>
+
+    >>> tb.status.in_(('new', 'approved'))
+    <In: "author"."status" IN (%s, %s), ['new', 'approved']>
+
+    >>> tb.status.not_in(('new', 'approved'))
+    <NotIn: "author"."status" NOT IN (%s, %s), ['new', 'approved']>
+
+
+    >>> tb.last_name.like('mi')
+    <Like: "author"."last_name" LIKE %s, ['mi']>
+
+    >>> tb.last_name.ilike('mi')
+    <Ilike: "author"."last_name" ILIKE %s, ['mi']>
+
+    >>> P('mi').like(tb.last_name)
+    <Like: %s LIKE "author"."last_name", ['mi']>
+
+    >>> tb.last_name.rlike('mi')
+    <Like: %s LIKE "author"."last_name", ['mi']>
+
+    >>> tb.last_name.rilike('mi')
+    <Ilike: %s ILIKE "author"."last_name", ['mi']>
+
+    >>> tb.last_name.startswith('Sm')
+    <Like: "author"."last_name" LIKE %s || %s, ['Sm', '%']>
+
+    >>> tb.last_name.istartswith('Sm')
+    <Ilike: "author"."last_name" ILIKE %s || %s, ['Sm', '%']>
+
+    >>> tb.last_name.contains('mi')
+    <Like: "author"."last_name" LIKE %s || %s || %s, ['%', 'mi', '%']>
+
+    >>> tb.last_name.icontains('mi')
+    <Ilike: "author"."last_name" ILIKE %s || %s || %s, ['%', 'mi', '%']>
+
+    >>> tb.last_name.endswith('th')
+    <Like: "author"."last_name" LIKE %s || %s, ['%', 'th']>
+
+    >>> tb.last_name.iendswith('th')
+    <Ilike: "author"."last_name" ILIKE %s || %s, ['%', 'th']>
+
+    >>> tb.last_name.rstartswith('Sm')
+    <Like: %s || %s LIKE "author"."last_name", ['Sm', '%']>
+
+    >>> tb.last_name.ristartswith('Sm')
+    <Ilike: %s || %s ILIKE "author"."last_name", ['Sm', '%']>
+
+    >>> tb.last_name.rcontains('mi')
+    <Like: %s || %s || %s LIKE "author"."last_name", ['%', 'mi', '%']>
+
+    >>> tb.last_name.ricontains('mi')
+    <Ilike: %s || %s || %s ILIKE "author"."last_name", ['%', 'mi', '%']>
+
+    >>> tb.last_name.rendswith('th')
+    <Like: %s || %s LIKE "author"."last_name", ['%', 'th']>
+
+    >>> tb.last_name.riendswith('th')
+    <Ilike: %s || %s ILIKE "author"."last_name", ['%', 'th']>
+
 
     >>> (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
     <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
     >>> (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
     <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
-
-    >>> T.author.last_name.startswith('Sm')
-    <Condition: "author"."last_name" LIKE %s || %s, ['Sm', u'%']>
-
-    >>> T.author.last_name.istartswith('Sm')
-    <Condition: "author"."last_name" ILIKE %s || %s, ['Sm', u'%']>
-
-    >>> T.author.last_name.contains('Sm')
-    <Condition: "author"."last_name" LIKE %s || %s || %s, [u'%', 'Sm', u'%']>
-
-    >>> T.author.last_name.icontains('Sm')
-    <Condition: "author"."last_name" ILIKE %s || %s || %s, [u'%', 'Sm', u'%']>
-
-    >>> T.author.last_name.endswith('Sm')
-    <Condition: "author"."last_name" LIKE %s || %s, [u'%', 'Sm']>
-
-    >>> T.author.last_name.iendswith('Sm')
-    <Condition: "author"."last_name" ILIKE %s || %s, [u'%', 'Sm']>
 
     >>> T.author.age.between(20, 30)
     <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
