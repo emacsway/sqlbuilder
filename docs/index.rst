@@ -49,14 +49,25 @@ Table
 
 ::
 
+    >>> from sqlbuilder.smartsql import Table as T, Query as Q
+
     >>> T.book
     <Table: "book", []>
 
     >>> T.book__a
     <TableAlias: "a", []>
 
-    >>> T.book.as_('a')
+    >>> T.book.as_('a')  # Same as T.book__a
     <TableAlias: "a", []>
+
+Compiling instance of TableAlias depends on context of usage::
+
+    >>> ta = T.book.as_('a')
+    >>> ta
+    <TableAlias: "a", []>
+    >>> Q().tables(ta).columns(ta.title).where(ta.title.startswith('A'))
+    <Query: SELECT "a"."title" FROM "book" AS "a" WHERE "a"."title" LIKE %s || %s, ['A', '%']>
+
 
 
 Field
@@ -64,20 +75,30 @@ Field
 
 ::
 
+    >>> from sqlbuilder.smartsql import Table as T, Field as F, Query as Q
+
     >>> T.book.name
     <Field: "book"."name", []>
 
     >>> T.book.name.as_('a')
     <Alias: "a", []>
 
-    >>> F.book__name
+    >>> F.book__name  # Same as T.book.name
     <Field: "book"."name", []>
 
-    >>> F.book__name__a
+    >>> F.book__name__a  # T.book.name.as_('a')
     <Alias: "a", []>
 
-    >>> F.book__name.as_('a')
+    >>> F.book__name.as_('a')  # T.book.name.as_('a') or F.book__name__a
     <Alias: "a", []>
+
+Compiling instance of TableAlias depends on context of usage::
+
+    >>> al = T.book.name.as_('a')
+    >>> al
+    <Alias: "a", []>
+    >>> Q().tables(T.book).columns(al).where(al.startswith('A'))
+    <Query: SELECT "book"."name" AS "a" FROM "book" WHERE "a" LIKE %s || %s, ['A', '%']>
 
 
 Table operators
@@ -248,6 +269,17 @@ Condition operators
 
     >>> T.author.age.between(20, 30)
     <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
+
+
+Compilers
+---------
+
+There are three compilers for three dialects:
+
+- ``sqlbuilder.smartsql.compile(expr, state=None)`` - is a default compiler with PostgreSQL dialect.
+- ``sqlbuilder.smartsql.compilers.mysql.compile(expr, state=None)`` - has MySQL dialect.
+- ``sqlbuilder.smartsql.compilers.sqlite.compile(expr, state=None)`` - has SQLite dialect.
+
 
 
 Django integration.
