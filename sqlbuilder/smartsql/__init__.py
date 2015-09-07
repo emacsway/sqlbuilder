@@ -1022,16 +1022,22 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def as_(self, alias):
         return self._cr.TableAlias(alias, self)
 
-    def __getattr__(self, name):
-        if name[0] == '_':
+    def __getattr__(self, key):
+        if key[0] == '_':
             raise AttributeError
-        parts = name.split(LOOKUP_SEP, 1)
+        parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        f = Field(name, self)
-        if alias:
-            f = f.as_(alias)
+
+        if name in self.__dict__:
+            f = self.__dict__[name]
+        else:
+            f = Field(name, self)
         if name not in dir(self):  # for case table.__getattr__('as_')
             setattr(self, name, f)
+        if alias:
+            f = f.as_(alias)
+        if key not in dir(self):  # for case table.__getattr__('as_')
+            setattr(self, key, f)
         return f
 
     __and__ = same('inner_join')

@@ -36,7 +36,7 @@ Quick start
     >>> from sqlbuilder.smartsql import Q, T, compile
     >>> compile(Q().tables(
     ...     (T.book & T.author).on(T.book.author_id == T.author.id)
-    ... ).columns(
+    ... ).fields(
     ...     T.book.name, T.author.first_name, T.author.last_name
     ... ).where(
     ...     (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
@@ -65,7 +65,7 @@ Compiling instance of TableAlias depends on context of usage::
     >>> ta = T.book.as_('a')
     >>> ta
     <TableAlias: "a", []>
-    >>> Q().tables(ta).columns(ta.title).where(ta.title.startswith('A'))
+    >>> Q().tables(ta).fields(ta.title).where(ta.title.startswith('A'))
     <Query: SELECT "a"."title" FROM "book" AS "a" WHERE "a"."title" LIKE %s || %s, ['A', '%']>
 
 
@@ -97,7 +97,7 @@ Compiling instance of TableAlias depends on context of usage::
     >>> al = T.book.name.as_('a')
     >>> al
     <Alias: "a", []>
-    >>> Q().tables(T.book).columns(al).where(al.startswith('A'))
+    >>> Q().tables(T.book).fields(al).where(al.startswith('A'))
     <Query: SELECT "book"."name" AS "a" FROM "book" WHERE "a" LIKE %s || %s, ['A', '%']>
 
 
@@ -261,14 +261,111 @@ Condition operators
     <Ilike: %s || %s ILIKE "author"."last_name", ['%', 'th']>
 
 
+    >>> +tb.counter
+    <Pos: +"author"."counter", []>
+
+    >>> -tb.counter
+    <Neg: -"author"."counter", []>
+
+    >>> ~tb.counter
+    <Not: NOT "author"."counter", []>
+
+    >>> tb.name.distinct()
+    <Distinct: DISTINCT "author"."name", []>
+
+    >>> tb.counter ** 2
+    <Callable: POW("author"."counter", %s), [2]>
+
+    >>> 2 ** tb.counter
+    <Callable: POW(%s, "author"."counter"), [2]>
+
+    >>> tb.counter % 2
+    <Callable: MOD("author"."counter", %s), [2]>
+
+    >>> 2 % tb.counter
+    <Callable: MOD(%s, "author"."counter"), [2]>
+
+    >>> abs(tb.counter)
+    <Callable: ABS("author"."counter"), []>
+
+    >>> tb.counter.count()
+    <Callable: COUNT("author"."counter"), []>
+
+    >>> tb.age.between(20, 30)
+    <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
+
+    >>> tb.age[20:30]
+    <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
+
+    >>> tb.age[20]
+    <Eq: "author"."age" = %s, [20]>
+
+    >>> tb.name.concat(' staff', ' admin')
+    <Concat: "author"."name" || %s || %s, [' staff', ' admin']>
+
+    >>> tb.name.concat_ws(' ', 'staff', 'admin')
+    <Concat: concat_ws(%s, "author"."name", %s, %s), [' ', 'staff', 'admin']>
+
+    >>> tb.name.op('MY_EXTRA_OPERATOR')(10)
+    <Condition: "author"."name" MY_EXTRA_OPERATOR %s, [10]>
+
+    >>> tb.name.rop('MY_EXTRA_OPERATOR')(10)
+    <Condition: %s MY_EXTRA_OPERATOR "author"."name", [10]>
+
+    >>> tb.name.asc()
+    <Asc: "author"."name" ASC, []>
+
+    >>> tb.name.desc()
+    <Desc: "author"."name" DESC, []>
+
+    >>> ((tb.age > 25) | (tb.answers > 10)) & (tb.is_staff | tb.is_admin)
+    <And: ("author"."age" > %s OR "author"."answers" > %s) AND ("author"."is_staff" OR "author"."is_admin"), [25, 10]>
+
     >>> (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
     <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
     >>> (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
     <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
-    >>> T.author.age.between(20, 30)
-    <Between: "author"."age" BETWEEN %s AND %s, [20, 30]>
+
+Query object
+------------
+
+.. module:: sqlbuilder.smartsql
+
+.. class:: Query
+
+    Query builder class
+
+    .. method:: fields(self, *args, **opts)
+
+        Usage::
+
+            >>> from sqlbuilder.smartsql import *
+            >>> q = Q().tables(T.author)
+
+            >>> # Add fields:
+            >>> q = q.fields(T.author.first_name, T.author.last_name)
+            >>> q
+            <Query: SELECT "author"."first_name", "author"."last_name" FROM "author", []>
+            >>> q = q.fields(T.author.age)
+            >>> q
+            <Query: SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+
+            >>> # Set new fields list:
+            >>> q = q.fields([T.author.id, T.author.status])
+            >>> q
+            <Query: SELECT "author"."id", "author"."status" FROM "author", []>
+
+            >>> # Reset fields:
+            >>> q = q.fields([])
+            >>> q
+            <Query: SELECT  FROM "author", []>
+
+            >>> # Second way to reset fields:
+            >>> q = q.fields(reset=True)
+            >>> q
+            <Query: SELECT  FROM "author", []>
 
 
 Compilers
