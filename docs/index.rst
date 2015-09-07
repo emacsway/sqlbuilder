@@ -379,8 +379,8 @@ There are three compilers for three dialects:
 
 
 
-Django integration.
-=====================
+Django integration
+==================
 
 Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
 
