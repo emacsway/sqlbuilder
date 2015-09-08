@@ -339,7 +339,12 @@ Query object
 
     .. method:: fields(self, *args, **opts)
 
-        Usage::
+        - Adds fields with arguments.
+        - Sets fields with single argument of list/tuple type.
+        - Gets fields without arguments.
+        - Resets fields with ``reset=True`` keyword argument.
+
+        Example of usage::
 
             >>> from sqlbuilder.smartsql import *
             >>> q = Q().tables(T.author)
@@ -366,6 +371,28 @@ Query object
             >>> q = q.fields(reset=True)
             >>> q
             <Query: SELECT  FROM "author", []>
+
+    .. method:: tables(self, tables=None):
+
+        :param tables: Can be None, Table or TableJoin instance
+        :type tables: None, Table or TableJoin
+        :return: current tables if ``tables`` argument is None, else copied object with new tables
+        :rtype: TableJoin if ``tables`` argument is None, else Query
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> q = Q().tables(T.author).fields('*')
+            >>> q
+            <Query: SELECT * FROM "author", []>
+            >>> q = q.tables(T.author.as_('author_alias'))
+            >>> q
+            <Query: SELECT * FROM "author" AS "author_alias", []>
+            >>> q.tables()
+            <TableJoin: "author" AS "author_alias", []>
+            >>> q = q.tables((q.tables() + T.book).on(T.book.author_id == T.author.as_('author_alias').id))
+            >>> q
+            <Query: SELECT * FROM "author" AS "author_alias" LEFT OUTER JOIN "book" ON ("book"."author_id" = "author_alias"."id"), []>
 
 
 Compilers

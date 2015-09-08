@@ -1262,11 +1262,11 @@ class Query(Expr):
         c.result = c.result.clone()
         return c
 
-    def tables(self, t=None):
-        if t is None:
+    def tables(self, tables=None):
+        if tables is None:
             return self._tables
         self = self.clone('_tables')
-        self._tables = t if isinstance(t, TableJoin) else self._cr.TableJoin(t)
+        self._tables = tables if isinstance(tables, TableJoin) else self._cr.TableJoin(tables)
         return self
 
     def distinct(self, val=None):
@@ -1299,15 +1299,14 @@ class Query(Expr):
         self._tables = self._tables.on(cond)
         return self
 
-    def where(self, cond):
+    def where(self, cond, op=operator.and_):
         self = self.clone()
-        self._wheres = cond if self._wheres is None else self._wheres & cond
+        self._wheres = cond if self._wheres is None or op is None else op(self._wheres, cond)
         return self
 
     def or_where(self, cond):
-        self = self.clone()
-        self._wheres = cond if self._wheres is None else self._wheres | cond
-        return self
+        warn('or_where(cond)', 'where(cond, op=operator.or_)')
+        return self.where(cond, op=operator.or_)
 
     @opt_checker(["reset", ])
     def group_by(self, *args, **opts):
