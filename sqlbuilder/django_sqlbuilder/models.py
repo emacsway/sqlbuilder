@@ -183,6 +183,14 @@ class Table(smartsql.Table):
         return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
 
 
+@cr
+class TableAlias(smartsql.TableAlias, Table):
+    """Table alias class"""
+    @property
+    def model(self):
+        return getattr(self._table, 'model', None)  # Can be subquery
+
+
 @classproperty
 def s(cls):
     a = '_{0}'.format(SMARTSQL_ALIAS)
