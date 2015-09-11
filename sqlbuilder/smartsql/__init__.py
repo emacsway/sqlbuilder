@@ -232,19 +232,26 @@ class Comparable(object):
         return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
 
     def _l(mask, ci=False, inv=False):
-        a = 'like'
-        if ci:
-            a = 'i' + a
-        if inv:
-            a = 'r' + a
-
         def f(self, other):
-            args = [other]
+
+            if ci:
+                cls = Ilike
+            else:
+                cls = Like
+
+            if inv:
+                left, right = other, self
+            else:
+                left, right = self, other
+
+            right = EscapeForLike(right)
+
+            args = [right]
             if 4 & mask:
-                args.insert(0, '%')
+                args.insert(0, Value('%'))
             if 1 & mask:
-                args.append('%')
-            return getattr(self, a)(Concat(*args))
+                args.append(Value('%'))
+            return cls(left, Concat(*args), escape=right._escape)  # other can be expression, so, using Concat()
         return f
 
     def __add__(self, other):
@@ -309,6 +316,12 @@ class Comparable(object):
             return self.not_in(other)
         return Ne(self, other)
 
+    def __rshift__(self, other):
+        return RShift(self, other)
+
+    def __lshift__(self, other):
+        return LShift(self, other)
+
     def is_(self, other):
         return Is(self, other)
 
@@ -321,17 +334,17 @@ class Comparable(object):
     def not_in(self, other):
         return NotIn(self, other)
 
-    def like(self, other):
-        return Like(self, other)
+    def like(self, other, escape=Undef):
+        return Like(self, other, escape)
 
-    def ilike(self, other):
-        return Ilike(self, other)
+    def ilike(self, other, escape=Undef):
+        return Ilike(self, other, escape)
 
-    def rlike(self, other):
-        return Like(other, self)
+    def rlike(self, other, escape=Undef):
+        return Like(other, self, escape)
 
-    def rilike(self, other):
-        return Ilike(other, self)
+    def rilike(self, other, escape=Undef):
+        return Ilike(other, self, escape)
 
     startswith = _l(1)
     istartswith = _l(1, 1)
@@ -580,14 +593,61 @@ class NotIn(NamedCondition):
     _sql = 'NOT IN'
 
 
-class Like(NamedCondition):
+class RShift(NamedCondition):
     __slots__ = ()
+    _sql = ">>"
+
+
+class LShift(NamedCondition):
+    __slots__ = ()
+    _sql = "<<"
+
+
+class EscapeForLike(Expr):
+
+    __slots__ = ('_expr')
+
+    _escape = "!"
+    _escape_map = tuple(  # Ordering is important!
+        (i, "!{}".format(i)) for i in ('!', '_', '%')
+    )
+
+    def __init__(self, expr):
+        self._expr = expr
+
+
+@compile.when(EscapeForLike)
+def compile_escapeforlike(compile, expr, state):
+    escaped = expr._expr
+    for k, v in expr._escape_map:
+        escaped = Replace(escaped, Value(k), Value(v))
+    compile(escaped, state)
+
+
+class Like(NamedCondition):
+    __slots__ = ('_escape',)
     _sql = 'LIKE'
 
+    def __init__(self, left, right, escape=Undef):
+        self._left = left
+        self._right = right
+        if isinstance(right, EscapeForLike):
+            self._escape = right._escape
+        else:
+            self._escape = escape
 
-class Ilike(NamedCondition):
+
+class Ilike(Like):
     __slots__ = ()
     _sql = 'ILIKE'
+
+
+@compile.when(Like)
+def compile_like(compile, expr, state):
+    compile_condition(compile, expr, state)
+    if expr._escape is not Undef:
+        state.sql.append(' ESCAPE ')
+        compile(Value(expr._escape) if isinstance(expr._escape, string_types) else expr._escape, state)
 
 
 class ExprList(Expr):
@@ -904,6 +964,26 @@ def compile_callable(compile, expr, state):
     state.sql.append('(')
     compile(expr._args, state)
     state.sql.append(')')
+
+
+class NamedCallable(Callable):
+    __slots__ = ()
+
+    def __init__(self, *args):
+        self._args = ExprList(*args).join(", ")
+
+
+@compile.when(NamedCallable)
+def compile_namedcallable(compile, expr, state):
+    state.sql.append(expr._sql)
+    state.sql.append('(')
+    compile(expr._args, state)
+    state.sql.append(')')
+
+
+class Replace(NamedCallable):
+    __slots__ = ()
+    _sql = 'REPLACE'
 
 
 class Constant(Expr):
@@ -1697,6 +1777,21 @@ def compile_name(compile, expr, state):
     state.sql.append('"')
 
 
+class Value(object):
+
+    __slots__ = ('_value', )
+
+    def __init__(self, value):
+        self._value = value
+
+
+@compile.when(Value)
+def compile_value(compile, expr, state):
+    state.sql.append("'")
+    state.sql.append(str(expr._value).replace("'", "''"))
+    state.sql.append("'")
+
+
 def is_list(v):
     return isinstance(v, (list, tuple))
 
@@ -1731,5 +1826,5 @@ A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table,
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
-for cls in (Expr, Table, TableJoin, Modify, CompositeExpr):
+for cls in (Expr, Table, TableJoin, Modify, CompositeExpr, EscapeForLike, Name, Value):
     cls.__repr__ = lambda self: "<{0}: {1}, {2!r}>".format(type(self).__name__, *compile(self))

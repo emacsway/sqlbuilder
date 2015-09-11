@@ -3,8 +3,109 @@ import datetime
 import unittest
 from collections import OrderedDict
 
-from sqlbuilder.smartsql import PLACEHOLDER, Q, T, F, A, E, Not, func, const, CompositeExpr, Result
+from sqlbuilder.smartsql import PLACEHOLDER, Q, T, F, A, E, P, Not, func, const, CompositeExpr, Result, compile
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+
+
+class TestExpr(unittest.TestCase):
+
+    maxDiff = None
+
+    def test_expr(self):
+        tb = T.author
+        self.assertEqual(
+            compile(tb.name == 'Tom'),
+            (('"author"."name" = %s'), ['Tom'])
+        )
+        self.assertEqual(
+            compile(tb.name != 'Tom'),
+            (('"author"."name" <> %s'), ['Tom'])
+        )
+        self.assertEqual(
+            compile(tb.counter + 1),
+            ('"author"."counter" + %s', [1])
+        )
+        self.assertEqual(
+            compile(1 + tb.counter),
+            ('%s + "author"."counter"', [1])
+        )
+        self.assertEqual(
+            compile(tb.counter - 1),
+            ('"author"."counter" - %s', [1])
+        )
+        self.assertEqual(
+            compile(10 - tb.counter),
+            ('%s - "author"."counter"', [10])
+        )
+        self.assertEqual(
+            compile(tb.last_name.like('mi')),
+            ('"author"."last_name" LIKE %s', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.ilike('mi')),
+            ('"author"."last_name" ILIKE %s', ['mi'])
+        )
+        self.assertEqual(
+            compile(P('mi').like(tb.last_name)),
+            ('%s LIKE "author"."last_name"', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.rlike('mi')),
+            ('%s LIKE "author"."last_name"', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.rilike('mi')),
+            ('%s ILIKE "author"."last_name"', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.startswith('Sm')),
+            ('"author"."last_name" LIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.istartswith('Sm')),
+            ('"author"."last_name" ILIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.contains('mi')),
+            ('"author"."last_name" LIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.icontains('mi')),
+            ('"author"."last_name" ILIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.endswith('th')),
+            ('"author"."last_name" LIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.iendswith('th')),
+            ('"author"."last_name" ILIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+        )
+
+        self.assertEqual(
+            compile(tb.last_name.rstartswith('Sm')),
+            ('%s LIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.ristartswith('Sm')),
+            ('%s ILIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.rcontains('mi')),
+            ('%s LIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.ricontains('mi')),
+            ('%s ILIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.rendswith('th')),
+            ('%s LIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+        )
+        self.assertEqual(
+            compile(tb.last_name.riendswith('th')),
+            ('%s ILIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+        )
 
 
 class TestSmartSQL(unittest.TestCase):

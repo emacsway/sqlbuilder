@@ -1,4 +1,13 @@
-from .. import compile as parent_compile, SPACE, Name, Concat, Condition
+from .. import compile as parent_compile, SPACE, Name, Value, Concat, Condition
+
+try:
+    str = unicode  # Python 2.* compatible
+    string_types = (basestring,)
+    integer_types = (int, long)
+
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
 
 compile = parent_compile.create_child()
 
@@ -13,6 +22,13 @@ def compile_name(compile, expr, state):
     state.sql.append('`')
     state.sql.append(expr._name)
     state.sql.append('`')
+
+
+@compile.when(Value)
+def compile_value(compile, expr, state):
+    state.sql.append("'")
+    state.sql.append(str(expr)._value.replace("'", "\\'"))
+    state.sql.append("'")
 
 
 @compile.when(Condition)
