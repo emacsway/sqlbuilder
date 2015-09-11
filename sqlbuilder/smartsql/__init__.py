@@ -1788,7 +1788,7 @@ class Value(object):
 @compile.when(Value)
 def compile_value(compile, expr, state):
     state.sql.append("'")
-    state.sql.append(str(expr._value).replace("'", "''"))
+    state.sql.append(str(expr._value).replace('%', '%%').replace("'", "''"))
     state.sql.append("'")
 
 

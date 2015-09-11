@@ -59,52 +59,52 @@ class TestExpr(unittest.TestCase):
         )
         self.assertEqual(
             compile(tb.last_name.startswith('Sm')),
-            ('"author"."last_name" LIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+            ('"author"."last_name" LIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['Sm'])
         )
         self.assertEqual(
             compile(tb.last_name.istartswith('Sm')),
-            ('"author"."last_name" ILIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+            ('"author"."last_name" ILIKE REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['Sm'])
         )
         self.assertEqual(
             compile(tb.last_name.contains('mi')),
-            ('"author"."last_name" LIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+            ('"author"."last_name" LIKE \'%%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['mi'])
         )
         self.assertEqual(
             compile(tb.last_name.icontains('mi')),
-            ('"author"."last_name" ILIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+            ('"author"."last_name" ILIKE \'%%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['mi'])
         )
         self.assertEqual(
             compile(tb.last_name.endswith('th')),
-            ('"author"."last_name" LIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+            ('"author"."last_name" LIKE \'%%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') ESCAPE \'!\'', ['th'])
         )
         self.assertEqual(
             compile(tb.last_name.iendswith('th')),
-            ('"author"."last_name" ILIKE \'%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+            ('"author"."last_name" ILIKE \'%%\' || REPLACE(REPLACE(REPLACE(%s, \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') ESCAPE \'!\'', ['th'])
         )
 
         self.assertEqual(
             compile(tb.last_name.rstartswith('Sm')),
-            ('%s LIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+            ('%s LIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['Sm'])
         )
         self.assertEqual(
             compile(tb.last_name.ristartswith('Sm')),
-            ('%s ILIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['Sm'])
+            ('%s ILIKE REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['Sm'])
         )
         self.assertEqual(
             compile(tb.last_name.rcontains('mi')),
-            ('%s LIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+            ('%s LIKE \'%%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['mi'])
         )
         self.assertEqual(
             compile(tb.last_name.ricontains('mi')),
-            ('%s ILIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') || \'%\' ESCAPE \'!\'', ['mi'])
+            ('%s ILIKE \'%%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') || \'%%\' ESCAPE \'!\'', ['mi'])
         )
         self.assertEqual(
             compile(tb.last_name.rendswith('th')),
-            ('%s LIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+            ('%s LIKE \'%%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') ESCAPE \'!\'', ['th'])
         )
         self.assertEqual(
             compile(tb.last_name.riendswith('th')),
-            ('%s ILIKE \'%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%\', \'!%\') ESCAPE \'!\'', ['th'])
+            ('%s ILIKE \'%%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') ESCAPE \'!\'', ['th'])
         )
 
 

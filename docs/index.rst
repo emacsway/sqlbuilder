@@ -231,40 +231,40 @@ Condition operators
     <Ilike: %s ILIKE "author"."last_name", ['mi']>
 
     >>> tb.last_name.startswith('Sm')
-    <Like: "author"."last_name" LIKE REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['Sm']>
+    <Like: "author"."last_name" LIKE REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['Sm']>
 
     >>> tb.last_name.istartswith('Sm')
-    <Ilike: "author"."last_name" ILIKE REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['Sm']>
+    <Ilike: "author"."last_name" ILIKE REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['Sm']>
 
     >>> tb.last_name.contains('mi')
-    <Like: "author"."last_name" LIKE '%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['mi']>
+    <Like: "author"."last_name" LIKE '%%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['mi']>
 
     >>> tb.last_name.icontains('mi')
-    <Ilike: "author"."last_name" ILIKE '%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['mi']>
+    <Ilike: "author"."last_name" ILIKE '%%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['mi']>
 
     >>> tb.last_name.endswith('th')
-    <Like: "author"."last_name" LIKE '%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') ESCAPE '!'', ['th']>
+    <Like: "author"."last_name" LIKE '%%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') ESCAPE '!'', ['th']>
 
     >>> tb.last_name.iendswith('th')
-    <Ilike: "author"."last_name" ILIKE '%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%', '!%') ESCAPE '!'', ['th']>
+    <Ilike: "author"."last_name" ILIKE '%%' || REPLACE(REPLACE(REPLACE(%s, '!', '!!'), '_', '!_'), '%%', '!%%') ESCAPE '!'', ['th']>
 
     >>> tb.last_name.rstartswith('Sm')
-    <Like: %s LIKE REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['Sm']>
+    <Like: %s LIKE REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['Sm']>
 
     >>> tb.last_name.ristartswith('Sm')
-    <Ilike: %s ILIKE REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['Sm']>
+    <Ilike: %s ILIKE REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['Sm']>
 
     >>> tb.last_name.rcontains('mi')
-    <Like: %s LIKE '%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['mi']>
+    <Like: %s LIKE '%%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['mi']>
 
     >>> tb.last_name.ricontains('mi')
-    <Ilike: %s ILIKE '%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') || '%' ESCAPE '!', ['mi']>
+    <Ilike: %s ILIKE '%%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') || '%%' ESCAPE '!', ['mi']>
 
     >>> tb.last_name.rendswith('th')
-    <Like: %s LIKE '%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') ESCAPE '!', ['th']>
+    <Like: %s LIKE '%%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') ESCAPE '!', ['th']>
 
     >>> tb.last_name.riendswith('th')
-    <Ilike: %s ILIKE '%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%', '!%') ESCAPE '!', ['th']>
+    <Ilike: %s ILIKE '%%' || REPLACE(REPLACE(REPLACE("author"."last_name", '!', '!!'), '_', '!_'), '%%', '!%%') ESCAPE '!', ['th']>
 
 
     >>> +tb.counter
