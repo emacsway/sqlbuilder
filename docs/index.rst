@@ -378,7 +378,7 @@ Query object
             >>> q
             <Query: SELECT  FROM "author", []>
 
-    .. method:: tables(self, tables=None):
+    .. method:: tables(self, tables=None)
 
         :param tables: Can be None, Table or TableJoin instance
         :type tables: None, Table or TableJoin
@@ -399,6 +399,31 @@ Query object
             >>> q = q.tables((q.tables() + T.book).on(T.book.author_id == T.author.as_('author_alias').id))
             >>> q
             <Query: SELECT * FROM "author" AS "author_alias" LEFT OUTER JOIN "book" ON ("book"."author_id" = "author_alias"."id"), []>
+
+    .. method:: where(self, cond, op=operator.and_)
+
+        :param cond: Selection criteria
+        :type cond: Expr or subclass
+        :param op: Attribute of ``operator`` module, ``operator.and_`` by default
+        :return: copy of Query instance with new criteria
+        :rtype: Query
+
+        Example of usage::
+
+            >>> import operator
+            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> q = Q().tables(T.author).fields('*')
+            >>> q
+            <Query: SELECT * FROM "author", []>
+            >>> q = q.where(T.author.is_staff.is_(True))
+            >>> q
+            <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s, [True]>
+            >>> q = q.where(T.author.first_name == 'John')
+            >>> q
+            <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s, [True, 'John']>
+            >>> q = q.where(T.author.last_name == 'Smith', op=operator.or_)
+            >>> q
+            <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
 
 
 Compilers
