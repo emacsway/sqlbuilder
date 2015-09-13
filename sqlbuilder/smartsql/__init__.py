@@ -1403,15 +1403,14 @@ class Query(Expr):
             c._group_by.extend(args)
         return c
 
-    def having(self, cond):
+    def having(self, cond, op=operator.and_):
         c = self.clone()
-        c._havings = cond if c._havings is None else c._havings & cond
+        c._havings = cond if c._havings is None or op is None else op(self._havings, cond)
         return c
 
     def or_having(self, cond):
-        c = self.clone()
-        c._havings = cond if c._havings is None else c._havings | cond
-        return c
+        warn('or_having(cond)', 'having(cond, op=operator.or_)')
+        return self.having(cond, op=operator.or_)
 
     @opt_checker(["desc", "reset", ])
     def order_by(self, *args, **opts):

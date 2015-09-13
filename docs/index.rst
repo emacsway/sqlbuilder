@@ -9,7 +9,7 @@ Lightweight Python SQLBuilder
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 10
 
 .. contents:: Table of Contents
 
@@ -402,9 +402,12 @@ Query object
 
     .. method:: where(self, cond, op=operator.and_)
 
-        :param cond: Selection criteria
+        - Adds new criterias using the ``op`` operator, if ``op`` is not None.
+        - Sets new criterias if ``op`` is None.
+
+        :param cond: Selection criterias
         :type cond: Expr or subclass
-        :param op: Attribute of ``operator`` module, ``operator.and_`` by default
+        :param op: Attribute of ``operator`` module or None, ``operator.and_`` by default
         :return: copy of Query instance with new criteria
         :rtype: Query
 
@@ -424,6 +427,9 @@ Query object
             >>> q = q.where(T.author.last_name == 'Smith', op=operator.or_)
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
+            >>> q = q.where(T.author.last_name == 'Smith', op=None)
+            >>> q
+            <Query: SELECT * FROM "author" WHERE "author"."last_name" = %s, ['Smith']>
 
 
 Compilers
