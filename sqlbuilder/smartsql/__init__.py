@@ -58,6 +58,8 @@ class State(object):
         self.params = []
         self._stack = []
         self.callers = []
+        self.auto_tables = []
+        self.join_tables = []
         self.context = CONTEXT_QUERY
         self.precedence = 0
 
@@ -1039,6 +1041,7 @@ class Field(MetaField("NewBase", (Expr,), {})):
 @cached_compile
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
+        state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
         compile(expr._prefix, state)
         state.sql.append('.')
     if expr._name == '*':
@@ -1519,12 +1522,15 @@ QuerySet = Query
 
 @compile.when(Query)
 def compile_query(compile, expr, state):
+    state.push("auto_tables", [])  # this expr can be a subquery
     state.sql.append("SELECT ")
     if expr._distinct:
         state.sql.append("DISTINCT ")
     compile(expr._fields, state)
-    state.sql.append(" FROM ")
-    compile(expr._tables, state)
+
+    tables_sql_pos = len(state.sql)
+    tables_params_pos = len(state.params)
+
     if expr._wheres:
         state.sql.append(" WHERE ")
         compile(expr._wheres, state)
@@ -1545,6 +1551,20 @@ def compile_query(compile, expr, state):
         compile(expr._offset, state)
     if expr._for_update:
         state.sql.append(" FOR UPDATE")
+
+    state.push('join_tables', [])
+    state.push('sql', [])
+    state.push('params', [])
+    state.sql.append(" FROM ")
+    compile(expr._tables, state)
+    tables_sql = state.sql
+    tables_params = state.params
+    state.pop()
+    state.pop()
+    state.pop()
+    state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
+    state.params[tables_params_pos:tables_params_pos] = tables_params
+    state.pop()
 
 
 @cr
