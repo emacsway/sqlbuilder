@@ -8,6 +8,12 @@ TRANSLATION_MAP = {
 }
 
 
+@compile.when(object)
+def compile_object(compile, expr, state):
+    state.sql.append('?')
+    state.params.append(expr)
+
+
 @compile.when(Name)
 def compile_name(compile, expr, state):
     state.sql.append('`')
