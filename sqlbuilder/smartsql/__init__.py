@@ -196,7 +196,7 @@ def same(name):
 
 @compile.when(object)
 def compile_object(compile, expr, state):
-    state.sql.append('%s')
+    state.sql.append(PLACEHOLDER)
     state.params.append(expr)
 
 
