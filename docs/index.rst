@@ -17,8 +17,9 @@ SmartSQL - lightweight Python sql builder, follows the `KISS principle <http://e
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Ascetic ORM <https://bitbucket.org/emacsway/ascetic>`_, or with super-lightweight datamapper `Openorm <http://code.google.com/p/openorm/source/browse/python/>`_ (`miror <https://bitbucket.org/emacsway/openorm/src/default/python/>`__) etc.
 
-| Home Page: https://bitbucket.org/emacsway/sqlbuilder
-| Docs: http://sqlbuilder.readthedocs.org/
+* Home Page: https://bitbucket.org/emacsway/sqlbuilder
+* Docs: http://sqlbuilder.readthedocs.org/
+* Pypi: https://pypi.python.org/pypi/sqlbuilder
 
 LICENSE:
 
@@ -430,6 +431,45 @@ Query object
             >>> q = q.where(T.author.last_name == 'Smith', op=None)
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."last_name" = %s, ['Smith']>
+
+    .. method:: order_by(self, *args, **opts)
+
+        This method has interface similar to :meth:`~fields`
+
+        - Adds expressions if arguments exists.
+        - Sets expressions if exists single argument of list/tuple type.
+        - Gets expressions without arguments.
+        - Resets expressions with ``reset=True`` keyword argument.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> q = Q().tables(T.author).fields('*')
+            >>> q
+            <Query: SELECT * FROM "author", []>
+
+            >>> # Adds expressions
+            >>> q = q.order_by(T.author.first_name, T.author.last_name)
+            >>> q
+            <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, []>
+            >>> q = q.order_by(T.author.age.desc())
+            >>> q
+
+            # Set new expressions list:
+            <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC, []>
+            >>> q = q.order_by([T.author.id.desc(), T.author.status])
+            >>> q
+            <Query: SELECT * FROM "author" ORDER BY "author"."id" DESC, "author"."status" ASC, []>
+
+            # Reset expressions
+            >>> q = q.order_by([])
+            >>> q
+            <Query: SELECT * FROM "author", []>
+
+            >>> # Second way to reset expressions:
+            >>> q = q.order_by(reset=True)
+            >>> q
+            <Query: SELECT * FROM "author", []>
 
 
 Compilers
