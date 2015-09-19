@@ -6,13 +6,6 @@
 Lightweight Python SQLBuilder
 =============================
 
-Contents:
-
-.. toctree::
-   :maxdepth: 10
-
-.. contents:: Table of Contents
-
 SmartSQL - lightweight Python sql builder, follows the `KISS principle <http://en.wikipedia.org/wiki/KISS_principle>`_, less than 50 Kb. Supports Python2 and Python3.
 
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Ascetic ORM <https://bitbucket.org/emacsway/ascetic>`_, or with super-lightweight datamapper `Openorm <http://code.google.com/p/openorm/source/browse/python/>`_ (`miror <https://bitbucket.org/emacsway/openorm/src/default/python/>`__) etc.
@@ -27,12 +20,9 @@ LICENSE:
 
 * License is BSD
 
-Short manual for sqlbuilder.smartsql
-=====================================
-
 
 Quick start
------------
+===========
 
 ::
 
@@ -45,6 +35,32 @@ Quick start
     ...     (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
     ... )[20:30])
     ('SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT %s OFFSET %s', ['Tom', 'Smith', 10, 20])
+
+
+Django integration
+==================
+
+Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
+
+::
+
+    >>> object_list = Book.s.q.tables(
+    ...     (Book.s & Author.s).on(Book.s.author == Author.s.pk)
+    ... ).where(
+    ...     (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
+    ... )[:10]
+
+
+Contents:
+
+.. toctree::
+   :maxdepth: 10
+
+.. contents:: Table of Contents
+
+
+Short manual for sqlbuilder.smartsql
+====================================
 
 
 Table
@@ -337,16 +353,29 @@ Condition operators
     <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
 
+.. module:: sqlbuilder.smartsql
+   :synopsis: Module sqlbuilder.smartsql
+
+
+Module sqlbuilder.smartsql
+--------------------------
+
+
 Query object
 ------------
-
-.. module:: sqlbuilder.smartsql
 
 .. class:: Query
 
     Query builder class
 
-    .. method:: fields(self, *args, **opts)
+    .. method:: __init__([tables=None, result=None])
+
+        :param tables: Tables for FROM clause of SQL query
+        :type tables: Table, TableAlias, TableJoin, or None
+        :param result: Object with implementation of execution
+        :type result: Result or None
+
+    .. method:: fields(*args, **opts)
 
         - Adds fields with arguments.
         - Sets fields with single argument of list/tuple type.
@@ -381,7 +410,7 @@ Query object
             >>> q
             <Query: SELECT  FROM "author", []>
 
-    .. method:: tables(self, tables=None)
+    .. method:: tables(tables=None)
 
         :param tables: Can be None, Table or TableJoin instance
         :type tables: None, Table or TableJoin
@@ -403,13 +432,13 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" AS "author_alias" LEFT OUTER JOIN "book" ON ("book"."author_id" = "author_alias"."id"), []>
 
-    .. method:: where(self, cond, op=operator.and_)
+    .. method:: where(cond, op=operator.and_)
 
         - Adds new criterias using the ``op`` operator, if ``op`` is not None.
         - Sets new criterias if ``op`` is None.
 
         :param cond: Selection criterias
-        :type cond: Expr or subclass
+        :type cond: Expr
         :param op: Attribute of ``operator`` module or None, ``operator.and_`` by default
         :return: copy of Query instance with new criteria
         :rtype: Query
@@ -434,7 +463,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."last_name" = %s, ['Smith']>
 
-    .. method:: order_by(self, *args, **opts)
+    .. method:: order_by(*args, **opts)
 
         This method has interface similar to :meth:`~fields`
 
@@ -474,29 +503,62 @@ Query object
             <Query: SELECT * FROM "author", []>
 
 
+Implementation of execution
+---------------------------
+
+Class :class:`~Query` uses "`Bridge pattern <https://en.wikipedia.org/wiki/Bridge_pattern>`_" for implementation of execution.
+
+Module :mod:`sqlbuilder.smartsql` has default implementation in class :class:`Result`
+for demonstration purposes, that does only one thing - returns a tuple with SQL string and parameters.
+
+You can develop your own implementation, or, at least, specify what same compiler to use, for example::
+
+    >>> from sqlbuilder.smartsql import T, Q, Result 
+    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> Q(result=Result(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author).select()
+    ('SELECT `author`.`id`, `author`.`name` FROM `author`', [])
+
+See also examples of implementation in `django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
+
+
+.. class :: Result
+
+    Default implementation of execution for :class:`Query` class.
+
+    .. attribute:: compile
+
+        instance of :class:`Compiler`, :func:`sqlbuilder.smartsql.compile` by default
+
+    .. method:: __init__([compile=None])
+
+        :param compile: Compiler to compile SQL string
+        :type compile: Compiler or None
+
+
 Compilers
 ---------
 
 There are three compilers for three dialects:
 
-- ``sqlbuilder.smartsql.compile(expr, state=None)`` - is a default compiler with PostgreSQL dialect.
-- ``sqlbuilder.smartsql.compilers.mysql.compile(expr, state=None)`` - has MySQL dialect.
-- ``sqlbuilder.smartsql.compilers.sqlite.compile(expr, state=None)`` - has SQLite dialect.
+.. function:: sqlbuilder.smartsql.compile(expr, [state=None])
+
+    It's a default compiler for PostgreSQL dialect. Instance of :class:`Compiler`
+
+    :param expr: Expression to be compiled
+    :type expr: Expr
+    :param state: Instance of :class:`State` or None
+    :type state: State or None
+    :return: If state is None, then returns tuple with SQL string and list of parameters. Else returns None.
+    :rtype: tuple or None
 
 
+.. function:: sqlbuilder.smartsql.compilers.mysql.compile(expr, [state=None])
 
-Django integration
-==================
+    Compiler for MySQL dialect.
 
-Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
+.. function:: sqlbuilder.smartsql.compilers.sqlite.compile(expr, [state=None])
 
-::
-
-    >>> object_list = Book.s.q.tables(
-    ...     (Book.s & Author.s).on(Book.s.author == Author.s.pk)
-    ... ).where(
-    ...     (Author.s.first_name != 'James') & (Author.s.last_name != 'Joyce')
-    ... )[:10]
+    Compiler for SQLite dialect.
 
 
 Indices and tables

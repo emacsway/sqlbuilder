@@ -1313,7 +1313,7 @@ class Query(Expr):
         It uses the Bridge pattern to separate implementation from interface.
 
         :param tables: tables
-        :type tables: Table, TableJoin, None
+        :type tables: Table, TableAlias, TableJoin or None
         :param result: Object of implementation.
         :type tables: Result
         """
