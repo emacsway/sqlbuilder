@@ -518,7 +518,7 @@ You can develop your own implementation, or, at least, specify what same compile
     >>> Q(result=Result(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author).select()
     ('SELECT `author`.`id`, `author`.`name` FROM `author`', [])
 
-See also examples of implementation in `django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
+See also examples of implementation in `Django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
 
 
 .. class :: Result
