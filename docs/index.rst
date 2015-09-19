@@ -111,7 +111,7 @@ Field
     >>> F.book__name.as_('a')  # T.book.name.as_('a') or F.book__name__a
     <Alias: "a", []>
 
-Compiling instance of TableAlias depends on context of usage::
+Compiling instance of Alias depends on context of usage::
 
     >>> al = T.book.name.as_('a')
     >>> al
