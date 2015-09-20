@@ -464,7 +464,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author", []>
 
-            # Add conditions
+            >>> # Add conditions
             >>> q = q.where(T.author.is_staff.is_(True))
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s, [True]>
@@ -475,7 +475,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
 
-            # Set conditions
+            >>> # Set conditions
             >>> q = q.where(T.author.last_name == 'Smith', op=None)
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."last_name" = %s, ['Smith']>
@@ -541,7 +541,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status", []>
 
-            # Add conditions
+            >>> # Add conditions
             >>> q = q.having(T.author.is_staff.is_(True))
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s, [True]>
@@ -552,7 +552,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
 
-            # Set conditions
+            >>> # Set conditions
             >>> q = q.having(T.author.last_name == 'Smith', op=None)
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."last_name" = %s, ['Smith']>
@@ -580,13 +580,13 @@ Query object
             >>> q = q.order_by(T.author.age.desc())
             >>> q
 
-            # Set new expressions list:
+            >>> # Set new expressions list:
             <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC, []>
             >>> q = q.order_by([T.author.id.desc(), T.author.status])
             >>> q
             <Query: SELECT * FROM "author" ORDER BY "author"."id" DESC, "author"."status" ASC, []>
 
-            # Reset expressions:
+            >>> # Reset expressions:
             >>> q = q.order_by([])
             >>> q
             <Query: SELECT * FROM "author", []>
