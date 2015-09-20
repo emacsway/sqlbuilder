@@ -1080,6 +1080,12 @@ class MetaTable(type):
             def _f(attr):
                 return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
+            # FIXME: Bad idea, we need free name space for fields.
+            # Use one of this form?
+            # 1. T.book.get_field('hint')
+            # 2. F('hint', T.book)
+            # 3. T.fields.hint
+            # TODO: add natural and using
             for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
                 attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
@@ -1093,14 +1099,24 @@ class MetaTable(type):
         return table.as_(alias) if alias else table
 
 
+class FieldProxy(object):
+
+    def __init__(self, table):
+        self.__table = table
+
+    def __getattr__(self, key):
+        return self.__table.__getattr__(key)
+
+
 @cr
 class Table(MetaTable("NewBase", (object, ), {})):
 
-    __slots__ = ('_name', '__cached__')
+    __slots__ = ('_name', '__cached__', 'fields')
 
     def __init__(self, name):
         self._name = name
         self.__cached__ = {}
+        self.fields = FieldProxy(self)
 
     def as_(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1108,19 +1124,21 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getattr__(self, key):
         if key[0] == '_':
             raise AttributeError
+
+        if key in self.fields.__dict__:
+            return self.fields.__dict__[key]
+
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
 
-        if name in self.__dict__:
-            f = self.__dict__[name]
+        if name in self.fields.__dict__:
+            f = self.fields.__dict__[name]
         else:
             f = Field(name, self)
-        if name not in dir(self):  # for case table.__getattr__('as_')
-            setattr(self, name, f)
+            setattr(self.fields, name, f)
         if alias:
             f = f.as_(alias)
-        if key not in dir(self):  # for case table.__getattr__('as_')
-            setattr(self, key, f)
+            setattr(self.fields, key, f)
         return f
 
     __and__ = same('inner_join')
@@ -1128,6 +1146,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
     __sub__ = same('right_join')
     __or__ = same('full_join')
     __mul__ = same('cross_join')
+    get_field = same('__getattr__')
 
 
 @compile.when(Table)
@@ -1138,12 +1157,13 @@ def compile_table(compile, expr, state):
 @cr
 class TableAlias(Table):
 
-    __slots__ = ('_table', '_alias')
+    __slots__ = ('_table', '_alias', 'fields')
 
     def __init__(self, alias, table=None):
         self._table = table
         self._alias = alias
         self.__cached__ = {}
+        self.fields = FieldProxy(self)
 
     def as_(self, alias):
         return type(self)(alias, self._table)
@@ -1167,7 +1187,7 @@ def compile_tablealias(compile, expr, state):
 @cr
 class TableJoin(object):
 
-    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested')
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using')
 
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         self._table = table_or_alias
@@ -1176,6 +1196,8 @@ class TableJoin(object):
         self._left = left
         self._hint = None
         self._nested = False
+        self._natural = False
+        self._using = None
 
     def _j(j):
         return lambda self, obj: self.join(j, obj)
@@ -1204,8 +1226,16 @@ class TableJoin(object):
 
     def on(self, c):
         if self._on is not None:
-            self = type(self)(self)
+            self = self.__class__(self)  # TODO: Test me.
         self._on = c
+        return self
+
+    def natural(self):
+        self._natural = True
+        return self
+
+    def using(self, *fields):
+        self._using = ExprList(*fields).join(", ")
         return self
 
     def __call__(self):

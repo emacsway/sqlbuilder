@@ -605,7 +605,7 @@ Query object
 
     .. method:: insert(key_values=None, **kw)
 
-        :param key_values: Map of field names to it's values.
+        :param key_values: Map of fields (or field names) to it's values.
         :type key_values: dict
         :param kw: Extra keyword arguments that will be passed to :class:`Insert` instance.
 
