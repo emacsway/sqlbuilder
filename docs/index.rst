@@ -384,6 +384,8 @@ Query object
 
     .. method:: fields(*args, **opts)
 
+        Builds SELECT clause.
+
         - Adds fields with arguments.
         - Sets fields with single argument of list/tuple type.
         - Gets fields without arguments.
@@ -412,12 +414,14 @@ Query object
             >>> q
             <Query: SELECT  FROM "author", []>
 
-            >>> # Second way to reset fields:
+            >>> # Another way to reset fields:
             >>> q = q.fields(reset=True)
             >>> q
             <Query: SELECT  FROM "author", []>
 
     .. method:: tables(tables=None)
+
+        Builds FROM clause.
 
         :param tables: Can be None, Table or TableJoin instance
         :type tables: None, Table or TableJoin
@@ -441,6 +445,8 @@ Query object
 
     .. method:: where(cond, op=operator.and_)
 
+        Builds WHERE clause.
+
         - Adds new criterias using the ``op`` operator, if ``op`` is not None.
         - Sets new criterias if ``op`` is None.
 
@@ -457,6 +463,8 @@ Query object
             >>> q = Q().tables(T.author).fields('*')
             >>> q
             <Query: SELECT * FROM "author", []>
+
+            # Add conditions
             >>> q = q.where(T.author.is_staff.is_(True))
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s, [True]>
@@ -466,13 +474,15 @@ Query object
             >>> q = q.where(T.author.last_name == 'Smith', op=operator.or_)
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
+
+            # Set conditions
             >>> q = q.where(T.author.last_name == 'Smith', op=None)
             >>> q
             <Query: SELECT * FROM "author" WHERE "author"."last_name" = %s, ['Smith']>
 
-    .. method:: order_by(*args, **opts)
+    .. method:: group_by(*args, **opts)
 
-        This method has interface similar to :meth:`~fields`
+        Builds GROUP BY clause. This method has interface similar to :meth:`~fields`.
 
         - Adds expressions if arguments exists.
         - Sets expressions if exists single argument of list/tuple type.
@@ -486,7 +496,84 @@ Query object
             >>> q
             <Query: SELECT * FROM "author", []>
 
-            >>> # Adds expressions
+            >>> # Add expressions
+            >>> q = q.group_by(T.author.first_name, T.author.last_name)
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", []>
+            >>> q = q.group_by(T.author.age)
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", "author"."age", []>
+
+            >>> # Set new expressions list:
+            >>> q = q.group_by([T.author.id, T.author.status])
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."id", "author"."status", []>
+
+            >>> # Reset expressions:
+            >>> q = q.group_by([])
+            >>> q
+            <Query: SELECT * FROM "author", []>
+
+            >>> # Another way to reset expressions:
+            >>> q = q.group_by(reset=True)
+            >>> q
+            <Query: SELECT * FROM "author", []>
+
+    .. method:: having(cond, op=operator.and_)
+
+        Builds HAVING clause. This method has interface similar to :meth:`~where`.
+
+        - Adds new criterias using the ``op`` operator, if ``op`` is not None.
+        - Sets new criterias if ``op`` is None.
+
+        :param cond: Selection criterias
+        :type cond: Expr
+        :param op: Attribute of ``operator`` module or None, ``operator.and_`` by default
+        :return: copy of Query instance with new criteria
+        :rtype: Query
+
+        Example of usage::
+
+            >>> import operator
+            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> q = Q().fields('*').tables(T.author).group_py(T.author.status)
+            >>> q = Q().fields('*').tables(T.author).group_by(T.author.status)
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."status", []>
+
+            # Add conditions
+            >>> q = q.having(T.author.is_staff.is_(True))
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s, [True]>
+            >>> q = q.having(T.author.first_name == 'John')
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s AND "author"."first_name" = %s, [True, 'John']>
+            >>> q = q.having(T.author.last_name == 'Smith', op=operator.or_)
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s, [True, 'John', 'Smith']>
+
+            # Set conditions
+            >>> q = q.having(T.author.last_name == 'Smith', op=None)
+            >>> q
+            <Query: SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."last_name" = %s, ['Smith']>
+
+    .. method:: order_by(*args, **opts)
+
+        Builds ORDER BY clause. This method has interface similar to :meth:`~fields`.
+
+        - Adds expressions if arguments exists.
+        - Sets expressions if exists single argument of list/tuple type.
+        - Gets expressions without arguments.
+        - Resets expressions with ``reset=True`` keyword argument.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> q = Q().tables(T.author).fields('*')
+            >>> q
+            <Query: SELECT * FROM "author", []>
+
+            >>> # Add expressions:
             >>> q = q.order_by(T.author.first_name, T.author.last_name)
             >>> q
             <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, []>
@@ -499,12 +586,12 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" ORDER BY "author"."id" DESC, "author"."status" ASC, []>
 
-            # Reset expressions
+            # Reset expressions:
             >>> q = q.order_by([])
             >>> q
             <Query: SELECT * FROM "author", []>
 
-            >>> # Second way to reset expressions:
+            >>> # Another way to reset expressions:
             >>> q = q.order_by(reset=True)
             >>> q
             <Query: SELECT * FROM "author", []>
@@ -548,9 +635,7 @@ You can develop your own implementation, or, at least, specify what same compile
 
 See also examples of implementation in `Django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
 
-Instance of :class:`Query` delegates all unknown methods and properties to :attr:`Query.result`.
-If unknown method has called, then will be returned cloned instance of :class:`Query`.
-Example::
+Instance of :class:`Query` delegates all unknown methods and properties to :attr:`Query.result`. Example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
     >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
