@@ -1085,8 +1085,8 @@ class MetaTable(type):
             # 1. T.book.get_field('hint')
             # 2. F('hint', T.book)
             # 3. T.fields.hint
-            # TODO: add natural and using
-            for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join', 'join', 'on', 'hint']:
+            for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
+                      'join', 'on', 'hint', 'natural', 'using']:
                 attrs[a] = _f(a)
         return type.__new__(cls, name, bases, attrs)
 
@@ -1272,6 +1272,8 @@ def compile_tablejoin(compile, expr, state):
         compile(expr._left, state)
     if expr._join_type:
         state.sql.append(SPACE)
+        if expr._natural:
+            state.sql.append('NATURAL ')
         state.sql.append(expr._join_type)
         state.sql.append(SPACE)
     state.push('context', CONTEXT_TABLE)
@@ -1280,6 +1282,9 @@ def compile_tablejoin(compile, expr, state):
     if expr._on is not None:
         state.sql.append(' ON ')
         compile(expr._on, state)
+    elif expr._using is not None:
+        state.sql.append(' USING ')
+        compile(expr._using, state)
     if expr._hint is not None:
         state.sql.append(SPACE)
         compile(expr._hint, state)
