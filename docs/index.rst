@@ -368,12 +368,19 @@ Query object
 
     Query builder class
 
+    .. attribute:: result
+
+        Instance of :class:`Result`. See `Implementation of execution`_.
+
     .. method:: __init__([tables=None, result=None])
 
         :param tables: Tables for FROM clause of SQL query
         :type tables: Table, TableAlias, TableJoin, or None
         :param result: Object with implementation of execution
         :type result: Result or None
+
+
+    **Building methods:**
 
     .. method:: fields(*args, **opts)
 
@@ -503,6 +510,27 @@ Query object
             <Query: SELECT * FROM "author", []>
 
 
+    **Executing methods:**
+
+    .. method:: select(*args, **opts)
+
+    .. method:: count()
+
+    .. method:: insert(key_values=None, **kw)
+
+        :param key_values: Map of field names to it's values.
+        :type key_values: dict
+        :param kw: Extra keyword arguments that will be passed to :class:`Insert` instance.
+
+    .. method:: insert_many(fields, values, **kw)
+
+    .. method:: update(key_values, **kw)
+
+    .. method:: delete(**kw)
+
+
+.. _implementation-of-execution:
+
 Implementation of execution
 ---------------------------
 
@@ -513,12 +541,33 @@ for demonstration purposes, that does only one thing - returns a tuple with SQL 
 
 You can develop your own implementation, or, at least, specify what same compiler to use, for example::
 
-    >>> from sqlbuilder.smartsql import T, Q, Result 
+    >>> from sqlbuilder.smartsql import T, Q, Result
     >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
     >>> Q(result=Result(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author).select()
     ('SELECT `author`.`id`, `author`.`name` FROM `author`', [])
 
 See also examples of implementation in `Django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
+
+Instance of :class:`Query` delegates all unknown methods and properties to :attr:`Query.result`.
+If unknown method has called, then will be returned cloned instance of :class:`Query`.
+Example::
+
+    >>> from sqlbuilder.smartsql import T, Q, Result
+    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> class CustomResult(Result):
+    ...         custom_attr = 5                                                                                  
+    ...         def custom_method(self, arg1, arg2):
+    ...                 return (self._query, arg1, arg2)
+    ...         def find_by_name(self, name):
+    ...                 return self._query.where(T.author.name == name)
+    ...     
+    >>> q = Q(result=CustomResult(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author)
+    >>> q.custom_attr
+    5
+    >>> q.custom_method(5, 10)
+    (<Query: SELECT "author"."id", "author"."name" FROM "author", []>, 5, 10)
+    >>> q.find_by_name('John')
+    <Query: SELECT "author"."id", "author"."name" FROM "author" WHERE "author"."name" = %s, ['John']>
 
 
 .. class :: Result
@@ -528,6 +577,10 @@ See also examples of implementation in `Django integration <https://bitbucket.or
     .. attribute:: compile
 
         instance of :class:`Compiler`, :func:`sqlbuilder.smartsql.compile` by default
+
+    .. attribute:: _query
+
+        Current :class:`Query` instance
 
     .. method:: __init__([compile=None])
 
@@ -542,7 +595,9 @@ There are three compilers for three dialects:
 
 .. function:: sqlbuilder.smartsql.compile(expr, [state=None])
 
-    It's a default compiler for PostgreSQL dialect. Instance of :class:`Compiler`
+    It's a default compiler for PostgreSQL dialect,
+    instance of :class:`Compiler`.
+    It also used for `representation <https://docs.python.org/2/library/functions.html#repr>`__ of expressions.
 
     :param expr: Expression to be compiled
     :type expr: Expr

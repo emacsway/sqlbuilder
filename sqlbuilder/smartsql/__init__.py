@@ -1452,14 +1452,17 @@ class Query(Expr):
         if opts.get("for_update"):
             c._for_update = True
         return c.result(c).select()
+        # Never clone result. It should to have back link to Query instance.
+        # State of Result should be corresponding to state of Query object.
+        # We need clone both Result and Query synchronously.
 
     def count(self):
-        return self.result.clone()(SelectCount(self)).count()
+        return self.result(SelectCount(self)).count()
 
-    def insert(self, fv_dict=None, **kw):
+    def insert(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result.clone()(self._cr.Insert(map=fv_dict, **kw)).insert()
+        return self.result(self._cr.Insert(map=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         return self.insert(fields=fields, values=values, **kw)
@@ -1470,14 +1473,14 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result.clone()(self._cr.Update(map=key_values, **kw)).update()
+        return self.result(self._cr.Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result.clone()(self._cr.Delete(**kw)).delete()
+        return self.result(self._cr.Delete(**kw)).delete()
 
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1491,8 +1494,7 @@ class Query(Expr):
     def result_wraps(self, name, *args, **kwargs):
         """Wrapper to call implementation method."""
         c = self.clone()
-        getattr(c.result, name)(*args, **kwargs)
-        return c
+        return getattr(c.result(c), name)(*args, **kwargs)
 
     def __getitem__(self, key):
         return self.result(self).__getitem__(key)

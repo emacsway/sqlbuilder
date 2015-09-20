@@ -43,11 +43,11 @@ class Result(smartsql.Result):
 
     _cache = None
     _using = 'default'
-    model = None
+    _model = None
 
     def __init__(self, model):
-        self.model = model
-        self._using = self.model.objects.db
+        self._model = model
+        self._using = self._model.objects.db
         self.set_compiler()
 
     def __len__(self):
@@ -95,20 +95,18 @@ class Result(smartsql.Result):
             return self._using
         self._using = alias
         self.set_compiler()
-        return self
+        return self._query
 
     def set_compiler(self):
         engine = connections.databases[self._using]['ENGINE'].rsplit('.')[-1]
         self.compile = SMARTSQL_COMPILERS[engine]
-        return self
 
     def fill_cache(self):
         if self._cache is None:
             self._cache = list(self.iterator())
-        return self
 
     def iterator(self):
-        return self.model.objects.raw(*self.compile(self._query)).using(self._using)
+        return self._model.objects.raw(*self.compile(self._query)).using(self._using)
 
 
 @cr
@@ -118,14 +116,14 @@ class Table(smartsql.Table):
     def __init__(self, model, q=None, *args, **kwargs):
         """Constructor"""
         super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
-        self.model = model
+        self._model = model
         self._q = q
 
     def _get_q(self):
         if isinstance(self._q, collections.Callable):
             self._q = self._q(self)
         elif self._q is None:
-            self._q = smartsql.Q(self, result=Result(self.model)).fields(self.get_fields())
+            self._q = smartsql.Q(self, result=Result(self._model)).fields(self.get_fields())
         return self._q.clone()
 
     def _set_q(self, val):
@@ -139,14 +137,14 @@ class Table(smartsql.Table):
         if prefix is None:
             prefix = self
         result = []
-        for f in self.model._meta.local_fields:
+        for f in self._model._meta.local_fields:
             if f.column:
                 result.append(smartsql.Field(f.column, prefix))
         return result
 
     def __getattr__(self, name):
         """Added some django specific functional."""
-        m = self.model
+        m = self._model
         if name[0] == '_':
             raise AttributeError
         parts = name.split(smartsql.LOOKUP_SEP, 1)
@@ -187,8 +185,8 @@ class Table(smartsql.Table):
 class TableAlias(smartsql.TableAlias, Table):
     """Table alias class"""
     @property
-    def model(self):
-        return getattr(self._table, 'model', None)  # Can be subquery
+    def _model(self):
+        return getattr(self._table, '_model', None)  # Can be subquery
 
 
 @classproperty

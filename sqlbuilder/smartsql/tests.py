@@ -7,9 +7,12 @@ from sqlbuilder.smartsql import PLACEHOLDER, Q, T, F, A, E, P, Not, func, const,
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
-class TestExpr(unittest.TestCase):
+class TestCase(unittest.TestCase):
 
     maxDiff = None
+
+
+class TestExpr(TestCase):
 
     def test_expr(self):
         tb = T.author
@@ -108,9 +111,36 @@ class TestExpr(unittest.TestCase):
         )
 
 
-class TestSmartSQL(unittest.TestCase):
+class TestResult(TestCase):
 
-    maxDiff = None
+    def test_result(self):
+
+        class CustomResult(Result):
+
+            custom_attr = 5
+
+            def custom_method(self, arg1, arg2):
+                return (self._query, arg1, arg2)
+
+            def find_by_name(self, name):
+                return self._query.where(T.author.name == name)
+
+        q = Q(result=CustomResult(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author)
+
+        self.assertEqual(q.custom_attr, 5)
+        q2, arg1, arg2 = q.custom_method(5, 10)
+        self.assertIsNot(q2, q)
+        self.assertEqual(q2.select(), q.select())
+        self.assertEqual(q2.select(), ('SELECT `author`.`id`, `author`.`name` FROM `author`', []))
+        self.assertEqual(arg1, 5)
+        self.assertEqual(arg2, 10)
+
+        q3 = q.find_by_name('John')
+        self.assertIsNot(q3, q)
+        self.assertEqual(q3.select(), ('SELECT `author`.`id`, `author`.`name` FROM `author` WHERE `author`.`name` = %s', ['John']))
+
+
+class TestSmartSQL(TestCase):
 
     def test_join(self):
         t1, t2, t3, t4 = T.t1, T.t2.as_('al2'), T.t3, T.t4
