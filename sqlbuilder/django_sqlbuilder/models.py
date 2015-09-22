@@ -51,17 +51,14 @@ class Result(smartsql.Result):
         self.set_compiler()
 
     def __len__(self):
-        """Returns length or list."""
         self.fill_cache()
         return len(self._cache)
 
     def __iter__(self):
-        """Returns iterator."""
         self.fill_cache()
         return iter(self._cache)
 
     def __getitem__(self, key):
-        """Returns sliced self or item."""
         if self._cache:
             return self._cache[key]
         if isinstance(key, integer_types):
@@ -80,7 +77,6 @@ class Result(smartsql.Result):
         return self
 
     def count(self):
-        """Returns length or list."""
         if self._cache is not None:
             return len(self._cache)
         return self.execute().fetchone()[0]
@@ -114,7 +110,6 @@ class Table(smartsql.Table):
     """Table class for Django model"""
 
     def __init__(self, model, q=None, *args, **kwargs):
-        """Constructor"""
         super(Table, self).__init__(model._meta.db_table, *args, **kwargs)
         self._model = model
         self._q = q
@@ -133,7 +128,6 @@ class Table(smartsql.Table):
     q = property(_get_q, _set_q)
 
     def get_fields(self, prefix=None):
-        """Returns field list."""
         if prefix is None:
             prefix = self
         result = []
@@ -143,7 +137,6 @@ class Table(smartsql.Table):
         return result
 
     def __getattr__(self, name):
-        """Added some django specific functional."""
         m = self._model
         if name[0] == '_':
             raise AttributeError
@@ -183,7 +176,6 @@ class Table(smartsql.Table):
 
 @cr
 class TableAlias(smartsql.TableAlias, Table):
-    """Table alias class"""
     @property
     def _model(self):
         return getattr(self._table, '_model', None)  # Can be subquery
