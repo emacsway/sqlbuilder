@@ -652,6 +652,15 @@ Query object
             ... )
             ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1, 'author', 16, 1])
 
+            >>> # Insert ignore
+            >>> Q().fields(
+            ...     T.stats.object_type, T.stats.object_id, T.stats.counter
+            ... ).tables(T.stats).insert(
+            ...     values=('author', 15, 1),
+            ...     ignore=True
+            ... )
+            ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
+
     .. method:: update(key_values, **kw)
 
     .. method:: delete(**kw)
