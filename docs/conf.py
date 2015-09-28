@@ -31,7 +31,7 @@ import shlex
 # ones.
 extensions = [
     # 'sphinx.ext.viewcode',
-    'sphinx.ext.linkcode',
+    # 'sphinx.ext.linkcode',
     'sphinx.ext.autodoc',
 ]
 
@@ -41,7 +41,7 @@ def get_module_path(mod_name):
     path = mod.__file__.split('sqlbuilder/', 1)[1].replace(".pyc", ".py").replace('\\', '/')
     return path
 
-def linkcode_resolve(domain, info):
+def _linkcode_resolve(domain, info):
     if domain != 'py':
         return None
     if not info['module']:
