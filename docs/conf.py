@@ -30,18 +30,23 @@ import shlex
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.viewcode',
-    # 'sphinx.ext.linkcode',
+    # 'sphinx.ext.viewcode',
+    'sphinx.ext.linkcode',
     'sphinx.ext.autodoc',
 ]
 
-def __linkcode_resolve(domain, info):
+def get_module_path(mod_name):
+    __import__(mod_name)
+    mod = sys.modules[mod_name]
+    path = mod.__file__.split('sqlbuilder/', 1)[1].replace(".pyc", ".py").replace('\\', '/')
+    return path
+
+def linkcode_resolve(domain, info):
     if domain != 'py':
         return None
     if not info['module']:
         return None
-    filename = info['module'].replace('.', '/')
-    return "https://bitbucket.org/emacsway/sqlbuilder/src/default/%s.py" % filename
+    return "https://bitbucket.org/emacsway/sqlbuilder/src/default/%s" % get_module_path(info['module'])
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

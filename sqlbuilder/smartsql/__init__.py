@@ -1500,6 +1500,7 @@ class Query(Expr):
         return self.result(self._cr.Insert(map=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
+        # Deprecated
         return self.insert(fields=fields, values=values, **kw)
 
     def update(self, key_values, **kw):

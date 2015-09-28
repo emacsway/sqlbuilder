@@ -609,7 +609,48 @@ Query object
         :type key_values: dict
         :param kw: Extra keyword arguments that will be passed to :class:`Insert` instance.
 
-    .. method:: insert_many(fields, values, **kw)
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T, func
+            >>> Q(T.stats).insert({
+            ...     T.stats.object_type: 'author',
+            ...     T.stats.object_id: 15,
+            ...     T.stats.counter: 1
+            ... }, on_duplicate_key_update={
+            ...     T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)
+            ... })
+            ('INSERT INTO "stats" ("stats"."counter", "stats"."object_id", "stats"."object_type") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', [1, 15, 'author'])
+
+            >>> # Keys of dict are strings
+            >>> Q(T.stats).insert({
+            ...     'object_type': 'author',
+            ...     'object_id': 15,
+            ...     'counter': 1
+            ... }, on_duplicate_key_update={
+            ...     'counter': T.stats.counter + func.VALUES(T.stats.couner)
+            ... })
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+
+            >>> # Use "values" keyword argument
+            >>> Q().fields(
+            ...     T.stats.object_type, T.stats.object_id, T.stats.counter
+            ... ).tables(T.stats).insert(
+            ...     values=('author', 15, 1),
+            ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)}
+            ... )
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+
+            >>> # Insert many
+            >>> Q().fields(
+            ...     T.stats.object_type, T.stats.object_id, T.stats.counter
+            ... ).tables(T.stats).insert(
+            ...     values=(
+            ...         ('author', 15, 1),
+            ...         ('author', 16, 1),
+            ...     ),
+            ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)}
+            ... )
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1, 'author', 16, 1])
 
     .. method:: update(key_values, **kw)
 

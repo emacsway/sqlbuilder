@@ -473,7 +473,7 @@ class TestSmartSQL(TestCase):
         fl = ("name", "gender", "status", "age")
         vl = (("garfield", "male", 0, 1), ("superwoman", "female", 0, 10))
         self.assertEqual(
-            Q(T.user).insert_many(fl, vl, on_duplicate_key_update={"age": E("age + VALUES(age)")}),
+            Q(T.user).insert(fields=fl, values=vl, on_duplicate_key_update={"age": E("age + VALUES(age)")}),
             ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s), (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" = (age + VALUES(age))', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
         )
 
