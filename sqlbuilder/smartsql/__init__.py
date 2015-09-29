@@ -1487,7 +1487,7 @@ class Query(Expr):
         if opts.get("for_update"):
             c._for_update = True
         return c.result(c).select()
-        # Never clone result. It should to have back link to Query instance.
+        # Never do clone result. It should to have back link to Query instance.
         # State of Result should be corresponding to state of Query object.
         # We need clone both Result and Query synchronously.
 
@@ -1503,7 +1503,7 @@ class Query(Expr):
         # Deprecated
         return self.insert(fields=fields, values=values, **kw)
 
-    def update(self, key_values, **kw):
+    def update(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
         kw.setdefault('where', self._wheres)

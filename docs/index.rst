@@ -443,7 +443,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author" AS "author_alias" LEFT OUTER JOIN "book" ON ("book"."author_id" = "author_alias"."id"), []>
 
-    .. method:: where(cond, op=operator.and_)
+    .. method:: where(cond[, op=operator.and_])
 
         Builds WHERE clause.
 
@@ -519,7 +519,7 @@ Query object
             >>> q
             <Query: SELECT * FROM "author", []>
 
-    .. method:: having(cond, op=operator.and_)
+    .. method:: having(cond[, op=operator.and_])
 
         Builds HAVING clause. This method has interface similar to :meth:`~where`.
 
@@ -601,9 +601,21 @@ Query object
 
     .. method:: select(*args, **opts)
 
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T
+            >>> Q(T.author).fields('*').select(for_update=True)
+            ('SELECT * FROM "author" FOR UPDATE', [])
+
     .. method:: count()
 
-    .. method:: insert(key_values=None, **kw)
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T
+            >>> Q(T.author).fields('*').count()
+            ('SELECT COUNT(1) AS "count_value" FROM (SELECT * FROM "author") AS "count_list"', [])
+
+    .. method:: insert([key_values=None, **kw])
 
         :param key_values: Map of fields (or field names) to it's values.
         :type key_values: dict
@@ -661,9 +673,45 @@ Query object
             ... )
             ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
 
-    .. method:: update(key_values, **kw)
+    .. method:: update([key_values=None, **kw])
+
+        :param key_values: Map of fields (or field names) to it's values.
+        :type key_values: dict
+        :param kw: Extra keyword arguments that will be passed to :class:`Update` instance.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T, func
+            >>> Q(T.author).where(T.author.id == 10).update({
+            ...     T.author.first_name: 'John',
+            ...     T.author.last_login: func.NOW()
+            ... })
+            ('UPDATE "author" SET "author"."last_login" = NOW(), "author"."first_name" = %s WHERE "author"."id" = %s', ['John', 10])
+
+            >>> # Keys of dict are strings
+            >>> Q(T.author).where(T.author.id == 10).update({
+            ...     'first_name': 'John',
+            ...     'last_login': func.NOW()
+            ... })
+            ('UPDATE "author" SET "first_name" = %s, "last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
+
+            >>> # Use "values" keyword argument
+            >>> Q(T.author).fields(
+            ...     T.author.first_name, T.author.last_login
+            ... ).where(T.author.id == 10).update(
+            ...     values=('John', func.NOW())
+            ... )
+            ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
 
     .. method:: delete(**kw)
+
+        :param kw: Extra keyword arguments that will be passed to :class:`Delete` instance.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T
+            >>> Q(T.author).where(T.author.id == 10).delete()
+            ('DELETE FROM "author" WHERE "author"."id" = %s', [10])
 
 
 .. _implementation-of-execution:
