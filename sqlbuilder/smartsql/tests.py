@@ -74,7 +74,7 @@ class TestTable(TestCase):
             compile((T.book * T.author).on(T.book.author_id == T.author.id)),
             ('"book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id")', [])
         )
-        
+
 
 class TestField(TestCase):
 
@@ -455,7 +455,7 @@ class TestQuery(TestCase):
             compile(q),
             ('SELECT * FROM "author" AS "author_alias"', [])
         )
-        
+
 
 class TestResult(TestCase):
 
