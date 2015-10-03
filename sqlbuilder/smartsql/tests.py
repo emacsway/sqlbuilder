@@ -3,7 +3,10 @@ import datetime
 import unittest
 from collections import OrderedDict
 
-from sqlbuilder.smartsql import PLACEHOLDER, Q, T, TA, F, A, E, P, Not, func, const, CompositeExpr, Result, compile
+from sqlbuilder.smartsql import (
+    PLACEHOLDER, Q, T, TA, F, A, E, P, Not, func, const, CompositeExpr,
+    FieldList, ExprList, Result, TableJoin, compile
+)
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
@@ -15,22 +18,25 @@ class TestCase(unittest.TestCase):
 class TestTable(TestCase):
 
     def test_table(self):
-        self.assertIsInstance(
-            T.book, T
+        self.assertEqual(
+            type(T.book),
+            T
         )
         self.assertEqual(
             compile(T.book),
             ('"book"', [])
         )
-        self.assertIsInstance(
-            T.book__a, TA
+        self.assertEqual(
+            type(T.book__a),
+            TA
         )
         self.assertEqual(
             compile(T.book__a),
             ('"a"', [])
         )
-        self.assertIsInstance(
-            T.book.as_('a'), TA
+        self.assertEqual(
+            type(T.book.as_('a')),
+            TA
         )
         self.assertEqual(
             compile(T.book.as_('a')),
@@ -47,40 +53,67 @@ class TestTable(TestCase):
         self.assertIs(t.status, t.__getattr__('status'))
         self.assertIs(t.status, t.get_field('status'))
 
+    def test_join(self):
+        self.assertEqual(
+            compile((T.book & T.author).on(T.book.author_id == T.author.id)),
+            ('"book" INNER JOIN "author" ON ("book"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile((T.book + T.author).on(T.book.author_id == T.author.id)),
+            ('"book" LEFT OUTER JOIN "author" ON ("book"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile((T.book - T.author).on(T.book.author_id == T.author.id)),
+            ('"book" RIGHT OUTER JOIN "author" ON ("book"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile((T.book | T.author).on(T.book.author_id == T.author.id)),
+            ('"book" FULL OUTER JOIN "author" ON ("book"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile((T.book * T.author).on(T.book.author_id == T.author.id)),
+            ('"book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id")', [])
+        )
+        
 
 class TestField(TestCase):
 
     def test_field(self):
-        self.assertIsInstance(
-            T.book.name, F
+        self.assertEqual(
+            type(T.book.name),
+            F
         )
         self.assertEqual(
             compile(T.book.name),
             ('"book"."name"', [])
         )
-        self.assertIsInstance(
-            F.book__name, F
+        self.assertEqual(
+            type(F.book__name),
+            F
         )
         self.assertEqual(
             compile(F.book__name),
             ('"book"."name"', [])
         )
-        self.assertIsInstance(
-            T.book.name.as_('a'), A
+        self.assertEqual(
+            type(T.book.name.as_('a')),
+            A
         )
         self.assertEqual(
             compile(T.book.name.as_('a')),
             ('"a"', [])
         )
-        self.assertIsInstance(
-            F.book__name__a, A
+        self.assertEqual(
+            type(F.book__name__a),
+            A
         )
         self.assertEqual(
             compile(F.book__name__a),
             ('"a"', [])
         )
-        self.assertIsInstance(
-            F.book__name.as_('a'), A
+        self.assertEqual(
+            type(F.book__name.as_('a')),
+            A
         )
         self.assertEqual(
             compile(F.book__name.as_('a')),
@@ -359,6 +392,70 @@ class TestExpr(TestCase):
             ('"author"."first_name" <> %s OR "author"."last_name" IN (%s, %s)', ['Tom', 'Smith', 'Johnson'])
         )
 
+
+class TestQuery(TestCase):
+
+    def test_fields(self):
+        q = Q().tables(T.author)
+        q = q.fields(T.author.first_name, T.author.last_name)
+        self.assertEqual(
+            compile(q),
+            ('SELECT "author"."first_name", "author"."last_name" FROM "author"', [])
+        )
+        q = q.fields(T.author.age)
+        self.assertEqual(
+            type(q.fields()),
+            FieldList
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.fields([T.author.id, T.author.status])),
+            ('SELECT "author"."id", "author"."status" FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.fields([])),
+            ('SELECT  FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.fields(reset=True)),
+            ('SELECT  FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+
+    def test_tables(self):
+        q = Q().tables(T.author).fields('*')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author"', [])
+        )
+        q = q.tables(T.author.as_('author_alias'))
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" AS "author_alias"', [])
+        )
+        self.assertEqual(
+            type(q.tables()),
+            TableJoin
+        )
+        self.assertEqual(
+            compile(q.tables()),
+            ('"author" AS "author_alias"', [])
+        )
+        self.assertEqual(
+            compile(q.tables((q.tables() + T.book).on(T.book.author_id == T.author.as_('author_alias').id))),
+            ('SELECT * FROM "author" AS "author_alias" LEFT OUTER JOIN "book" ON ("book"."author_id" = "author_alias"."id")', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" AS "author_alias"', [])
+        )
+        
 
 class TestResult(TestCase):
 

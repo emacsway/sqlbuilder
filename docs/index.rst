@@ -398,6 +398,10 @@ Query object
             >>> q
             <Query: SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
 
+            >>> # Get fields:
+            >>> q.fields()
+            <FieldList: "author"."first_name", "author"."last_name", "author"."age", []>
+
             >>> # Set new fields list:
             >>> q = q.fields([T.author.id, T.author.status])
             >>> q
@@ -490,13 +494,17 @@ Query object
             >>> q
             <Query: SELECT * FROM "author", []>
 
-            >>> # Add expressions
+            >>> # Add expressions:
             >>> q = q.group_by(T.author.first_name, T.author.last_name)
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", []>
             >>> q = q.group_by(T.author.age)
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", "author"."age", []>
+
+            >>> # Get expressions:
+            >>> q.group_by()
+            <ExprList: "author"."first_name", "author"."last_name", "author"."age", []>
 
             >>> # Set new expressions list:
             >>> q = q.group_by([T.author.id, T.author.status])
@@ -573,6 +581,10 @@ Query object
             <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, []>
             >>> q = q.order_by(T.author.age.desc())
             >>> q
+
+            >>> # Get expressions:
+            >>> q.order_by()
+            <ExprList: "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC, []>
 
             >>> # Set new expressions list:
             <Query: SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC, []>
