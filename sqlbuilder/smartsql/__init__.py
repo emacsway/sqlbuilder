@@ -899,7 +899,7 @@ class NamedPostfix(Postfix):
         self._expr = expr
 
 
-class SortDirection(NamedPostfix):
+class OrderDirection(NamedPostfix):
     __slots__ = ()
 
     def __init__(self, expr):
@@ -908,12 +908,12 @@ class SortDirection(NamedPostfix):
         self._expr = expr
 
 
-class Asc(SortDirection):
+class Asc(OrderDirection):
     __slots__ = ()
     _sql = 'ASC'
 
 
-class Desc(SortDirection):
+class Desc(OrderDirection):
     __slots__ = ()
     _sql = 'DESC'
 
