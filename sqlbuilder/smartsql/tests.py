@@ -3,13 +3,94 @@ import datetime
 import unittest
 from collections import OrderedDict
 
-from sqlbuilder.smartsql import PLACEHOLDER, Q, T, F, A, E, P, Not, func, const, CompositeExpr, Result, compile
+from sqlbuilder.smartsql import PLACEHOLDER, Q, T, TA, F, A, E, P, Not, func, const, CompositeExpr, Result, compile
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
 
 class TestCase(unittest.TestCase):
 
     maxDiff = None
+
+
+class TestTable(TestCase):
+
+    def test_table(self):
+        self.assertIsInstance(
+            T.book, T
+        )
+        self.assertEqual(
+            compile(T.book),
+            ('"book"', [])
+        )
+        self.assertIsInstance(
+            T.book__a, TA
+        )
+        self.assertEqual(
+            compile(T.book__a),
+            ('"a"', [])
+        )
+        self.assertIsInstance(
+            T.book.as_('a'), TA
+        )
+        self.assertEqual(
+            compile(T.book.as_('a')),
+            ('"a"', [])
+        )
+        ta = T.book.as_('a')
+        self.assertEqual(
+            compile(Q().tables(ta).fields(ta.id, ta.status).where(ta.status.in_(('new', 'approved')))),
+            ('SELECT "a"."id", "a"."status" FROM "book" AS "a" WHERE "a"."status" IN (%s, %s)', ['new', 'approved'])
+        )
+        t = T.book
+        self.assertIs(t.status, t.status)
+        self.assertIs(t.status, t.fields.status)
+        self.assertIs(t.status, t.__getattr__('status'))
+        self.assertIs(t.status, t.get_field('status'))
+
+
+class TestField(TestCase):
+
+    def test_field(self):
+        self.assertIsInstance(
+            T.book.name, F
+        )
+        self.assertEqual(
+            compile(T.book.name),
+            ('"book"."name"', [])
+        )
+        self.assertIsInstance(
+            F.book__name, F
+        )
+        self.assertEqual(
+            compile(F.book__name),
+            ('"book"."name"', [])
+        )
+        self.assertIsInstance(
+            T.book.name.as_('a'), A
+        )
+        self.assertEqual(
+            compile(T.book.name.as_('a')),
+            ('"a"', [])
+        )
+        self.assertIsInstance(
+            F.book__name__a, A
+        )
+        self.assertEqual(
+            compile(F.book__name__a),
+            ('"a"', [])
+        )
+        self.assertIsInstance(
+            F.book__name.as_('a'), A
+        )
+        self.assertEqual(
+            compile(F.book__name.as_('a')),
+            ('"a"', [])
+        )
+        al = T.book.status.as_('a')
+        self.assertEqual(
+            compile(Q().tables(T.book).fields(T.book.id, al).where(al.in_(('new', 'approved')))),
+            ('SELECT "book"."id", "book"."status" AS "a" FROM "book" WHERE "a" IN (%s, %s)', ['new', 'approved'])
+        )
 
 
 class TestExpr(TestCase):
@@ -505,23 +586,23 @@ class TestSmartSQLLegacy(TestCase):
     def test_order_by(self):
         self.assertEqual(
             Q(T.tb).fields(T.tb.id).order_by(T.tb.id).select(),
-            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
+            ('SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
         )
         self.assertEqual(
             Q(T.tb).fields(T.tb.id).order_by(T.tb.id.asc()).select(),
-            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
+            ('SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" ASC', [])
         )
         self.assertEqual(
             Q(T.tb).fields(T.tb.id).order_by(T.tb.id.desc()).select(),
-            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+            ('SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
         self.assertEqual(
             Q(T.tb).fields(T.tb.id).order_by(T.tb.id, desc=True).select(),
-            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+            ('SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
         self.assertEqual(
             Q(T.tb).fields(T.tb.id).order_by(T.tb.id.desc(), desc=True).select(),
-            (u'SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
+            ('SELECT "tb"."id" FROM "tb" ORDER BY "tb"."id" DESC', [])
         )
 
     def test_complex(self):

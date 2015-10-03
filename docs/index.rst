@@ -84,8 +84,8 @@ Compiling instance of TableAlias depends on context of usage::
     >>> ta = T.book.as_('a')
     >>> ta
     <TableAlias: "a", []>
-    >>> Q().tables(ta).fields(ta.title).where(ta.title.startswith('A'))
-    <Query: SELECT "a"."title" FROM "book" AS "a" WHERE "a"."title" LIKE %s || %s, ['A', '%']>
+    >>> Q().tables(ta).fields(ta.id, ta.status).where(ta.status.in_(('new', 'approved')))
+    <Query: SELECT "a"."id", "a"."status" FROM "book" AS "a" WHERE "a"."status" IN (%s, %s), ['new', 'approved']>
 
 
 
@@ -99,11 +99,11 @@ Field
     >>> T.book.name
     <Field: "book"."name", []>
 
-    >>> T.book.name.as_('a')
-    <Alias: "a", []>
-
     >>> F.book__name  # Same as T.book.name
     <Field: "book"."name", []>
+
+    >>> T.book.name.as_('a')
+    <Alias: "a", []>
 
     >>> F.book__name__a  # T.book.name.as_('a')
     <Alias: "a", []>
@@ -113,11 +113,11 @@ Field
 
 Compiling instance of Alias depends on context of usage::
 
-    >>> al = T.book.name.as_('a')
+    >>> al = T.book.status.as_('a')
     >>> al
     <Alias: "a", []>
-    >>> Q().tables(T.book).fields(al).where(al.startswith('A'))
-    <Query: SELECT "book"."name" AS "a" FROM "book" WHERE "a" LIKE %s || %s, ['A', '%']>
+    >>> Q().tables(T.book).fields(T.book.id, al).where(al.in_(('new', 'approved')))
+    <Query: SELECT "book"."id", "book"."status" AS "a" FROM "book" WHERE "a" IN (%s, %s), ['new', 'approved']>
 
 
 Table operators
