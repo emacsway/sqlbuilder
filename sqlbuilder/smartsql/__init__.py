@@ -903,7 +903,7 @@ class OrderDirection(NamedPostfix):
     __slots__ = ()
 
     def __init__(self, expr):
-        if isinstance(expr, SortDirection):
+        if isinstance(expr, OrderDirection):
             expr = expr._expr
         self._expr = expr
 
