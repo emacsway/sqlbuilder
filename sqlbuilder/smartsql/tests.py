@@ -41,6 +41,86 @@ class TestExpr(TestCase):
             ('%s - "author"."counter"', [10])
         )
         self.assertEqual(
+            compile(tb.counter * 2),
+            ('"author"."counter" * %s', [2])
+        )
+        self.assertEqual(
+            compile(2 * tb.counter),
+            ('%s * "author"."counter"', [2])
+        )
+        self.assertEqual(
+            compile(tb.counter / 2),
+            ('"author"."counter" / %s', [2])
+        )
+        self.assertEqual(
+            compile(10 / tb.counter),
+            ('%s / "author"."counter"', [10])
+        )
+        self.assertEqual(
+            compile(tb.is_staff & tb.is_admin),
+            ('"author"."is_staff" AND "author"."is_admin"', [])
+        )
+        self.assertEqual(
+            compile(tb.is_staff | tb.is_admin),
+            ('"author"."is_staff" OR "author"."is_admin"', [])
+        )
+        self.assertEqual(
+            compile(tb.counter > 10),
+            ('"author"."counter" > %s', [10])
+        )
+        self.assertEqual(
+            compile(10 > tb.counter),
+            ('"author"."counter" < %s', [10])
+        )
+        self.assertEqual(
+            compile(tb.counter >= 10),
+            ('"author"."counter" >= %s', [10])
+        )
+        self.assertEqual(
+            compile(10 >= tb.counter),
+            ('"author"."counter" <= %s', [10])
+        )
+        self.assertEqual(
+            compile(tb.counter < 10),
+            ('"author"."counter" < %s', [10])
+        )
+        self.assertEqual(
+            compile(10 < tb.counter),
+            ('"author"."counter" > %s', [10])
+        )
+        self.assertEqual(
+            compile(tb.counter <= 10),
+            ('"author"."counter" <= %s', [10])
+        )
+        self.assertEqual(
+            compile(10 <= tb.counter),
+            ('"author"."counter" >= %s', [10])
+        )
+        self.assertEqual(
+            compile(tb.mask << 1),
+            ('"author"."mask" << %s', [1])
+        )
+        self.assertEqual(
+            compile(tb.mask >> 1),
+            ('"author"."mask" >> %s', [1])
+        )
+        self.assertEqual(
+            compile(tb.is_staff.is_(True)),
+            ('"author"."is_staff" IS %s', [True])
+        )
+        self.assertEqual(
+            compile(tb.is_staff.is_not(True)),
+            ('"author"."is_staff" IS NOT %s', [True])
+        )
+        self.assertEqual(
+            compile(tb.status.in_(('new', 'approved'))),
+            ('"author"."status" IN (%s, %s)', ['new', 'approved'])
+        )
+        self.assertEqual(
+            compile(tb.status.not_in(('new', 'approved'))),
+            ('"author"."status" NOT IN (%s, %s)', ['new', 'approved'])
+        )
+        self.assertEqual(
             compile(tb.last_name.like('mi')),
             ('"author"."last_name" LIKE %s', ['mi'])
         )
@@ -109,6 +189,94 @@ class TestExpr(TestCase):
             compile(tb.last_name.riendswith('th')),
             ('%s ILIKE \'%%\' || REPLACE(REPLACE(REPLACE("author"."last_name", \'!\', \'!!\'), \'_\', \'!_\'), \'%%\', \'!%%\') ESCAPE \'!\'', ['th'])
         )
+        self.assertEqual(
+            compile(+tb.counter),
+            ('+"author"."counter"', [])
+        )
+        self.assertEqual(
+            compile(-tb.counter),
+            ('-"author"."counter"', [])
+        )
+        self.assertEqual(
+            compile(~tb.counter),
+            ('NOT "author"."counter"', [])
+        )
+        self.assertEqual(
+            compile(tb.name.distinct()),
+            ('DISTINCT "author"."name"', [])
+        )
+        self.assertEqual(
+            compile(tb.counter ** 2),
+            ('POW("author"."counter", %s)', [2])
+        )
+        self.assertEqual(
+            compile(2 ** tb.counter),
+            ('POW(%s, "author"."counter")', [2])
+        )
+        self.assertEqual(
+            compile(tb.counter % 2),
+            ('MOD("author"."counter", %s)', [2])
+        )
+        self.assertEqual(
+            compile(2 % tb.counter),
+            ('MOD(%s, "author"."counter")', [2])
+        )
+        self.assertEqual(
+            compile(abs(tb.counter)),
+            ('ABS("author"."counter")', [])
+        )
+        self.assertEqual(
+            compile(tb.counter.count()),
+            ('COUNT("author"."counter")', [])
+        )
+        self.assertEqual(
+            compile(tb.age.between(20, 30)),
+            ('"author"."age" BETWEEN %s AND %s', [20, 30])
+        )
+        self.assertEqual(
+            compile(tb.age[20:30]),
+            ('"author"."age" BETWEEN %s AND %s', [20, 30])
+        )
+        self.assertEqual(
+            compile(tb.age[20]),
+            ('"author"."age" = %s', [20])
+        )
+        self.assertEqual(
+            compile(tb.name.concat(' staff', ' admin')),
+            ('"author"."name" || %s || %s', [' staff', ' admin'])
+        )
+        self.assertEqual(
+            compile(tb.name.concat_ws(' ', 'staff', 'admin')),
+            ('concat_ws(%s, "author"."name", %s, %s)', [' ', 'staff', 'admin'])
+        )
+        self.assertEqual(
+            compile(tb.name.op('MY_EXTRA_OPERATOR')(10)),
+            ('"author"."name" MY_EXTRA_OPERATOR %s', [10])
+        )
+        self.assertEqual(
+            compile(tb.name.rop('MY_EXTRA_OPERATOR')(10)),
+            ('%s MY_EXTRA_OPERATOR "author"."name"', [10])
+        )
+        self.assertEqual(
+            compile(tb.name.asc()),
+            ('"author"."name" ASC', [])
+        )
+        self.assertEqual(
+            compile(tb.name.desc()),
+            ('"author"."name" DESC', [])
+        )
+        self.assertEqual(
+            compile(((tb.age > 25) | (tb.answers > 10)) & (tb.is_staff | tb.is_admin)),
+            ('("author"."age" > %s OR "author"."answers" > %s) AND ("author"."is_staff" OR "author"."is_admin")', [25, 10])
+        )
+        self.assertEqual(
+            compile((T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))),
+            ('"author"."first_name" <> %s AND "author"."last_name" IN (%s, %s)', ['Tom', 'Smith', 'Johnson'])
+        )
+        self.assertEqual(
+            compile((T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))),
+            ('"author"."first_name" <> %s OR "author"."last_name" IN (%s, %s)', ['Tom', 'Smith', 'Johnson'])
+        )
 
 
 class TestResult(TestCase):
@@ -140,7 +308,7 @@ class TestResult(TestCase):
         self.assertEqual(q3.select(), ('SELECT `author`.`id`, `author`.`name` FROM `author` WHERE `author`.`name` = %s', ['John']))
 
 
-class TestSmartSQL(TestCase):
+class TestSmartSQLLegacy(TestCase):
 
     def test_join(self):
         t1, t2, t3, t4 = T.t1, T.t2.as_('al2'), T.t3, T.t4

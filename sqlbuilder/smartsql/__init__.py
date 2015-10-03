@@ -280,6 +280,18 @@ class Comparable(object):
     def __rdiv__(self, other):
         return Div(other, self)
 
+    def __truediv__(self, other):
+        return Div(self, other)
+
+    def __rtruediv__(self, other):
+        return Div(other, self)
+
+    def __floordiv__(self, other):
+        return Div(self, other)
+
+    def __rfloordiv__(self, other):
+        return Div(other, self)
+
     def __and__(self, other):
         return And(self, other)
 
@@ -887,12 +899,21 @@ class NamedPostfix(Postfix):
         self._expr = expr
 
 
-class Asc(NamedPostfix):
+class SortDirection(NamedPostfix):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        if isinstance(expr, SortDirection):
+            expr = expr._expr
+        self._expr = expr
+
+
+class Asc(SortDirection):
     __slots__ = ()
     _sql = 'ASC'
 
 
-class Desc(NamedPostfix):
+class Desc(SortDirection):
     __slots__ = ()
     _sql = 'DESC'
 

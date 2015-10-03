@@ -227,12 +227,6 @@ Condition operators
     >>> tb.status.not_in(('new', 'approved'))
     <NotIn: "author"."status" NOT IN (%s, %s), ['new', 'approved']>
 
-    >>> tb.status.in_(('new', 'approved'))
-    <In: "author"."status" IN (%s, %s), ['new', 'approved']>
-
-    >>> tb.status.not_in(('new', 'approved'))
-    <NotIn: "author"."status" NOT IN (%s, %s), ['new', 'approved']>
-
 
     >>> tb.last_name.like('mi')
     <Like: "author"."last_name" LIKE %s, ['mi']>
