@@ -9,7 +9,6 @@ from weakref import WeakKeyDictionary
 # https://github.com/lfittl/pg_query
 # https://code.google.com/p/php-sql-parser/
 # https://pypi.python.org/pypi/sqlparse
-# https://github.com/TwoLaid/python-sqlparser
 
 # Idea: parse SQL to DOM or JSON tree.
 
