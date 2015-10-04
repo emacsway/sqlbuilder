@@ -9,6 +9,8 @@ from sqlbuilder.smartsql import (
 )
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
+__all__ = ('TestTable', 'TestField', 'TestExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
+
 
 class TestCase(unittest.TestCase):
 

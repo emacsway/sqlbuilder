@@ -2,6 +2,8 @@ from __future__ import absolute_import
 import unittest
 from sqlbuilder.mini import P, compile
 
+__all__ = ('TestMini',)
+
 
 class TestCase(unittest.TestCase):
 

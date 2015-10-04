@@ -33,6 +33,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    test_suite='sqlbuilder.smartsql.tests',
+    test_suite = 'runtests.main',
+    tests_require = [
+        'Django>=1.8',
+    ],
     url = "https://bitbucket.org/emacsway/{0}".format(app_name),
 )
