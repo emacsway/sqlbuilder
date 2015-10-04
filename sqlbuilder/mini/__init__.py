@@ -3,6 +3,16 @@ import re
 import copy
 from weakref import WeakKeyDictionary
 
+# See also:
+# https://wiki.postgresql.org/wiki/Query_Parsing
+# https://github.com/pganalyze/queryparser/blob/master/queryparser.c
+# https://github.com/lfittl/pg_query
+# https://code.google.com/p/php-sql-parser/
+# https://pypi.python.org/pypi/sqlparse
+# https://github.com/TwoLaid/python-sqlparser
+
+# Idea: parse SQL to DOM or JSON tree.
+
 TOKEN_PATTERN = re.compile(r'^[A-Z]+(?: [A-Z]+)*$')
 
 try:
