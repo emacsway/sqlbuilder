@@ -1,8 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from django.db import models
 from django.test import TestCase
-from sqlbuilder.smartsql import F, Q, compile
-from sqlbuilder.django_sqlbuilder.models import Table, TableAlias
+from sqlbuilder.smartsql import Table, TableAlias, Field, Query, compile
 from sqlbuilder.smartsql.tests import *
 from sqlbuilder.mini.tests import *
 
@@ -28,9 +27,9 @@ class TestDjangoSqlbuilder(TestCase):
     def test_table(self):
         table = Book.s
         self.assertIsInstance(table, Table)
-        self.assertIsInstance(table.pk, F)
-        self.assertIsInstance(table.title, F)
-        self.assertIsInstance(table.author, F)
+        self.assertIsInstance(table.pk, Field)
+        self.assertIsInstance(table.title, Field)
+        self.assertIsInstance(table.author, Field)
         self.assertEqual(
             compile(table.pk),
             ('"sqlbuilder_book"."id"', [])
@@ -47,9 +46,9 @@ class TestDjangoSqlbuilder(TestCase):
     def test_tablealias(self):
         table = Book.s.as_('book_alias')
         self.assertIsInstance(table, TableAlias)
-        self.assertIsInstance(table.pk, F)
-        self.assertIsInstance(table.title, F)
-        self.assertIsInstance(table.author, F)
+        self.assertIsInstance(table.pk, Field)
+        self.assertIsInstance(table.title, Field)
+        self.assertIsInstance(table.author, Field)
         self.assertEqual(
             compile(table.pk),
             ('"book_alias"."id"', [])
@@ -65,7 +64,7 @@ class TestDjangoSqlbuilder(TestCase):
 
     def test_query(self):
         author, book = self._create_objects()
-        self.assertIsInstance(Book.s.q, Q)
+        self.assertIsInstance(Book.s.q, Query)
         q = Book.s.q.where(Book.s.pk == book.id)
         self.assertEqual(
             compile(q),
