@@ -129,15 +129,7 @@ class Compiler(object):
                 parentheses = True
 
         outer_precedence = state.precedence
-        if hasattr(expr, '_sql') and (cls, expr._sql) in self._precedence:
-            inner_precedence = self._precedence[(cls, expr._sql)]
-        elif hasattr(expr, '_sql') and expr._sql in self._precedence:
-            inner_precedence = self._precedence[expr._sql]
-        elif cls in self._precedence:
-            inner_precedence = self._precedence[cls]
-        else:
-            inner_precedence = MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
-
+        inner_precedence = self.get_inner_precedence(expr)
         state.precedence = inner_precedence
         if inner_precedence < outer_precedence and parentheses is None:
             parentheses = True
@@ -159,6 +151,22 @@ class Compiler(object):
         state.callers.pop(0)
         state.precedence = outer_precedence
 
+    def get_inner_precedence(self, expr):
+        cls = expr.__class__
+        if hasattr(expr, '_sql'):
+            try:
+                if (cls, expr._sql) in self._precedence:
+                    return self._precedence[(cls, expr._sql)]
+                elif expr._sql in self._precedence:
+                    return self._precedence[expr._sql]
+            except TypeError:
+                # For case when expr._sql is unhashable, for example we can allow T('tablename')._sql in future.
+                # I'm not sure, should Field() to be unhashable.
+                pass
+
+        if cls in self._precedence:
+            return self._precedence[cls]
+        return MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
 
 compile = Compiler()
 
@@ -425,7 +433,8 @@ class Comparable(object):
         else:
             return self.__eq__(key)
 
-    # __hash__ = None
+    def __hash__(self):
+        return object.__hash__(self)
 
 
 class Expr(Comparable):
@@ -1126,7 +1135,9 @@ class FieldProxy(object):
         self.__table = table
 
     def __getattr__(self, key):
-        return self.__table.__getattr__(key)
+        if key[:2] == '__':
+            raise AttributeError
+        return self.__table.get_field(key)
 
 
 @cr
@@ -1145,7 +1156,9 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getattr__(self, key):
         if key[0] == '_':
             raise AttributeError
+        return self.get_field(key)
 
+    def get_field(self, key):
         if key in self.fields.__dict__:
             return self.fields.__dict__[key]
 
@@ -1167,7 +1180,6 @@ class Table(MetaTable("NewBase", (object, ), {})):
     __sub__ = same('right_join')
     __or__ = same('full_join')
     __mul__ = same('cross_join')
-    get_field = same('__getattr__')
 
 
 @compile.when(Table)
@@ -1872,6 +1884,15 @@ def compile_value(compile, expr, state):
 
 def is_list(v):
     return isinstance(v, (list, tuple))
+
+
+def allowed_magic_attr(instance, key):
+    if key.startswith('__'):
+        return False
+    if key in dir(instance.__class__):  # type(instance)?
+        # It's a descriptor, like '_sql' defined in slots
+        return False
+    return True
 
 
 def warn(old, new, stacklevel=3):
