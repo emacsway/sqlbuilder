@@ -136,10 +136,8 @@ class Table(smartsql.Table):
                 result.append(smartsql.Field(f.column, prefix))
         return result
 
-    def __getattr__(self, name):
+    def get_field(self, name):
         m = self._model
-        if name[0] == '_':
-            raise AttributeError
         parts = name.split(smartsql.LOOKUP_SEP, 1)
 
         # Why do not to use responses, what returned by Signal.send()?
@@ -171,7 +169,7 @@ class Table(smartsql.Table):
         elif parts[0] in m._meta.get_all_field_names():
             parts[0] = m._meta.get_field(parts[0]).column
 
-        return super(Table, self).__getattr__(smartsql.LOOKUP_SEP.join(parts))
+        return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
 
 @cr
