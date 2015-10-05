@@ -1886,7 +1886,7 @@ def is_list(v):
     return isinstance(v, (list, tuple))
 
 
-def allowed_magic_attr(instance, key):
+def is_allowed_attr(instance, key):
     if key.startswith('__'):
         return False
     if key in dir(instance.__class__):  # type(instance)?
