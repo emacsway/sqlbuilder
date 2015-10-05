@@ -433,8 +433,7 @@ class Comparable(object):
         else:
             return self.__eq__(key)
 
-    def __hash__(self):
-        return object.__hash__(self)
+    __hash__ = object.__hash__
 
 
 class Expr(Comparable):
