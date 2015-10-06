@@ -5,7 +5,7 @@ import unittest
 from collections import OrderedDict
 
 from sqlbuilder.smartsql import (
-    PLACEHOLDER, Q, T, TA, F, A, E, P, Not, func, const, CompositeExpr,
+    PLACEHOLDER, Q, T, Table, TA, F, A, E, P, Not, func, const, CompositeExpr,
     FieldList, ExprList, Result, TableJoin, compile
 )
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
@@ -23,7 +23,7 @@ class TestTable(TestCase):
     def test_table(self):
         self.assertEqual(
             type(T.book),
-            T
+            Table
         )
         self.assertEqual(
             compile(T.book),

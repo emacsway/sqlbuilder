@@ -1102,6 +1102,19 @@ def compile_alias(compile, expr, state):
     compile(Name(expr._sql), state)
 
 
+@cr
+class TableSpace(object):
+
+    def __getattr__(self, key):
+        parts = key.split(LOOKUP_SEP, 1)
+        name, alias = parts + [None] * (2 - len(parts))
+        table = self._cr.Table(name)
+        return table.as_(alias) if alias else table
+
+    def __call__(self, name):
+        return self.__getattr__(name)
+
+
 class MetaTable(type):
 
     def __new__(cls, name, bases, attrs):
@@ -1109,11 +1122,6 @@ class MetaTable(type):
             def _f(attr):
                 return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
 
-            # FIXME: Bad idea, we need free name space for fields.
-            # Use one of this form?
-            # 1. T.book.get_field('hint')
-            # 2. F('hint', T.book)
-            # 3. T.fields.hint
             for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
                       'join', 'on', 'hint', 'natural', 'using']:
                 attrs[a] = _f(a)
@@ -1920,7 +1928,7 @@ compile.set_precedence(40, And, 'AND')
 compile.set_precedence(30, Or, 'OR')
 compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
 
-A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, Table, TableAlias, Query, Query
+A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableSpace(), TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
