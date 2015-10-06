@@ -538,7 +538,6 @@ Query object
 
             >>> import operator
             >>> from sqlbuilder.smartsql import Table as T, Query as Q
-            >>> q = Q().fields('*').tables(T.author).group_py(T.author.status)
             >>> q = Q().fields('*').tables(T.author).group_by(T.author.status)
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status", []>

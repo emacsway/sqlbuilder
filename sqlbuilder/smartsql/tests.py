@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import datetime
+import operator
 import unittest
 from collections import OrderedDict
 
@@ -406,12 +407,16 @@ class TestQuery(TestCase):
         )
         q = q.fields(T.author.age)
         self.assertEqual(
+            compile(q),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
             type(q.fields()),
             FieldList
         )
         self.assertEqual(
-            compile(q),
-            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+            compile(q.fields()),
+            ('"author"."first_name", "author"."last_name", "author"."age"', [])
         )
         self.assertEqual(
             compile(q.fields([T.author.id, T.author.status])),
@@ -456,6 +461,243 @@ class TestQuery(TestCase):
         self.assertEqual(
             compile(q),
             ('SELECT * FROM "author" AS "author_alias"', [])
+        )
+
+    def test_where(self):
+        q = Q().tables(T.author).fields('*')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author"', [])
+        )
+        q = q.where(T.author.is_staff.is_(True))
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" WHERE "author"."is_staff" IS %s', [True])
+        )
+        q = q.where(T.author.first_name == 'John')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s', [True, 'John'])
+        )
+        q = q.where(T.author.last_name == 'Smith', op=operator.or_)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" WHERE "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s', [True, 'John', 'Smith'])
+        )
+        q = q.where(T.author.last_name == 'Smith', op=None)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" WHERE "author"."last_name" = %s', ['Smith'])
+        )
+
+    def test_group_by(self):
+        q = Q().tables(T.author).fields('*')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author"', [])
+        )
+        q = q.group_by(T.author.first_name, T.author.last_name)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name"', [])
+        )
+        q = q.group_by(T.author.age)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", "author"."age"', [])
+        )
+        self.assertEqual(
+            type(q.group_by()),
+            ExprList
+        )
+        self.assertEqual(
+            compile(q.group_by()),
+            ('"author"."first_name", "author"."last_name", "author"."age"', [])
+        )
+        self.assertEqual(
+            compile(q.group_by([T.author.id, T.author.status])),
+            ('SELECT * FROM "author" GROUP BY "author"."id", "author"."status"', [])
+        )
+        self.assertEqual(
+            compile(q.group_by([])),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.group_by(reset=True)),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."first_name", "author"."last_name", "author"."age"', [])
+        )
+
+    def test_having(self):
+        q = Q().fields('*').tables(T.author).group_by(T.author.status)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."status"', [])
+        )
+        q = q.having(T.author.is_staff.is_(True))
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s', [True])
+        )
+        q = q.having(T.author.first_name == 'John')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s AND "author"."first_name" = %s', [True, 'John'])
+        )
+        q = q.having(T.author.last_name == 'Smith', op=operator.or_)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."is_staff" IS %s AND "author"."first_name" = %s OR "author"."last_name" = %s', [True, 'John', 'Smith'])
+        )
+        q = q.having(T.author.last_name == 'Smith', op=None)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" GROUP BY "author"."status" HAVING "author"."last_name" = %s', ['Smith'])
+        )
+
+    def test_order_by(self):
+        q = Q().tables(T.author).fields('*')
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author"', [])
+        )
+        q = q.order_by(T.author.first_name, T.author.last_name)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC', [])
+        )
+        q = q.order_by(T.author.age.desc())
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC', [])
+        )
+        self.assertEqual(
+            type(q.order_by()),
+            ExprList
+        )
+        self.assertEqual(
+            compile(q.order_by()),
+            ('"author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC', [])
+        )
+        self.assertEqual(
+            compile(q.order_by([T.author.id.desc(), T.author.status])),
+            ('SELECT * FROM "author" ORDER BY "author"."id" DESC, "author"."status" ASC', [])
+        )
+        self.assertEqual(
+            compile(q.order_by([])),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.order_by(reset=True)),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author" ORDER BY "author"."first_name" ASC, "author"."last_name" ASC, "author"."age" DESC', [])
+        )
+
+    def test_select(self):
+        q = Q(T.author).fields('*')
+        self.assertEqual(
+            q.select(for_update=True),
+            ('SELECT * FROM "author" FOR UPDATE', [])
+        )
+
+    def test_count(self):
+        q = Q(T.author).fields('*')
+        self.assertEqual(
+            q.count(),
+            ('SELECT COUNT(1) AS "count_value" FROM (SELECT * FROM "author") AS "count_list"', [])
+        )
+
+    def test_insert(self):
+        self.assertEqual(
+            Q(T.stats).insert(OrderedDict((
+                (T.stats.object_type, 'author'),
+                (T.stats.object_id, 15),
+                (T.stats.counter, 1),
+            )), on_duplicate_key_update=OrderedDict((
+                (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+            ))),
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+        )
+        self.assertEqual(
+            Q(T.stats).insert(OrderedDict((
+                ('object_type', 'author'),
+                ('object_id', 15),
+                ('counter', 1),
+            )), on_duplicate_key_update=OrderedDict((
+                ('counter', T.stats.counter + func.VALUES(T.stats.couner)),
+            ))),
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+        )
+        self.assertEqual(
+            Q().fields(
+                T.stats.object_type, T.stats.object_id, T.stats.counter
+            ).tables(T.stats).insert(
+                values=('author', 15, 1),
+                on_duplicate_key_update=OrderedDict((
+                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+                ))
+            ),
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+        )
+        self.assertEqual(
+            Q().fields(
+                T.stats.object_type, T.stats.object_id, T.stats.counter
+            ).tables(T.stats).insert(
+                values=(
+                    ('author', 15, 1),
+                    ('author', 16, 1),
+                ),
+                on_duplicate_key_update=OrderedDict((
+                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+                ))
+            ),
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1, 'author', 16, 1])
+        )
+        self.assertEqual(
+            Q().fields(
+                T.stats.object_type, T.stats.object_id, T.stats.counter
+            ).tables(T.stats).insert(
+                values=('author', 15, 1),
+                ignore=True
+            ),
+            ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
+        )
+
+    def test_update(self):
+        self.assertEqual(
+            Q(T.author).where(T.author.id == 10).update(OrderedDict((
+                (T.author.first_name, 'John'),
+                (T.author.last_login, func.NOW()),
+            ))),
+            ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
+        )
+        self.assertEqual(
+            Q(T.author).where(T.author.id == 10).update(OrderedDict((
+                ('first_name', 'John'),
+                ('last_login', func.NOW()),
+            ))),
+            ('UPDATE "author" SET "first_name" = %s, "last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
+        )
+        self.assertEqual(
+            Q(T.author).fields(
+                T.author.first_name, T.author.last_login
+            ).where(T.author.id == 10).update(
+                values=('John', func.NOW())
+            ),
+            ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10]
+)
+        )
+
+    def test_delete(self):
+        self.assertEqual(
+            Q(T.author).where(T.author.id == 10).delete(),
+            ('DELETE FROM "author" WHERE "author"."id" = %s', [10])
         )
 
 
@@ -821,7 +1063,9 @@ class TestSmartSQLLegacy(TestCase):
         fl = ("name", "gender", "status", "age")
         vl = (("garfield", "male", 0, 1), ("superwoman", "female", 0, 10))
         self.assertEqual(
-            Q(T.user).insert(fields=fl, values=vl, on_duplicate_key_update={"age": E("age + VALUES(age)")}),
+            Q(T.user).insert(fields=fl, values=vl, on_duplicate_key_update=OrderedDict((
+                ("age", E("age + VALUES(age)")),
+            ))),
             ('INSERT INTO "user" ("name", "gender", "status", "age") VALUES (%s, %s, %s, %s), (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "age" = (age + VALUES(age))', ['garfield', 'male', 0, 1, 'superwoman', 'female', 0, 10, ], )
         )
 
