@@ -30,11 +30,11 @@ Quick start
     >>> compile(Q().tables(
     ...     (T.book & T.author).on(T.book.author_id == T.author.id)
     ... ).fields(
-    ...     T.book.name, T.author.first_name, T.author.last_name
+    ...     T.book.title, T.author.first_name, T.author.last_name
     ... ).where(
     ...     (T.author.first_name != 'Tom') & (T.author.last_name != 'Smith')
     ... )[20:30])
-    ('SELECT "book"."name", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT %s OFFSET %s', ['Tom', 'Smith', 10, 20])
+    ('SELECT "book"."title", "author"."first_name", "author"."last_name" FROM "book" INNER JOIN "author" ON ("book"."author_id" = "author"."id") WHERE "author"."first_name" <> %s AND "author"."last_name" <> %s LIMIT %s OFFSET %s', ['Tom', 'Smith', 10, 20])
 
 
 Django integration
@@ -73,10 +73,10 @@ Table
     >>> T.book
     <Table: "book", []>
 
-    >>> T.book__a
+    >>> T.book.as_('a')
     <TableAlias: "a", []>
 
-    >>> T.book.as_('a')  # Same as T.book__a
+    >>> T.book__a  # Same as T.book.as_('a')
     <TableAlias: "a", []>
 
 Compiling instance of TableAlias depends on context of usage::
@@ -96,19 +96,28 @@ Field
 
     >>> from sqlbuilder.smartsql import Table as T, Field as F, Query as Q
 
-    >>> T.book.name
-    <Field: "book"."name", []>
 
-    >>> F.book__name  # Same as T.book.name
-    <Field: "book"."name", []>
+    >>> # Get field as table attribute
 
-    >>> T.book.name.as_('a')
+    >>> T.book.title
+    <Field: "book"."title", []>
+
+    >>> T.book.title.as_('a')
     <Alias: "a", []>
 
-    >>> F.book__name__a  # T.book.name.as_('a')
+    >>> T.book.title__a  # Same as T.book.title.as_('a')
     <Alias: "a", []>
 
-    >>> F.book__name.as_('a')  # T.book.name.as_('a') or F.book__name__a
+
+    >>> # Get field as F class attribute (Legacy)
+
+    >>> F.book__title  # Same as T.book.title
+    <Field: "book"."title", []>
+
+    >>> F.book__title.as_('a')  # Same as T.book.title.as_('a')
+    <Alias: "a", []>
+
+    >>> F.book__title__a  # Same as T.book.title.as_('a')
     <Alias: "a", []>
 
 Compiling instance of Alias depends on context of usage::
