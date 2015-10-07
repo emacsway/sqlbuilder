@@ -31,6 +31,12 @@ CONTEXT_COLUMN = 1
 CONTEXT_TABLE = 2
 
 
+def same(name):
+    def f(self, *a, **kw):
+        return getattr(self, name)(*a, **kw)
+    return f
+
+
 class ClassRegistry(object):
     """Minimalistic factory for related classes.
 
@@ -41,12 +47,23 @@ class ClassRegistry(object):
 
         def deco(cls):
             setattr(self, name, cls)
-            if not getattr(cls, '_cr', None) is self:  # save mem
-                cls._cr = self
+            cls._cr = self
             return cls
 
         return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
 
+    def __copy__(self):
+        c = copy.copy(super(ClassRegistry, self))
+        for name, cls in c.__dict__.items():
+            c(cls.__name__)(c._ext_cls(cls))
+        return c
+
+    @staticmethod
+    def _ext_cls(cls):
+        attrs = {}
+        if '__slots__' in cls.__dict__:
+            attrs['__slots__'] = ()
+        return type(cls)(cls.__name__, (cls,), attrs)
 
 cr = ClassRegistry()
 
@@ -194,12 +211,6 @@ def cached_compile(f):
             state.pop()
         state.sql.append(expr.__cached__[compile])
     return deco
-
-
-def same(name):
-    def f(self, *a, **kw):
-        return getattr(self, name)(*a, **kw)
-    return f
 
 
 @compile.when(object)
