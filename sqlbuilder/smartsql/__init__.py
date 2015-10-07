@@ -1818,7 +1818,7 @@ class Set(Query):
 
     def _op(self, cls, other):
         c = self
-        if self.__class__ is self._cr.Set:
+        if not getattr(self, '_sql', None):
             c = cls(*self._exprs, all=self._all)
         elif self.__class__ is not cls:
             c = cls(self, all=self._all)
