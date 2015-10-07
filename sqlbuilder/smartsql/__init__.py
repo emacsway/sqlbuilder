@@ -1111,7 +1111,7 @@ class MetaTableSpace(type):
         return issubclass(subclass, cls._cr.Table)
 
     def __getattr__(cls, key):
-        if key in ('_cr',):
+        if key in ('_cr',) or key.startswith('__'):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
