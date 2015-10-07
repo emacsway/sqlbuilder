@@ -1102,17 +1102,29 @@ def compile_alias(compile, expr, state):
     compile(Name(expr._sql), state)
 
 
-@cr
-class TableSpace(object):
+class MetaTableSpace(type):
 
-    def __getattr__(self, key):
+    def __instancecheck__(cls, instance):
+        return isinstance(instance, cls._cr.Table)
+
+    def __subclasscheck__(cls, subclass):
+        return issubclass(subclass, cls._cr.Table)
+
+    def __getattr__(cls, key):
+        if key in ('_cr',):
+            raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = self._cr.Table(name)
+        table = cls._cr.Table(name)
         return table.as_(alias) if alias else table
 
-    def __call__(self, name):
-        return self.__getattr__(name)
+    def __call__(cls, name, *a, **kw):
+        return cls.__getattr__(name)
+
+
+@cr
+class T(MetaTableSpace("NewBase", (object, ), {})):
+    pass
 
 
 class MetaTable(type):
@@ -1928,7 +1940,7 @@ compile.set_precedence(40, And, 'AND')
 compile.set_precedence(30, Or, 'OR')
 compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
 
-A, C, E, F, P, T, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableSpace(), TableAlias, Query, Query
+A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
