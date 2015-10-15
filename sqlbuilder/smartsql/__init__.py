@@ -1586,7 +1586,7 @@ class Query(Expr):
     def as_table(self, alias):
         return self._cr.TableAlias(alias, self)
 
-    def set(self, all=False):
+    def as_set(self, all=False):
         return self._cr.Set(self, all=all, result=self.result)
 
     def raw(self, sql, params=()):
@@ -1615,6 +1615,10 @@ class Query(Expr):
             else:
                 return attr
         raise AttributeError
+
+    def set(self, *args, **kwargs):
+        warn('set([all=False])', 'as_set([all=False])')
+        return self.as_set(*args, **kwargs)
 
     columns = same('fields')
     __copy__ = same('clone')

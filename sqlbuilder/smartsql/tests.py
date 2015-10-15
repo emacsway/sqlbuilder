@@ -718,6 +718,41 @@ class TestQuery(TestCase):
             ('DELETE FROM "author" WHERE "author"."id" = %s', [10])
         )
 
+    def test_as_table(self):
+        author_query_alias = Q(T.author).fields(T.author.id).where(T.author.status == 'active').as_table('author_query_alias')
+        self.assertEqual(
+            compile(Q().fields(T.book.id, T.book.title).tables((T.book & author_query_alias).on(T.book.author_id == author_query_alias.id))),
+            ('SELECT "book"."id", "book"."title" FROM "book" INNER JOIN (SELECT "author"."id" FROM "author" WHERE "author"."status" = %s) AS "author_query_alias" ON ("book"."author_id" = "author_query_alias"."id")', ['active'])
+        )
+
+    def test_set(self):
+        q1 = Q(T.book1).fields(T.book1.id, T.book1.title).where(T.book1.author_id == 10)
+        q2 = Q(T.book2).fields(T.book2.id, T.book2.title).where(T.book2.author_id == 10)
+        self.assertEqual(
+            compile(q1.as_set() | q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) UNION (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+        self.assertEqual(
+            compile(q1.as_set() & q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) INTERSECT (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+        self.assertEqual(
+            compile(q1.as_set() - q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+        self.assertEqual(
+            compile(q1.as_set(all=True) | q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) UNION ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+        self.assertEqual(
+            compile(q1.as_set(all=True) & q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) INTERSECT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+        self.assertEqual(
+            compile(q1.as_set(all=True) - q2),
+            ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
+        )
+
 
 class TestResult(TestCase):
 
@@ -1059,7 +1094,7 @@ class TestSmartSQLLegacy(TestCase):
         a = Q(T.item).where(T.item.status != -1).fields(T.item.type, T.item.name, T.item.img)
         b = Q(T.gift).where(T.gift.storage > 0).columns(T.gift.type, T.gift.name, T.gift.img)
         self.assertEqual(
-            (a.set(True) | b).order_by("type", "name", desc=True).limit(100, 10).select(),
+            (a.as_set(True) | b).order_by("type", "name", desc=True).limit(100, 10).select(),
             ('(SELECT "item"."type", "item"."name", "item"."img" FROM "item" WHERE "item"."status" <> %s) UNION ALL (SELECT "gift"."type", "gift"."name", "gift"."img" FROM "gift" WHERE "gift"."storage" > %s) ORDER BY %s DESC, %s DESC LIMIT %s OFFSET %s', [-1, 0, 'type', 'name', 10, 100], )
         )
 

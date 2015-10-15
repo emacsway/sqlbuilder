@@ -727,6 +727,51 @@ Query object
             >>> Q(T.author).where(T.author.id == 10).delete()
             ('DELETE FROM "author" WHERE "author"."id" = %s', [10])
 
+    .. method:: as_table(alias)
+
+        Returns current query as table reference.
+
+        :param str kw: alias name.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import T, Q
+            >>> author_query_alias = Q(T.author).fields(T.author.id).where(
+            ...     T.author.status == 'active'
+            ... ).as_table('author_query_alias')
+            >>> Q().fields(T.book.id, T.book.title).tables(
+            ...     (T.book & author_query_alias
+            ... ).on(
+            ...     T.book.author_id == author_query_alias.id
+            ... ))
+            <Query: SELECT "book"."id", "book"."title" FROM "book" INNER JOIN (SELECT "author"."id" FROM "author" WHERE "author"."status" = %s) AS "author_query_alias" ON ("book"."author_id" = "author_query_alias"."id"), ['active']>
+
+    .. method:: as_set([all=False])
+
+        Returns current query as set, to can be combined with other queries using the set operations union, intersection, and difference.
+
+        :param bool all: eliminates duplicate rows from result, if all is False.
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import T, Q
+            >>> q1 = Q(T.book1).fields(T.book1.id, T.book1.title).where(T.book1.author_id == 10)
+            >>> q2 = Q(T.book2).fields(T.book2.id, T.book2.title).where(T.book2.author_id == 10)
+            >>> q1.as_set() | q2
+            <Union: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) UNION (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set() | q2
+            <Union: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) UNION (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set() & q2
+            <Intersect: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) INTERSECT (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set() - q2
+            <Except: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set(all=True) | q2
+            <Union: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) UNION ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set(all=True) & q2
+            <Intersect: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) INTERSECT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+            >>> q1.as_set(all=True) - q2
+            <Except: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+
 
 .. _implementation-of-execution:
 
