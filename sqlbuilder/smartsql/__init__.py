@@ -543,6 +543,8 @@ class NamedCondition(Condition):
     __slots__ = ()
 
     def __init__(self, left, right):
+        # Don't use multi-arguments form like And(*args)
+        # Use reduce(operator.and_, args) or reduce(And, args) instead. SRP.
         self._left = left
         self._right = right
 
