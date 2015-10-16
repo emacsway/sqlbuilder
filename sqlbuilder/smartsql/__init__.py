@@ -139,16 +139,10 @@ class Compiler(object):
 
         cls = expr.__class__
         parentheses = None
-        if state.callers:
-            if state.callers[0] in (OmitParentheses, Parentheses):
-                parentheses = False
-            elif isinstance(expr, Query) or type(expr) == Expr:
-                parentheses = True
-
         outer_precedence = state.precedence
         inner_precedence = self.get_inner_precedence(expr)
         state.precedence = inner_precedence
-        if inner_precedence < outer_precedence and parentheses is None:
+        if inner_precedence < outer_precedence:
             parentheses = True
 
         state.callers.insert(0, expr.__class__)
@@ -178,7 +172,7 @@ class Compiler(object):
                     return self._precedence[expr._sql]
             except TypeError:
                 # For case when expr._sql is unhashable, for example we can allow T('tablename')._sql in future.
-                # I'm not sure, should Field() to be unhashable.
+                # I'm not sure, whether Field() should be unhashable.
                 pass
 
         if cls in self._precedence:
@@ -819,9 +813,8 @@ class Parentheses(Expr):
 
 @compile.when(Parentheses)
 def compile_parentheses(compile, expr, state):
-    state.sql.append('(')
+    state.precedence += MAX_PRECEDENCE
     compile(expr._expr, state)
-    state.sql.append(')')
 
 
 class OmitParentheses(Parentheses):
@@ -830,6 +823,7 @@ class OmitParentheses(Parentheses):
 
 @compile.when(OmitParentheses)
 def compile_omitparentheses(compile, expr, state):
+    state.precedence = 0
     compile(expr._expr, state)
 
 
@@ -1967,7 +1961,9 @@ compile.set_precedence(60, Eq, '=')
 compile.set_precedence(50, Not, 'NOT')
 compile.set_precedence(40, And, 'AND')
 compile.set_precedence(30, Or, 'OR')
+compile.set_precedence(20, Union, Intersect, Except)
 compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
+compile.set_precedence(5, Expr)
 
 A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
