@@ -1807,34 +1807,42 @@ class Set(Query):
 
     def __init__(self, *exprs, **kw):
         super(Set, self).__init__()
-
         if 'op' in kw:
             self._sql = kw['op']
         self._all = kw.get('all', False)
-
-        if len(exprs) > 0:
-            first = exprs[0]
-            if (isinstance(first, self.__class__) and
-                    first._all == self._all and
-                    first._limit is None and
-                    first._offset is None):
-                exprs = tuple(first.exprs) + exprs[1:]
-                self._for_update = first._for_update
-
-        self._exprs = ExprList(*exprs)
+        self._exprs = ExprList()
+        for expr in exprs:
+            self.add(expr)
         if 'result' in kw:
             self.result = kw['result']
         else:
             self.result = self.result.clone()
 
+    def add(self, other):
+        if (isinstance(other, self.__class__) and
+                other._all == self._all and
+                other._limit is None and
+                other._offset is None):
+            for expr in other._exprs:
+                self.add(expr)
+            if other._for_update:
+                self._for_update = other._for_update
+        else:
+            self._exprs.append(other)
+            # TODO: reset _order_by, _for_update?
+
     def _op(self, cls, other):
         if not getattr(self, '_sql', None):
             c = cls(*self._exprs, all=self._all)
+            c._limit = self._limit
+            c._offset = self._offset
+            c._order_by = self._order_by
+            c._for_update = self._for_update
         elif self.__class__ is not cls:
-            c = cls(self, all=self._all)
+            c = cls(self, all=self._all)  # TODO: Should be here "all"?
         else:
             c = self.clone()
-        c._exprs.append(other)
+        c.add(other)
         return c
 
     def __or__(self, other):
@@ -1880,7 +1888,10 @@ def compile_set(compile, expr, state):
         op = ' {} ALL '.format(expr._sql)
     else:
         op = ' {} '.format(expr._sql)
+    # TODO: add tests for nested sets.
+    state.precedence += 0.5  # to correct handle sub-set with limit, offset
     compile(expr._exprs.join(op), state)
+    state.precedence -= 0.5
     if expr._order_by:
         state.sql.append(" ORDER BY ")
         compile(expr._order_by, state)
