@@ -13,7 +13,7 @@ setup(
     packages = find_packages(),
     include_package_data=True,
 
-    author = "Ivan Zakrevsky",
+    author = "Ivan Zakrevsky and contributors",
     author_email = "ivzak@yandex.ru",
     description = "SmartSQL - lightweight sql builder.",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
