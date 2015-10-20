@@ -94,7 +94,7 @@ class Compiler(object):
                 self._registry[c](self, expr, state)
                 break
         else:
-            raise Error("Unknown compiler for {}".format(cls))
+            raise Error("Unknown compiler for {0}".format(cls))
 
 compile = Compiler()
 

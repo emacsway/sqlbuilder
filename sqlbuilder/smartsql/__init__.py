@@ -155,7 +155,7 @@ class Compiler(object):
                 self._registry[c](self, expr, state)
                 break
         else:
-            raise Error("Unknown compiler for {}".format(cls))
+            raise Error("Unknown compiler for {0}".format(cls))
 
         if parentheses:
             state.sql.append(')')
@@ -638,7 +638,7 @@ class EscapeForLike(Expr):
 
     _escape = "!"
     _escape_map = tuple(  # Ordering is important!
-        (i, "!{}".format(i)) for i in ('!', '_', '%')
+        (i, "!{0}".format(i)) for i in ('!', '_', '%')
     )
 
     def __init__(self, expr):
@@ -1885,9 +1885,9 @@ class Except(Set):
 @compile.when(Set)
 def compile_set(compile, expr, state):
     if expr._all:
-        op = ' {} ALL '.format(expr._sql)
+        op = ' {0} ALL '.format(expr._sql)
     else:
-        op = ' {} '.format(expr._sql)
+        op = ' {0} '.format(expr._sql)
     # TODO: add tests for nested sets.
     state.precedence += 0.5  # to correct handle sub-set with limit, offset
     compile(expr._exprs.join(op), state)
