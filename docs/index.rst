@@ -385,14 +385,43 @@ Query object
 
     **Building methods:**
 
+    .. method:: distinct([value=None])
+
+        :param value: ``True`` to apply DISTINCT clause, ``False`` to reset DISTINCT clause, ``None`` to return current value.
+        :type value: bool or None
+        :return: copy of self if ``value`` is not ``None``, else current value.
+        :rtype: Query or bool
+
+        Example of usage::
+
+            >>> from sqlbuilder.smartsql import Q, T
+            >>> q = Q().fields('*').tables(T.author)
+            >>> q
+            <Query: SELECT * FROM "author", []>
+            >>> q.distinct()
+            False
+            >>> q = q.distinct(True)
+            >>> q
+            <Query: SELECT DISTINCT * FROM "author", []>
+            >>> q.distinct()
+            True
+            >>> q.distinct(False)
+            <Query: SELECT * FROM "author", []>
+            >>> q
+            <Query: SELECT DISTINCT * FROM "author", []>
+
+
     .. method:: fields(*args, **opts)
 
         Builds SELECT clause.
 
-        - Adds fields with arguments.
-        - Sets fields with single argument of list/tuple type.
+        - Adds fields if arguments exist.
+        - Sets fields  if exists single argument of list/tuple type.
         - Gets fields without arguments.
         - Resets fields with ``reset=True`` keyword argument.
+
+        :return: copy of self if arguments exist, else current field list.
+        :rtype: Query or FieldList
 
         Example of usage::
 
@@ -432,8 +461,8 @@ Query object
 
         :param tables: Can be None, Table or TableJoin instance
         :type tables: None, Table or TableJoin
-        :return: current tables if ``tables`` argument is None, else copied object with new tables
-        :rtype: TableJoin if ``tables`` argument is None, else Query
+        :return: copied self with new tables if ``tables`` argument is not None, else current tables.
+        :rtype: TableJoin or Query
 
         Example of usage::
 
@@ -460,7 +489,7 @@ Query object
         :param cond: Selection criterias
         :type cond: Expr
         :param op: Attribute of ``operator`` module or None, ``operator.and_`` by default
-        :return: copy of Query instance with new criteria
+        :return: copy of self with new criteria
         :rtype: Query
 
         Example of usage::
@@ -491,10 +520,13 @@ Query object
 
         Builds GROUP BY clause. This method has interface similar to :meth:`~fields`.
 
-        - Adds expressions if arguments exists.
+        - Adds expressions if arguments exist.
         - Sets expressions if exists single argument of list/tuple type.
         - Gets expressions without arguments.
         - Resets expressions with ``reset=True`` keyword argument.
+
+        :return: copy of self if arguments exist, else current expression list.
+        :rtype: Query or ExprList
 
         Example of usage::
 
@@ -540,7 +572,7 @@ Query object
         :param cond: Selection criterias
         :type cond: Expr
         :param op: Attribute of ``operator`` module or None, ``operator.and_`` by default
-        :return: copy of Query instance with new criteria
+        :return: copy of self with new criteria
         :rtype: Query
 
         Example of usage::
@@ -571,10 +603,13 @@ Query object
 
         Builds ORDER BY clause. This method has interface similar to :meth:`~fields`.
 
-        - Adds expressions if arguments exists.
+        - Adds expressions if arguments exist.
         - Sets expressions if exists single argument of list/tuple type.
         - Gets expressions without arguments.
         - Resets expressions with ``reset=True`` keyword argument.
+
+        :return: copy of self if arguments exist, else current expression list.
+        :rtype: Query or ExprList
 
         Example of usage::
 

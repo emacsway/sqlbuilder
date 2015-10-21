@@ -1446,11 +1446,11 @@ class Query(Expr):
         self._tables = tables if isinstance(tables, TableJoin) else self._cr.TableJoin(tables)
         return self
 
-    def distinct(self, val=None):
-        if val is None:
+    def distinct(self, value=None):
+        if value is None:
             return self._distinct
         self = self.clone()
-        self._distinct = val
+        self._distinct = value
         return self
 
     @opt_checker(["reset", ])

@@ -416,6 +416,34 @@ class TestExpr(TestCase):
 
 class TestQuery(TestCase):
 
+    def test_distinct(self):
+        q = Q().fields('*').tables(T.author)
+        self.assertEqual(
+            compile(q),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            q.distinct(),
+            False
+        )
+        q = q.distinct(True)
+        self.assertEqual(
+            compile(q),
+            ('SELECT DISTINCT * FROM "author"', [])
+        )
+        self.assertEqual(
+            q.distinct(),
+            (True)
+        )
+        self.assertEqual(
+            compile(q.distinct(False)),
+            ('SELECT * FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT DISTINCT * FROM "author"', [])
+        )
+
     def test_fields(self):
         q = Q().tables(T.author)
         q = q.fields(T.author.first_name, T.author.last_name)
