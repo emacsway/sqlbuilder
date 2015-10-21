@@ -1098,7 +1098,7 @@ class Alias(Expr):
 @compile.when(Alias)
 def compile_alias(compile, expr, state):
     try:
-        render_column = state.callers[1] == FieldList
+        render_column = issubclass(state.callers[1], FieldList)
         # render_column = state.context == CONTEXT_COLUMN
     except IndexError:
         pass
@@ -1232,7 +1232,7 @@ class TableAlias(Table):
 def compile_tablealias(compile, expr, state):
     # if expr._table is not None and state.context == CONTEXT_TABLE:
     try:
-        render_table = expr._table is not None and state.callers[1] == TableJoin
+        render_table = expr._table is not None and issubclass(state.callers[1], TableJoin)
         # render_table = expr._table is not None and state.context == CONTEXT_TABLE
     except IndexError:
         pass
