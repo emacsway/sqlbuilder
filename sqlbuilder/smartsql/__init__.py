@@ -1958,7 +1958,7 @@ compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'))  # unary minus
 compile.set_precedence(230, '^')
 compile.set_precedence(220, Mul, Div, '*', '/', '%')
 compile.set_precedence(210, Add, Sub, (Condition, '+'), (Condition, '-'))
-compile.set_precedence(200, '<<', '>>')
+compile.set_precedence(200, LShift, RShift, '<<', '>>')
 compile.set_precedence(190, '&')
 compile.set_precedence(180, '|')
 compile.set_precedence(170, Is, 'IS')
