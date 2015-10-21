@@ -1975,8 +1975,8 @@ compile.set_precedence(70, Eq, '=')
 compile.set_precedence(60, Not, 'NOT')
 compile.set_precedence(50, And, 'AND')
 compile.set_precedence(40, Or, 'OR')
-compile.set_precedence(30, Union, Intersect, Except)
-compile.set_precedence(20, Query, Insert, Update, Delete, Expr)
+compile.set_precedence(30, Set, Union, Intersect, Except)
+compile.set_precedence(20, Query, SelectCount, Raw, Insert, Update, Delete)
 compile.set_precedence(10, Expr)
 
 A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
