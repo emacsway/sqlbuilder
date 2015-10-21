@@ -1951,30 +1951,33 @@ def is_allowed_attr(instance, key):
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
 
-compile.set_precedence(230, '.')
-compile.set_precedence(220, '::')
-compile.set_precedence(210, '[', ']')  # array element selection
-compile.set_precedence(200, Pos, Neg, (Unary, '+'), (Unary, '-'))  # unary minus
-compile.set_precedence(190, '^')
-compile.set_precedence(180, Mul, Div, '*', '/', '%')
-compile.set_precedence(170, Add, Sub, (Condition, '+'), (Condition, '-'))
-compile.set_precedence(160, Is, 'IS')
-compile.set_precedence(150, 'ISNULL')
-compile.set_precedence(140, 'NOTNULL')
-compile.set_precedence(130, '(any other)')  # all other native and user-defined operators
-compile.set_precedence(120, In, NotIn, 'IN')
-compile.set_precedence(110, Between, 'BETWEEN')
-compile.set_precedence(100, 'OVERLAPS')
-compile.set_precedence(90, Like, Ilike, 'LIKE', 'ILIKE', 'SIMILAR')
-compile.set_precedence(80, Lt, Gt, '<', '>')
-compile.set_precedence(70, Le, Ge, Ne, '<=', '>=', '<>', '!=')
-compile.set_precedence(60, Eq, '=')
-compile.set_precedence(50, Not, 'NOT')
-compile.set_precedence(40, And, 'AND')
-compile.set_precedence(30, Or, 'OR')
-compile.set_precedence(20, Union, Intersect, Except)
-compile.set_precedence(10, Query, Insert, Update, Delete, Expr)
-compile.set_precedence(5, Expr)
+compile.set_precedence(270, '.')
+compile.set_precedence(260, '::')
+compile.set_precedence(250, '[', ']')  # array element selection
+compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'))  # unary minus
+compile.set_precedence(230, '^')
+compile.set_precedence(220, Mul, Div, '*', '/', '%')
+compile.set_precedence(210, Add, Sub, (Condition, '+'), (Condition, '-'))
+compile.set_precedence(200, '<<', '>>')
+compile.set_precedence(190, '&')
+compile.set_precedence(180, '|')
+compile.set_precedence(170, Is, 'IS')
+compile.set_precedence(160, 'ISNULL')
+compile.set_precedence(150, 'NOTNULL')
+compile.set_precedence(140, '(any other)')  # all other native and user-defined operators
+compile.set_precedence(130, In, NotIn, 'IN')
+compile.set_precedence(120, Between, 'BETWEEN')
+compile.set_precedence(110, 'OVERLAPS')
+compile.set_precedence(100, Like, Ilike, 'LIKE', 'ILIKE', 'SIMILAR')
+compile.set_precedence(90, Lt, Gt, '<', '>')
+compile.set_precedence(80, Le, Ge, Ne, '<=', '>=', '<>', '!=')
+compile.set_precedence(70, Eq, '=')
+compile.set_precedence(60, Not, 'NOT')
+compile.set_precedence(50, And, 'AND')
+compile.set_precedence(40, Or, 'OR')
+compile.set_precedence(30, Union, Intersect, Except)
+compile.set_precedence(20, Query, Insert, Update, Delete, Expr)
+compile.set_precedence(10, Expr)
 
 A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
