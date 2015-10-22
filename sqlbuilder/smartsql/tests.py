@@ -781,6 +781,30 @@ class TestQuery(TestCase):
             ('(SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s)', [10, 10])
         )
 
+    def test_where_subquery(self):
+        sub_q = Q().fields(T.author.id).tables(T.author).where(T.author.status == 'active')
+        q = Q().fields(T.book.id).tables(T.book).where(T.book.author_id.in_(sub_q))
+        self.assertEqual(
+            compile(q),
+            ('SELECT "book"."id" FROM "book" WHERE "book"."author_id" IN (SELECT "author"."id" FROM "author" WHERE "author"."status" = %s)', ['active'])
+        )
+
+    def test_fields_subquery(self):
+        sub_q = Q().fields(T.author.first_name).tables(T.author).where(T.author.status == 'active')
+        q = Q().fields(T.book.id, sub_q.where(T.author.id == T.book.author_id)).tables(T.book).where(T.book.title == 'Title1')
+        self.assertEqual(
+            compile(q),
+            ('SELECT "book"."id", (SELECT "author"."first_name" FROM "author" WHERE "author"."status" = %s AND "author"."id" = "book"."author_id") FROM "book" WHERE "book"."title" = %s', ['active', 'Title1'])
+        )
+
+    def test_alias_subquery(self):
+        al = Q().fields(T.author.first_name).tables(T.author).where(T.author.status == 'active').where(T.author.id == T.book.author_id).as_('alias_name')
+        q = Q().fields(T.book.id, al).tables(T.book).where(T.book.title == 'Title1').order_by(al.desc())
+        self.assertEqual(
+            compile(q),
+            ('SELECT "book"."id", (SELECT "author"."first_name" FROM "author" WHERE "author"."status" = %s AND "author"."id" = "book"."author_id") AS "alias_name" FROM "book" WHERE "book"."title" = %s ORDER BY "alias_name" DESC', ['active', 'Title1'])
+        )
+
 
 class TestResult(TestCase):
 
