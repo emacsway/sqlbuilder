@@ -1414,7 +1414,7 @@ class Query(Expr):
         :param result: Object of implementation.
         :type tables: Result
         """
-        self._distinct = False
+        self._distinct = ExprList().join(", ")
         self._fields = FieldList().join(", ")
         if tables is not None:
             if not isinstance(tables, TableJoin):
@@ -1449,12 +1449,25 @@ class Query(Expr):
         self._tables = tables if isinstance(tables, TableJoin) else self._cr.TableJoin(tables)
         return self
 
-    def distinct(self, value=None):
-        if value is None:
+    @opt_checker(["reset", ])
+    def distinct(self, *args, **opts):
+        if not args and not opts:
             return self._distinct
-        self = self.clone()
-        self._distinct = value
-        return self
+
+        if args:
+            if is_list(args[0]):
+                return self.distinct(*args[0], reset=True)
+            elif args[0] is True and not opts.get("reset"):
+                return self.distinct(*args, reset=True)
+            elif args[0] is False:
+                return self.distinct(reset=True)
+
+        c = self.clone('_distinct')
+        if opts.get("reset"):
+            c._distinct.reset()
+        if args:
+            c._distinct.extend(args)
+        return c
 
     @opt_checker(["reset", ])
     def fields(self, *args, **opts):
@@ -1630,6 +1643,10 @@ def compile_query(compile, expr, state):
     state.sql.append("SELECT ")
     if expr._distinct:
         state.sql.append("DISTINCT ")
+        if expr._distinct[0] is not True:
+            state.sql.append("ON ")
+            compile(Parentheses(expr._distinct), state)
+            state.sql.append(SPACE)
     compile(expr._fields, state)
 
     tables_sql_pos = len(state.sql)

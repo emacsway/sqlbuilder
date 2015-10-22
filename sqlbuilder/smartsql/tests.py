@@ -417,23 +417,62 @@ class TestExpr(TestCase):
 class TestQuery(TestCase):
 
     def test_distinct(self):
+        q = Q().tables(T.author).fields(T.author.first_name, T.author.last_name, T.author.age)
+        self.assertEqual(
+            compile(q),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        q = q.distinct(T.author.first_name, T.author.last_name)
+        self.assertEqual(
+            compile(q),
+            ('SELECT DISTINCT ON ("author"."first_name", "author"."last_name") "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        q = q.distinct(T.author.age)
+        self.assertEqual(
+            compile(q),
+            ('SELECT DISTINCT ON ("author"."first_name", "author"."last_name", "author"."age") "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
+            type(q.distinct()),
+            ExprList
+        )
+        self.assertEqual(
+            compile(q.distinct()),
+            ('"author"."first_name", "author"."last_name", "author"."age"', [])
+        )
+        self.assertEqual(
+            compile(q.distinct([T.author.id, T.author.status])),
+            ('SELECT DISTINCT ON ("author"."id", "author"."status") "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.distinct([])),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q.distinct(reset=True)),
+            ('SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+        self.assertEqual(
+            compile(q),
+            ('SELECT DISTINCT ON ("author"."first_name", "author"."last_name", "author"."age") "author"."first_name", "author"."last_name", "author"."age" FROM "author"', [])
+        )
+
+    def test_distinct_bool(self):
         q = Q().fields('*').tables(T.author)
         self.assertEqual(
             compile(q),
             ('SELECT * FROM "author"', [])
         )
-        self.assertEqual(
-            q.distinct(),
-            False
+        self.assertFalse(
+            q.distinct()
         )
         q = q.distinct(True)
         self.assertEqual(
             compile(q),
             ('SELECT DISTINCT * FROM "author"', [])
         )
-        self.assertEqual(
-            q.distinct(),
-            (True)
+        self.assertTrue(
+            q.distinct()[0]
         )
         self.assertEqual(
             compile(q.distinct(False)),

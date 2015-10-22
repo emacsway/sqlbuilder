@@ -385,31 +385,70 @@ Query object
 
     **Building methods:**
 
-    .. method:: distinct([value=None])
+    .. method:: distinct(*args, **opts)
 
-        :param value: ``True`` to apply DISTINCT clause, ``False`` to reset DISTINCT clause, ``None`` to return current value.
-        :type value: bool or None
-        :return: copy of self if ``value`` is not ``None``, else current value.
-        :rtype: Query or bool
+        Builds DISTINCT [ON (...)] clause. This method has interface similar to :meth:`~fields`.
+
+        - Adds expressions if arguments exist.
+        - Sets expressions if exists single argument of list/tuple type.
+        - Gets expressions without arguments.
+        - Resets expressions with ``reset=True`` keyword argument.
+
+        Also can be used sole argument of boolean type:
+
+        - ``True`` to apply DISTINCT clause
+        - ``False`` to reset DISTINCT clause
+
+        :return: copy of self if arguments exist, else current expression list.
+        :rtype: Query or ExprList
 
         Example of usage::
 
+            >>> # Sole argument of boolean type
             >>> from sqlbuilder.smartsql import Q, T
             >>> q = Q().fields('*').tables(T.author)
             >>> q
             <Query: SELECT * FROM "author", []>
-            >>> q.distinct()
+            >>> bool(q.distinct())
             False
             >>> q = q.distinct(True)
             >>> q
             <Query: SELECT DISTINCT * FROM "author", []>
-            >>> q.distinct()
+            >>> bool(q.distinct())
             True
             >>> q.distinct(False)
             <Query: SELECT * FROM "author", []>
             >>> q
             <Query: SELECT DISTINCT * FROM "author", []>
 
+            >>> Expression list
+            >>> from sqlbuilder.smartsql import Q, T
+            >>> q = Q().tables(T.author).fields(T.author.first_name, T.author.last_name, T.author.age)
+            >>> q
+            <Query: SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+
+            >>> # Add expressions:
+            >>> q = q.distinct(T.author.first_name, T.author.last_name)
+            >>> q
+            <Query: SELECT DISTINCT ON ("author"."first_name", "author"."last_name") "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+            >>> q = q.distinct(T.author.age)
+            >>> q
+            <Query: SELECT DISTINCT ON ("author"."first_name", "author"."last_name", "author"."age") "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+
+            >>> # Get expressions:
+            >>> q.distinct()
+            <ExprList: "author"."first_name", "author"."last_name", "author"."age", []>
+
+            >>> # Set new expressions list:
+            >>> q = q.distinct([T.author.id, T.author.status])
+            >>> q
+            <Query: SELECT DISTINCT ON ("author"."id", "author"."status") "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+
+            >>> # Reset expressions:
+            >>> q.distinct([])
+            <Query: SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
+            >>> q.distinct(reset=True)
+            <Query: SELECT "author"."first_name", "author"."last_name", "author"."age" FROM "author", []>
 
     .. method:: fields(*args, **opts)
 
