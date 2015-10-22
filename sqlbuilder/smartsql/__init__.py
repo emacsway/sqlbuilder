@@ -141,6 +141,10 @@ class Compiler(object):
         parentheses = None
         outer_precedence = state.precedence
         inner_precedence = self.get_inner_precedence(expr)
+        if inner_precedence is None:
+            # pass current precedence
+            # FieldList, ExprList?
+            inner_precedence = outer_precedence
         state.precedence = inner_precedence
         if inner_precedence < outer_precedence:
             parentheses = True
