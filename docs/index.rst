@@ -421,7 +421,7 @@ Query object
             >>> q
             <Query: SELECT DISTINCT * FROM "author", []>
 
-            >>> Expression list
+            >>> # Expression list
             >>> from sqlbuilder.smartsql import Q, T
             >>> q = Q().tables(T.author).fields(T.author.first_name, T.author.last_name, T.author.age)
             >>> q
