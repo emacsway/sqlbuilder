@@ -1471,6 +1471,9 @@ class Query(Expr):
 
     @opt_checker(["reset", ])
     def fields(self, *args, **opts):
+        # Why not name the "args" by "expressions", or "exprs" or "fields"?
+        # Because it wil be a lie. The argument can be a list of expressions.
+        # The name "argument" is not entirely clear, but truthful and not misleading.
         if not args and not opts:
             return self._fields
 
