@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# Some ideas from http://code.google.com/p/py-smart-sql-constructor/
-# But the code fully another... It's not a fork anymore...
+# Some ideas from http://code.google.com/p/py-smart-sql-constructor/ , but implementation another.
 from __future__ import absolute_import
 import sys
 import copy
