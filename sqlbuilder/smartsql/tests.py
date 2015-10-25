@@ -829,19 +829,19 @@ class TestQuery(TestCase):
         )
 
     def test_fields_subquery(self):
-        sub_q = Q().fields(T.author.first_name).tables(T.author).where(T.author.status == 'active')
-        q = Q().fields(T.book.id, sub_q.where(T.author.id == T.book.author_id)).tables(T.book).where(T.book.title == 'Title1')
+        sub_q = Q().fields(T.book.id.count().as_("book_count")).tables(T.book).where(T.book.pub_date > '2015-01-01').group_by(T.book.author_id)
+        q = Q().fields(T.author.id, sub_q.where(T.book.author_id == T.author.id)).tables(T.author).where(T.author.status == 'active')
         self.assertEqual(
             compile(q),
-            ('SELECT "book"."id", (SELECT "author"."first_name" FROM "author" WHERE "author"."status" = %s AND "author"."id" = "book"."author_id") FROM "book" WHERE "book"."title" = %s', ['active', 'Title1'])
+            ('SELECT "author"."id", (SELECT COUNT("book"."id") AS "book_count" FROM "book" WHERE "book"."pub_date" > %s AND "book"."author_id" = "author"."id" GROUP BY "book"."author_id") FROM "author" WHERE "author"."status" = %s', ['2015-01-01', 'active'])
         )
 
     def test_alias_subquery(self):
-        al = Q().fields(T.author.first_name).tables(T.author).where(T.author.status == 'active').where(T.author.id == T.book.author_id).as_('alias_name')
-        q = Q().fields(T.book.id, al).tables(T.book).where(T.book.title == 'Title1').order_by(al.desc())
+        alias = Q().fields(T.book.id.count()).tables(T.book).where((T.book.pub_date > '2015-01-01') & (T.book.author_id == T.author.id)).group_by(T.book.author_id).as_("book_count")
+        q = Q().fields(T.author.id, alias).tables(T.author).where(T.author.status == 'active').order_by(alias.desc())
         self.assertEqual(
             compile(q),
-            ('SELECT "book"."id", (SELECT "author"."first_name" FROM "author" WHERE "author"."status" = %s AND "author"."id" = "book"."author_id") AS "alias_name" FROM "book" WHERE "book"."title" = %s ORDER BY "alias_name" DESC', ['active', 'Title1'])
+            ('SELECT "author"."id", (SELECT COUNT("book"."id") FROM "book" WHERE "book"."pub_date" > %s AND "book"."author_id" = "author"."id" GROUP BY "book"."author_id") AS "book_count" FROM "author" WHERE "author"."status" = %s ORDER BY "book_count" DESC', ['2015-01-01', 'active'])
         )
 
 

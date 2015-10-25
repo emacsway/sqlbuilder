@@ -68,7 +68,7 @@ Table
 
 ::
 
-    >>> from sqlbuilder.smartsql import Table as T, Query as Q
+    >>> from sqlbuilder.smartsql import T, Q
 
     >>> T.book
     <Table: "book", []>
@@ -94,7 +94,7 @@ Field
 
 ::
 
-    >>> from sqlbuilder.smartsql import Table as T, Field as F, Query as Q
+    >>> from sqlbuilder.smartsql import T, F, Q
 
 
     >>> # Get field as table attribute
@@ -155,7 +155,7 @@ Condition operators
 
 ::
 
-    >>> from sqlbuilder.smartsql import Table as T, Param as P
+    >>> from sqlbuilder.smartsql import T, P
     >>> tb = T.author
 
     >>> tb.name == 'Tom'
@@ -505,7 +505,7 @@ Query object
 
         Example of usage::
 
-            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> from sqlbuilder.smartsql import T, Q
             >>> q = Q().tables(T.author).fields('*')
             >>> q
             <Query: SELECT * FROM "author", []>
@@ -534,7 +534,7 @@ Query object
         Example of usage::
 
             >>> import operator
-            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> from sqlbuilder.smartsql import T, Q
             >>> q = Q().tables(T.author).fields('*')
             >>> q
             <Query: SELECT * FROM "author", []>
@@ -569,7 +569,7 @@ Query object
 
         Example of usage::
 
-            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> from sqlbuilder.smartsql import T, Q
             >>> q = Q().tables(T.author).fields('*')
             >>> q
             <Query: SELECT * FROM "author", []>
@@ -617,7 +617,7 @@ Query object
         Example of usage::
 
             >>> import operator
-            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> from sqlbuilder.smartsql import T, Q
             >>> q = Q().fields('*').tables(T.author).group_by(T.author.status)
             >>> q
             <Query: SELECT * FROM "author" GROUP BY "author"."status", []>
@@ -652,7 +652,7 @@ Query object
 
         Example of usage::
 
-            >>> from sqlbuilder.smartsql import Table as T, Query as Q
+            >>> from sqlbuilder.smartsql import T, Q
             >>> q = Q().tables(T.author).fields('*')
             >>> q
             <Query: SELECT * FROM "author", []>
@@ -719,6 +719,7 @@ Query object
             ... }, on_duplicate_key_update={
             ...     T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)
             ... })
+            ... 
             ('INSERT INTO "stats" ("stats"."counter", "stats"."object_id", "stats"."object_type") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', [1, 15, 'author'])
 
             >>> # Keys of dict are strings
@@ -729,6 +730,7 @@ Query object
             ... }, on_duplicate_key_update={
             ...     'counter': T.stats.counter + func.VALUES(T.stats.couner)
             ... })
+            ... 
             ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
 
             >>> # Use "values" keyword argument
@@ -738,6 +740,7 @@ Query object
             ...     values=('author', 15, 1),
             ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)}
             ... )
+            ... 
             ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
 
             >>> # Insert many
@@ -750,6 +753,7 @@ Query object
             ...     ),
             ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.couner)}
             ... )
+            ... 
             ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1, 'author', 16, 1])
 
             >>> # Insert ignore
@@ -759,6 +763,7 @@ Query object
             ...     values=('author', 15, 1),
             ...     ignore=True
             ... )
+            ... 
             ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
 
     .. method:: update([key_values=None, **kw])
@@ -774,6 +779,7 @@ Query object
             ...     T.author.first_name: 'John',
             ...     T.author.last_login: func.NOW()
             ... })
+            ... 
             ('UPDATE "author" SET "author"."last_login" = NOW(), "author"."first_name" = %s WHERE "author"."id" = %s', ['John', 10])
 
             >>> # Keys of dict are strings
@@ -781,6 +787,7 @@ Query object
             ...     'first_name': 'John',
             ...     'last_login': func.NOW()
             ... })
+            ... 
             ('UPDATE "author" SET "first_name" = %s, "last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
 
             >>> # Use "values" keyword argument
@@ -789,6 +796,7 @@ Query object
             ... ).where(T.author.id == 10).update(
             ...     values=('John', func.NOW())
             ... )
+            ... 
             ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
 
     .. method:: delete(**kw)
@@ -818,6 +826,7 @@ Query object
             ... ).on(
             ...     T.book.author_id == author_query_alias.id
             ... ))
+            ... 
             <Query: SELECT "book"."id", "book"."title" FROM "book" INNER JOIN (SELECT "author"."id" FROM "author" WHERE "author"."status" = %s) AS "author_query_alias" ON ("book"."author_id" = "author_query_alias"."id"), ['active']>
 
     .. method:: as_set([all=False])
@@ -845,6 +854,54 @@ Query object
             <Intersect: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) INTERSECT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
             >>> q1.as_set(all=True) - q2
             <Except: (SELECT "book1"."id", "book1"."title" FROM "book1" WHERE "book1"."author_id" = %s) EXCEPT ALL (SELECT "book2"."id", "book2"."title" FROM "book2" WHERE "book2"."author_id" = %s), [10, 10]>
+
+
+Subquery
+^^^^^^^^
+
+:class:`Query` extends :class:`Expr`, so, it can be used as usual expression::
+
+    >>> from sqlbuilder.smartsql import Q, T
+
+    >>> # Subquery as condition
+    >>> sub_q = Q().fields(T.author.id).tables(T.author).where(T.author.status == 'active')
+    >>> Q().fields(T.book.id).tables(T.book).where(T.book.author_id.in_(sub_q))
+    <Query: SELECT "book"."id" FROM "book" WHERE "book"."author_id" IN (SELECT "author"."id" FROM "author" WHERE "author"."status" = %s), ['active']>
+
+    >>> # Subquery as field
+    >>> sub_q = Q().fields(
+    ...     T.book.id.count().as_("book_count")
+    ... ).tables(T.book).where(
+    ...     T.book.pub_date > '2015-01-01'
+    ... ).group_by(T.book.author_id)
+    ... 
+    >>> Q().fields(
+    ...     T.author.id, sub_q.where(T.book.author_id == T.author.id)
+    ... ).tables(T.author).where(
+    ...     T.author.status == 'active'
+    ... )
+    ... 
+    <Query: SELECT "author"."id", (SELECT COUNT("book"."id") AS "book_count" FROM "book" WHERE "book"."pub_date" > %s AND "book"."author_id" = "author"."id" GROUP BY "book"."author_id") FROM "author" WHERE "author"."status" = %s, ['2015-01-01', 'active']>
+
+    >>> # Subquery as alias
+    >>> alias = Q().fields(
+    ...     T.book.id.count()
+    ... ).tables(T.book).where(
+    ...     (T.book.pub_date > '2015-01-01') &
+    ...     (T.book.author_id == T.author.id)
+    ... ).group_by(
+    ...     T.book.author_id
+    ... ).as_("book_count")
+    ... 
+    >>> Q().fields(
+    ...     T.author.id, alias
+    ... ).tables(T.author).where(
+    ...     T.author.status == 'active'
+    ... ).order_by(alias.desc())
+    ... 
+    <Query: SELECT "author"."id", (SELECT COUNT("book"."id") FROM "book" WHERE "book"."pub_date" > %s AND "book"."author_id" = "author"."id" GROUP BY "book"."author_id") AS "book_count" FROM "author" WHERE "author"."status" = %s ORDER BY "book_count" DESC, ['2015-01-01', 'active']>
+
+See also method :meth:`Query.as_table`.
 
 
 .. _implementation-of-execution:
