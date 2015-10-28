@@ -36,25 +36,40 @@ def same(name):
     return f
 
 
-class ClassRegistry(object):
+class ClassRegistry(dict):
     """Minimalistic factory for related classes.
 
     Allows use extended subclasses, if need.
     """
-    def __call__(self, name_or_cls):
+    def __call__(self, name_or_cls, args=None, kwargs=None, attrs=None):
         name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
 
         def deco(cls):
-            setattr(self, name, cls)
+            self[name] = (cls, tuple(args or ()), kwargs or {}, attrs or {})
             cls._cr = self
             return cls
 
         return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
 
+    def __getattr__(self, name):
+        if name not in self:
+            raise AttributeError
+        return self[name][0]
+
+    def init(self, name, *inst_args, **inst_kwargs):
+        cls, args, kwargs, attrs = self[name]
+        args += inst_args
+        kwargs = kwargs.copy()
+        kwargs.update(inst_kwargs)
+        obj = cls(*args, **kwargs)
+        for k, v in attrs:
+            setattr(obj, k, v)
+        return obj
+
     def __copy__(self):
         c = copy.copy(super(ClassRegistry, self))
-        for name, cls in c.__dict__.items():
-            c(cls.__name__)(c._ext_cls(cls))
+        for name, (cls, args, kwargs, attrs) in c.__dict__.items():
+            c(cls.__name__, args, kwargs, attrs)(c._ext_cls(cls))
         return c
 
     @staticmethod
