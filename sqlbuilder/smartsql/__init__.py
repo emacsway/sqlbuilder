@@ -40,35 +40,50 @@ class ClassRegistry(dict):
     """Minimalistic factory for related classes.
 
     Allows use extended subclasses, if need.
+    >>> new_cr = copy.copy(cr)
+    >>> # or
+    >>> class CustomClassRegistry(ClassRegistry):
+    ...     def initTable(self, *args, **kwargs):
+    ...         kwargs.update(self._get_custom_table_extra_kwargs())
+    ...         return CustomTable(*args, **kwargs)
+    ...
+    >>> new_cr = CustomClassRegistry(**cr)
     """
     def __call__(self, name_or_cls, args=None, kwargs=None, attrs=None):
         name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
 
         def deco(cls):
             self[name] = (cls, tuple(args or ()), kwargs or {}, attrs or {})
+            setattr(self, name, cls)  # speed up
+            init_name = 'init{0}'.format(name)
+            if not hasattr(type(self), init_name):
+                setattr(self, init_name, partial(self._init, name))  # speed up
             cls._cr = self
             return cls
 
         return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
 
     def __getattr__(self, name):
-        if name not in self:
-            raise AttributeError
-        return self[name][0]
+        if name in self:
+            return self[name][0]
+        if name.startswith('init'):
+            # if ConcreteClassRegistry.initClassName() is not defined
+            return partial(self._init, name)
+        raise AttributeError
 
-    def init(self, name, *inst_args, **inst_kwargs):
-        cls, args, kwargs, attrs = self[name]
-        args += inst_args
-        kwargs = kwargs.copy()
-        kwargs.update(inst_kwargs)
-        obj = cls(*args, **kwargs)
-        for k, v in attrs:
+    def _init(self, name, *args, **kwargs):
+        cls, default_args, default_kwargs, default_attrs = self[name]
+        final_args = default_args + args
+        final_kwargs = default_kwargs.copy()
+        final_kwargs.update(kwargs)
+        obj = cls(*final_args, **final_kwargs)
+        for k, v in default_attrs:
             setattr(obj, k, v)
         return obj
 
     def __copy__(self):
         c = copy.copy(super(ClassRegistry, self))
-        for name, (cls, args, kwargs, attrs) in c.__dict__.items():
+        for name, (cls, args, kwargs, attrs) in c.items():
             c(cls.__name__, args, kwargs, attrs)(c._ext_cls(cls))
         return c
 
