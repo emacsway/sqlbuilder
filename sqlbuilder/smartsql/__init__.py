@@ -1155,7 +1155,7 @@ class MetaTableSpace(type):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = cls._cr.Table(name)
+        table = cls._cr.initTable(name)
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
