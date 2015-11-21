@@ -6,8 +6,8 @@ import copy
 import types
 import operator
 import warnings
+import weakref
 from functools import wraps, reduce, partial
-from weakref import WeakKeyDictionary
 
 try:
     str = unicode  # Python 2.* compatible
@@ -94,7 +94,7 @@ class State(object):
 class Compiler(object):
 
     def __init__(self, parent=None):
-        self._children = WeakKeyDictionary()
+        self._children = weakref.WeakKeyDictionary()
         self._parents = []
         self._local_registry = {}
         self._local_precedence = {}
@@ -1161,23 +1161,25 @@ class MetaTable(type):
 class FieldProxy(object):
 
     def __init__(self, table):
-        self.__table = table
+        self.__table = weakref.ref(table)
 
     def __getattr__(self, key):
         if key[:2] == '__':
             raise AttributeError
-        return self.__table.get_field(key)
+        return self.__table().get_field(key)
+
+    __call__ = __getattr__
 
 
 @cr
 class Table(MetaTable("NewBase", (object, ), {})):
 
-    __slots__ = ('_name', '__cached__', 'fields')
+    __slots__ = ('_name', '__cached__', 'f')
 
     def __init__(self, name):
         self._name = name
         self.__cached__ = {}
-        self.fields = FieldProxy(self)
+        self.f = FieldProxy(self)
 
     def as_(self, alias):
         return self._cr.TableAlias(alias, self)
@@ -1188,20 +1190,21 @@ class Table(MetaTable("NewBase", (object, ), {})):
         return self.get_field(key)
 
     def get_field(self, key):
-        if key in self.fields.__dict__:
-            return self.fields.__dict__[key]
+        cache = self.f.__dict__
+        if key in cache:
+            return cache[key]
 
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
 
-        if name in self.fields.__dict__:
-            f = self.fields.__dict__[name]
+        if name in cache:
+            f = cache[name]
         else:
             f = Field(name, self)
-            setattr(self.fields, name, f)
+            cache[name] = f
         if alias:
             f = f.as_(alias)
-            setattr(self.fields, key, f)
+            cache[key] = f
         return f
 
     __and__ = same('inner_join')
@@ -1225,7 +1228,7 @@ class TableAlias(Table):
         self._table = table
         self._alias = alias
         self.__cached__ = {}
-        self.fields = FieldProxy(self)
+        self.f = FieldProxy(self)
 
     def as_(self, alias):
         return type(self)(alias, self._table)

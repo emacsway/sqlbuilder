@@ -52,7 +52,8 @@ class TestTable(TestCase):
         )
         t = T.book
         self.assertIs(t.status, t.status)
-        self.assertIs(t.status, t.fields.status)
+        self.assertIs(t.status, t.f.status)
+        self.assertIs(t.status, t.f('status'))
         self.assertIs(t.status, t.__getattr__('status'))
         self.assertIs(t.status, t.get_field('status'))
 
