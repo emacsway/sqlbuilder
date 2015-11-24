@@ -1205,7 +1205,9 @@ class FieldProxy(object):
 
 @cr
 class Table(MetaTable("NewBase", (object, ), {})):
-    # Variant: tb.as_ => Field(); tb().as_ => instancemethod() ???
+    # Variants:
+    # tb.as_ => Field(); tb().as_ => instancemethod() ???
+    # author + InnerJoin + book + On + author.id == book.author_id
 
     __slots__ = ('_name', '__cached__', 'f')
 
