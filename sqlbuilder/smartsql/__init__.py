@@ -1208,6 +1208,8 @@ class Table(MetaTable("NewBase", (object, ), {})):
     # Variants:
     # tb.as_ => Field(); tb().as_ => instancemethod() ???
     # author + InnerJoin + book + On + author.id == book.author_id
+    # Add __call__() method to Field/Alias
+    # Use sys._getframe(), compiler.visitor.ASTVisitor or tokenize.generate_tokens() to get context for Table.__getattr__()
 
     __slots__ = ('_name', '__cached__', 'f')
 
