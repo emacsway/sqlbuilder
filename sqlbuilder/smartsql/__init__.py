@@ -37,7 +37,7 @@ def same(name):
 
 
 class ClassRegistry(dict):
-    """Minimalistic factory for related classes.
+    """Minimalistic Service Locator for related classes.
 
     Allows use extended subclasses, if need.
     >>> new_cr = copy.copy(cr)
@@ -45,6 +45,7 @@ class ClassRegistry(dict):
     >>> class CustomClassRegistry(ClassRegistry):
     ...     def initTable(self, *args, **kwargs):
     ...         kwargs.update(self._get_custom_table_extra_kwargs())
+    ...         kwargs['some_executable_kwarg'] = kwargs['some_executable_kwarg'](self, *args, **kwargs)
     ...         return CustomTable(*args, **kwargs)
     ...
     >>> new_cr = CustomClassRegistry(**cr)
