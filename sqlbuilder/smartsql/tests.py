@@ -54,6 +54,8 @@ class TestTable(TestCase):
         self.assertIs(t.status, t.status)
         self.assertIs(t.status, t.f.status)
         self.assertIs(t.status, t.f('status'))
+        self.assertIs(t.status, t.f['status'])
+        self.assertIs(t.status, t['status'])
         self.assertIs(t.status, t.__getattr__('status'))
         self.assertIs(t.status, t.get_field('status'))
 

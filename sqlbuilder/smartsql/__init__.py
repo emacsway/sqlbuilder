@@ -1200,10 +1200,12 @@ class FieldProxy(object):
         return self.__table().get_field(key)
 
     __call__ = __getattr__
+    __getitem__ = __getattr__
 
 
 @cr
 class Table(MetaTable("NewBase", (object, ), {})):
+    # Variant: tb.as_ => Field(); tb().as_ => instancemethod() ???
 
     __slots__ = ('_name', '__cached__', 'f')
 
@@ -1218,6 +1220,9 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getattr__(self, key):
         if key[0] == '_':
             raise AttributeError
+        return self.get_field(key)
+
+    def __getitem__(self, key):
         return self.get_field(key)
 
     def get_field(self, key):
