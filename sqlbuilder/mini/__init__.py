@@ -181,3 +181,45 @@ def compile_param(compile, expr, state):
     state.callers.insert(0, Param)
     compile(expr._value, state)
     state.pop()
+
+
+class Sql(list):
+
+    @staticmethod
+    def find_index(target, step):
+        if callable(step):
+            return step(target)
+        elif type(step) == tuple:
+            indexes = [i for i, x in enumerate(target) if x == step[0]]
+            return indexes[step[1]]
+        elif isinstance(step, integer_types):
+            return step
+        else:
+            return target.index(step)
+
+    def find(self, path):
+        target = self
+        for step in path:
+            target = target[self.find_index(target, step) + 1]
+        return target
+
+    def _insert(self, path, values, strategy=lambda x: x):
+        target = self.find(path[:-1])
+        idx = self.find_index(target, path[-1])
+        idx = strategy(idx)
+        target[idx:idx] = values
+        return self
+
+    def insert_after(self, path, values):
+        return self._insert(path, values, lambda x: x + 1)
+
+    def insert_before(self, path, values):
+        return self._insert(path, values)
+
+    def append_to(self, path, values):
+        self.find(path).extend(values)
+        return self
+
+    def prepend_to(self, path, values):
+        self.find(path)[0:0] = values
+        return self
