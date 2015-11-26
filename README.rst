@@ -52,4 +52,6 @@ More info
 
 See docs on http://sqlbuilder.readthedocs.org/
 
-See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.
+..
+
+P.S.: See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.
