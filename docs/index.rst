@@ -988,6 +988,8 @@ There are three compilers for three dialects:
 
     Compiler for SQLite dialect.
 
+See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.
+
 
 Indices and tables
 ==================
