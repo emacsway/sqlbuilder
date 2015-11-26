@@ -38,6 +38,7 @@ def same(name):
 
 class ClassRegistry(dict):
     """Minimalistic Service Locator for related classes.
+    See more info about IoC: http://www.martinfowler.com/articles/injection.html
 
     Allows use extended subclasses, if need.
     >>> new_cr = copy.copy(cr)
@@ -50,6 +51,12 @@ class ClassRegistry(dict):
     ...
     >>> new_cr = CustomClassRegistry(**cr)
     """
+
+    class MarkCallable(object):
+
+        def __init__(self, func):
+            self._func = func
+
     def __call__(self, name_or_cls, args=None, kwargs=None, attrs=None):
         name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
 
@@ -74,13 +81,18 @@ class ClassRegistry(dict):
 
     def _init(self, name, *args, **kwargs):
         cls, default_args, default_kwargs, default_attrs = self[name]
-        final_args = default_args + args
-        final_kwargs = default_kwargs.copy()
+        resolve = partial(self._resolve_values, name, args, kwargs)
+        final_args = tuple(map(resolve, default_args)) + args
+        final_kwargs = dict(zip(default_kwargs.keys(), map(resolve, default_kwargs.values())))
         final_kwargs.update(kwargs)
+        final_attrs = dict(zip(default_attrs.keys(), map(resolve, default_attrs.values())))
         obj = cls(*final_args, **final_kwargs)
-        for k, v in default_attrs:
+        for k, v in final_attrs:
             setattr(obj, k, v)
         return obj
+
+    def _resolve_values(self, name, args, kwargs, values):
+        return (val._func(self, name, *args, **kwargs) if val.__class__ == self.MarkCallable else val for val in values)
 
     def __copy__(self):
         c = copy.copy(super(ClassRegistry, self))
