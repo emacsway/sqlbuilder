@@ -1172,7 +1172,7 @@ class MetaTableSpace(type):
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
-        return cls.__getattr__(name)
+        return cls._cr.initTable(name, *a, **kw)
 
 
 @cr
@@ -1204,12 +1204,12 @@ class MetaTable(type):
 class FieldProxy(object):
 
     def __init__(self, table):
-        self.__table = weakref.ref(table)
+        self.__table = table
 
     def __getattr__(self, key):
         if key[:2] == '__':
             raise AttributeError
-        return self.__table().get_field(key)
+        return self.__table.get_field(key)
 
     __call__ = __getattr__
     __getitem__ = __getattr__

@@ -84,6 +84,7 @@ Compiling instance of TableAlias depends on context of usage::
     >>> ta = T.book.as_('a')
     >>> ta
     <TableAlias: "a", []>
+
     >>> Q().tables(ta).fields(ta.id, ta.status).where(ta.status.in_(('new', 'approved')))
     <Query: SELECT "a"."id", "a"."status" FROM "book" AS "a" WHERE "a"."status" IN (%s, %s), ['new', 'approved']>
 
@@ -92,12 +93,9 @@ Compiling instance of TableAlias depends on context of usage::
 Field
 -----
 
-::
+Get field as table attribute::
 
     >>> from sqlbuilder.smartsql import T, F, Q
-
-
-    >>> # Get field as table attribute
 
     >>> T.book.title
     <Field: "book"."title", []>
@@ -108,8 +106,29 @@ Field
     >>> T.book.title__a  # Same as T.book.title.as_('a')
     <Alias: "a", []>
 
+What if field name is reserved word in table namespace?
 
-    >>> # Get field as F class attribute (Legacy)
+::
+
+    >>> T.book.natural  # Will returns a bound method
+    <bound method Table.<lambda> of <Table: "book", []>>
+
+    >>> T.book['natural']  # Will returns Field()
+    <Field: "book"."natural", []>
+
+    >>> T.book.f.natural  # Also
+    <Field: "book"."natural", []>
+
+    >>> T.book.f['natural']  # Also
+    <Field: "book"."natural", []>
+
+    >>> T.book.f('natural')  # Also
+    <Field: "book"."natural", []>
+
+    >>> F('natural', T.book)  # Also
+    <Field: "book"."natural", []>
+
+Get field as attribute of F class (Legacy way)::
 
     >>> F.book__title  # Same as T.book.title
     <Field: "book"."title", []>
@@ -125,6 +144,7 @@ Compiling instance of Alias depends on context of usage::
     >>> al = T.book.status.as_('a')
     >>> al
     <Alias: "a", []>
+
     >>> Q().tables(T.book).fields(T.book.id, al).where(al.in_(('new', 'approved')))
     <Query: SELECT "book"."id", "book"."status" AS "a" FROM "book" WHERE "a" IN (%s, %s), ['new', 'approved']>
 
@@ -148,6 +168,19 @@ Table operators
 
     >>> (T.book * T.author).on(T.book.author_id == T.author.id)
     <TableJoin: "book" CROSS JOIN "author" ON ("book"."author_id" = "author"."id"), []>
+
+Nested join is also supported::
+
+    >>> t1, t2, t3, t4 = T.t1, T.t2, T.t3, T.t4
+
+    >>> t1 + (t2 * t3 * t4)().on((t2.a == t1.a) & (t3.b == t1.b) & (t4.c == t1.c))
+    <TableJoin: "t1" LEFT OUTER JOIN ("t2" CROSS JOIN "t3" CROSS JOIN "t4") ON ("t2"."a" = "t1"."a" AND "t3"."b" = "t1"."b" AND "t4"."c" = "t1"."c"), []>
+
+    >>> t1 + (t2 + t3).on((t2.b == t3.b) | t2.b.is_(None))()
+    <TableJoin: "t1" LEFT OUTER JOIN ("t2" LEFT OUTER JOIN "t3" ON ("t2"."b" = "t3"."b" OR "t2"."b" IS NULL)), []>
+
+    >>> (t1 + t2.on(t1.a == t2.a))() + t3.on((t2.b == t3.b) | t2.b.is_(None))
+    <TableJoin: ("t1" LEFT OUTER JOIN "t2" ON ("t1"."a" = "t2"."a")) LEFT OUTER JOIN "t3" ON ("t2"."b" = "t3"."b" OR "t2"."b" IS NULL), []>
 
 
 Condition operators

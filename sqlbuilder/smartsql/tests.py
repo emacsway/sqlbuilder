@@ -111,7 +111,7 @@ class TestTable(TestCase):
             ('("t1" LEFT OUTER JOIN "t2" ON ("t1"."a" = "t2"."a")) LEFT OUTER JOIN "t3" ON ("t2"."b" = "t3"."b" OR "t2"."b" IS NULL)', [])
         )
 
-    def test_join_old(self):
+    def test_join_nested_old(self):
         t1, t2, t3, t4 = T.t1, T.t2.as_('al2'), T.t3, T.t4
         self.assertEqual(
             Q((t1 + t2.on(t2.t1_id == t1.id)) * t3.on(t3.t2_id == t2.id) - t4.on(t4.t3_id == t3.id)).select(t1.id),
