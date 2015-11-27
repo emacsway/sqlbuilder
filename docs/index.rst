@@ -1030,7 +1030,7 @@ There are three compilers for three dialects:
 Short manual for sqlbuilder.mini
 ================================
 
-There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for RAF-SQL fans.
+There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
 
 ::
