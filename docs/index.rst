@@ -1085,8 +1085,8 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
 
     >>> sql = Sql(sql)
     >>> sql.prepend_to(
-    ...     ['FROM', ('INNER JOIN', 0), lambda x: x.index('SELECT')],
-    ...     ['book.id', 'book.pages']
+    ...     ['FROM', 'INNER JOIN', 'SELECT'],  # path
+    ...     ['book.id', 'book.pages']  # values to append
     ... )
     >>> sql.append_to(
     ...     ['FROM', 'INNER JOIN', 'SELECT'],
@@ -1102,6 +1102,16 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
     ... )
     >>> compile(sql)
     ('SELECT author.id, author.first_name, author.last_name FROM author INNER JOIN ( SELECT book.id, book.pages, book.title, book.date FROM book WHERE b.pages < %s AND b.pages > %s ) AS b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', [500, 100, 'new'])
+
+As step of path can be used:
+
+- Search string: ['FROM', 'INNER JOIN', 'SELECT']
+- Callable object, that returns index: ['FROM', 'INNER JOIN', lambda x: x.index('SELECT')]
+- Index as integer (from zero): ['FROM', 'INNER JOIN', 1]
+- Asterisk (returns all values): ['FROM', 'INNER JOIN', 'SELECT']
+- Compiled Regular Expression Objects: ['FROM', 'INNER JOIN', re.compile("^SELECT$")]
+
+In case, when step of path occurs more than once, it's possible to specify the sequence number of concrete occurrence: ['FROM', 'INNER JOIN', ('SELECT', 0)]
 
 
 P.S.: See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.

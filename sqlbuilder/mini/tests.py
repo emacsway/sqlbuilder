@@ -1,8 +1,9 @@
 from __future__ import absolute_import
+import re
 import unittest
 from sqlbuilder.mini import P, Sql, compile
 
-__all__ = ('TestMini',)
+__all__ = ('TestMini', 'TestMiniSql')
 
 
 class TestCase(unittest.TestCase):
@@ -63,8 +64,11 @@ class TestMini(TestCase):
             ('SELECT author.id, author.first_name, author.last_name, author.age FROM author INNER JOIN book as b ON b.author_id = author.id WHERE b.status == %(status)s ORDER BY author.first_name, author.last_name', {'status': 'new'})
         )
 
-    def test_mini_sql(self):
-        sql = [
+
+class TestMiniSql(TestCase):
+
+    def setUp(self):
+        self._sql = [
             'SELECT', [
                 'author.id', 'author.first_name', 'author.last_name'
             ],
@@ -87,9 +91,11 @@ class TestMini(TestCase):
             ]
         ]
 
-        sql = Sql(sql)
+    def test_mini_sql(self):
+
+        sql = Sql(self._sql)
         sql.prepend_to(
-            ['FROM', ('INNER JOIN', 0), lambda x: x.index('SELECT')],
+            ['FROM', 'INNER JOIN', 'SELECT'],
             ['book.id', 'book.pages']
         )
         sql.append_to(
@@ -105,7 +111,28 @@ class TestMini(TestCase):
             ['b.pages', '<', P(500), 'AND']
         )
 
+        sql.append_to(
+            ['FROM', 'INNER JOIN', lambda x: x.index('SELECT')],
+            ['book.added_by_callable']
+        )
+        sql.append_to(
+            ['FROM', 'INNER JOIN', ('SELECT', 0)],
+            ['book.added_by_tuple']
+        )
+        sql.append_to(
+            ['FROM', '*', 'SELECT'],
+            ['book.added_by_asterisk']
+        )
+        sql.append_to(
+            ['FROM', 'INNER JOIN', 1],
+            ['book.added_by_index']
+        )
+        sql.append_to(
+            ['FROM', 'INNER JOIN', re.compile("^SELECT$")],
+            ['book.added_by_re']
+        )
+
         self.assertEqual(
             compile(sql),
-            ('SELECT author.id, author.first_name, author.last_name FROM author INNER JOIN ( SELECT book.id, book.pages, book.title, book.date FROM book WHERE b.pages < %s AND b.pages > %s ) AS b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', [500, 100, 'new'])
+            ('SELECT author.id, author.first_name, author.last_name FROM author INNER JOIN ( SELECT book.id, book.pages, book.title, book.date, book.added_by_callable, book.added_by_tuple, book.added_by_asterisk, book.added_by_index, book.added_by_re FROM book WHERE b.pages < %s AND b.pages > %s ) AS b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', [500, 100, 'new'])
         )

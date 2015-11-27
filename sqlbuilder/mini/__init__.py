@@ -13,6 +13,7 @@ from weakref import WeakKeyDictionary
 # Idea: parse SQL to DOM or JSON tree.
 
 TOKEN_PATTERN = re.compile(r'^[A-Z]+(?: [A-Z]+)*$')
+RE_TYPE = type(TOKEN_PATTERN)
 
 try:
     str = unicode  # Python 2.* compatible
@@ -185,27 +186,54 @@ def compile_param(compile, expr, state):
 
 class Sql(list):
 
-    @staticmethod
-    def find_index(target, step):
-        if callable(step):
-            return step(target)
-        elif type(step) == tuple:
-            indexes = [i for i, x in enumerate(target) if x == step[0]]
-            return indexes[step[1]]
-        elif isinstance(step, integer_types):
-            return step
-        else:
-            return target.index(step)
+    class NotFound(IndexError):
+        pass
 
-    def find(self, path):
-        target = self
-        for step in path:
-            target = target[self.find_index(target, step) + 1]
-        return target
+    @classmethod
+    def find_indexes(cls, step, target):
+        # import pprint; print pprint.pprint((('step', step), ('target', target)))
+        if type(step) == tuple:
+            indexes = cls.find_indexes(step[0], target)
+            return (indexes[step[1]],)
+        if callable(step):
+            return (step(target),)
+        if isinstance(step, integer_types):
+            return (step,)
+        if step in (list, tuple):
+            return tuple(i for i, x in enumerate(target) if type(x) == step)
+        if step == '*':
+            return tuple(range(len(target)))
+        if isinstance(step, RE_TYPE):
+            return tuple(i for i, x in enumerate(target) if isinstance(x, string_types) and step.search(x))
+        return tuple(i for i, x in enumerate(target) if x == step)
+
+    @classmethod
+    def find(cls, path, target):
+        step, path_rest = path[0], path[1:]
+        indexes = Sql.find_indexes(step, target)
+        # import pprint; print pprint.pprint((('step', step), ('path_rest', path_rest), ('indexes', indexes), ('target', target)))
+        for index in indexes:
+            sub_target = target[index + 1]
+            if path_rest:
+                try:
+                    return cls.find(path_rest, sub_target)
+                except IndexError:
+                    # raise
+                    continue
+                else:
+                    break
+            else:
+                return sub_target
+        else:
+            raise cls.NotFound(
+                """step: {!r}, path_rest: {!r}, indexes: {!r}, target: {!r}""".format(
+                    step, path_rest, indexes, target
+                )
+            )
 
     def _insert(self, path, values, strategy=lambda x: x):
-        target = self.find(path[:-1])
-        idx = self.find_index(target, path[-1])
+        target = self.find(path[:-1], self)
+        idx = self.find_indexes(path[-1], target)[0]
         idx = strategy(idx)
         target[idx:idx] = values
         return self
@@ -217,9 +245,9 @@ class Sql(list):
         return self._insert(path, values)
 
     def append_to(self, path, values):
-        self.find(path).extend(values)
+        self.find(path, self).extend(values)
         return self
 
     def prepend_to(self, path, values):
-        self.find(path)[0:0] = values
+        self.find(path, self)[0:0] = values
         return self
