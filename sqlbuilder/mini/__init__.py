@@ -371,8 +371,7 @@ class Any(All):
         return indexes
 
 # TODO:
-# class Test("FROM", "tablename") - returns level where exists first step from test path.
-# class Down(matcher) - skip down currrent level
+# Down - skip down currrent level
 # HasChild
 # HasDescendant
 # HasParent

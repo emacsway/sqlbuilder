@@ -1112,7 +1112,7 @@ As step of path can be used:
 - Each item: ['FROM', enumerate, 'SELECT']
 - Compiled Regular Expression Objects: ['FROM', 'INNER JOIN', re.compile("^SELECT$")]
 
-Also it's possible combine for all rules: ['FROM', 'INNER JOIN', ('SELECT', 0)] is egual to ['FROM', 'INNER JOIN', All('SELECT', 0)]
+Also it's possible combine for all rules: ['FROM', 'INNER JOIN', ('SELECT', 0)] is egual to ['FROM', 'INNER JOIN', All(Exact('SELECT'), Index(0))]
 
 And for any of rules: ['FROM', 'INNER JOIN', Any('SELECT', 0)]
 
