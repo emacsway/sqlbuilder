@@ -264,7 +264,6 @@ class Matcher(object):
         self._rule = rule
 
     def _match_item(self, item):
-        print self
         raise NotImplementedError
 
     def __call__(self, collection):
