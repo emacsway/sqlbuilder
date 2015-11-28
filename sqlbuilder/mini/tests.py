@@ -3,7 +3,7 @@ import re
 import unittest
 from sqlbuilder.mini import P, Q, compile
 
-__all__ = ('TestMini', 'TestMiniSql')
+__all__ = ('TestMini', 'TestMiniQ')
 
 
 class TestCase(unittest.TestCase):
@@ -65,7 +65,7 @@ class TestMini(TestCase):
         )
 
 
-class TestMiniSql(TestCase):
+class TestMiniQ(TestCase):
 
     def setUp(self):
         self._sql = [
@@ -91,7 +91,7 @@ class TestMiniSql(TestCase):
             ]
         ]
 
-    def test_mini_sql(self):
+    def test_mini_q(self):
 
         sql = Q(self._sql)
         sql.prepend_to(
