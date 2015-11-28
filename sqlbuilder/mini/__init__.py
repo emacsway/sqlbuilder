@@ -263,22 +263,22 @@ class Matcher(object):
     def __init__(self, rule=None):
         self._rule = rule
 
-    def _match_item(self, item):
+    def _match_item(self, idx, item, collection):
         raise NotImplementedError
 
     def __call__(self, collection):
-        return tuple(i for i, x in enumerate(collection) if self._match_item(x))
+        return tuple(i for i, x in enumerate(collection) if self._match_item(i, x, collection))
 
 
 class Exact(Matcher):
 
-    def _match_item(self, item):
+    def _match_item(self, idx, item, collection):
         return self._rule == item
 
 
 class Type(Matcher):
 
-    def _match_item(self, item):
+    def _match_item(self, idx, item, collection):
         return type(item) == self._rule
 
 
@@ -302,8 +302,8 @@ class Slice(Matcher):
 
 class Each(Matcher):
 
-    def __call__(self, collection):
-        return tuple(range(len(collection)))
+    def _match_item(self, idx, item, collection):
+        return True
 
 
 class Re(Matcher):
@@ -314,7 +314,7 @@ class Re(Matcher):
         else:
             self._rule = re.compile(pattern, flags)
 
-    def _match_item(self, item):
+    def _match_item(self, idx, item, collection):
         return isinstance(item, string_types) and self._rule.search(item)
 
 
@@ -355,3 +355,11 @@ class Any(All):
 # TODO:
 # class Test("FROM", "tablename") - returns level where exists first step from test path.
 # class Down(matcher) - skip down currrent level
+# HasChild
+# HasDescendant
+# HasParent
+# HasAncestor
+# HasPrevSibling
+# HasNextSibling
+# HasPrev
+# HasNext
