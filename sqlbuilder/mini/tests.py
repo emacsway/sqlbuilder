@@ -120,8 +120,8 @@ class TestMiniSql(TestCase):
             ['book.added_by_tuple']
         )
         sql.append_to(
-            ['FROM', '*', 'SELECT'],
-            ['book.added_by_asterisk']
+            ['FROM', enumerate, 'SELECT'],
+            ['book.added_by_each']
         )
         sql.append_to(
             ['FROM', 'INNER JOIN', 1],
@@ -134,5 +134,5 @@ class TestMiniSql(TestCase):
 
         self.assertEqual(
             compile(sql),
-            ('SELECT author.id, author.first_name, author.last_name FROM author INNER JOIN ( SELECT book.id, book.pages, book.title, book.date, book.added_by_callable, book.added_by_tuple, book.added_by_asterisk, book.added_by_index, book.added_by_re FROM book WHERE b.pages < %s AND b.pages > %s ) AS b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', [500, 100, 'new'])
+            ('SELECT author.id, author.first_name, author.last_name FROM author INNER JOIN ( SELECT book.id, book.pages, book.title, book.date, book.added_by_callable, book.added_by_tuple, book.added_by_each, book.added_by_index, book.added_by_re FROM book WHERE b.pages < %s AND b.pages > %s ) AS b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', [500, 100, 'new'])
         )

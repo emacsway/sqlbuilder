@@ -1105,13 +1105,16 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
 
 As step of path can be used:
 
-- Search string: ['FROM', 'INNER JOIN', 'SELECT']
+- Exact string: ['FROM', 'INNER JOIN', 'SELECT']
 - Callable object, that returns index: ['FROM', 'INNER JOIN', lambda x: x.index('SELECT')]
 - Index as integer (from zero): ['FROM', 'INNER JOIN', 1]
-- Asterisk (returns all values): ['FROM', 'INNER JOIN', 'SELECT']
+- Slice:  ['FROM', 'INNER JOIN', slice(2, 5)]
+- Each item: ['FROM', enumerate, 'SELECT']
 - Compiled Regular Expression Objects: ['FROM', 'INNER JOIN', re.compile("^SELECT$")]
 
-In case, when step of path occurs more than once, it's possible to specify the sequence number of concrete occurrence: ['FROM', 'INNER JOIN', ('SELECT', 0)]
+Also it's possible combine for all rules: ['FROM', 'INNER JOIN', ('SELECT', 0)] is egual to ['FROM', 'INNER JOIN', All('SELECT', 0)]
+
+And for any of rules: ['FROM', 'INNER JOIN', Any('SELECT', 0)]
 
 
 P.S.: See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.

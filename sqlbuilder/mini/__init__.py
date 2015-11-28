@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import re
 import copy
+import collections
 from weakref import WeakKeyDictionary
 
 # See also:
@@ -189,51 +190,9 @@ class Sql(list):
     class NotFound(IndexError):
         pass
 
-    @classmethod
-    def find_indexes(cls, step, target):
-        # import pprint; print pprint.pprint((('step', step), ('target', target)))
-        if type(step) == tuple:
-            indexes = cls.find_indexes(step[0], target)
-            return (indexes[step[1]],)
-        if callable(step):
-            return (step(target),)
-        if isinstance(step, integer_types):
-            return (step,)
-        if step in (list, tuple):
-            return tuple(i for i, x in enumerate(target) if type(x) == step)
-        if step == '*':
-            return tuple(range(len(target)))
-        if isinstance(step, RE_TYPE):
-            return tuple(i for i, x in enumerate(target) if isinstance(x, string_types) and step.search(x))
-        return tuple(i for i, x in enumerate(target) if x == step)
-
-    @classmethod
-    def find(cls, path, target):
-        step, path_rest = path[0], path[1:]
-        indexes = Sql.find_indexes(step, target)
-        # import pprint; print pprint.pprint((('step', step), ('path_rest', path_rest), ('indexes', indexes), ('target', target)))
-        for index in indexes:
-            sub_target = target[index + 1]
-            if path_rest:
-                try:
-                    return cls.find(path_rest, sub_target)
-                except IndexError:
-                    # raise
-                    continue
-                else:
-                    break
-            else:
-                return sub_target
-        else:
-            raise cls.NotFound(
-                """step: {!r}, path_rest: {!r}, indexes: {!r}, target: {!r}""".format(
-                    step, path_rest, indexes, target
-                )
-            )
-
     def _insert(self, path, values, strategy=lambda x: x):
         target = self.find(path[:-1], self)
-        idx = self.find_indexes(path[-1], target)[0]
+        idx = self.get_matcher(path[-1])(target)[0]
         idx = strategy(idx)
         target[idx:idx] = values
         return self
@@ -251,3 +210,144 @@ class Sql(list):
     def prepend_to(self, path, values):
         self.find(path, self)[0:0] = values
         return self
+
+    @classmethod
+    def find(cls, path, target):
+        step, path_rest = path[0], path[1:]
+        indexes = cls.get_matcher(step)(target)
+        # import pprint; print pprint.pprint((('step', step), ('path_rest', path_rest), ('indexes', indexes), ('target', target)))
+        for index in indexes:
+            sub_target = target[index + 1]
+            if path_rest:
+                try:
+                    return cls.find(path_rest, sub_target)
+                except IndexError:
+                    continue
+                else:
+                    break
+            else:
+                return sub_target
+        else:
+            raise cls.NotFound(
+                """step: {!r}, path_rest: {!r}, indexes: {!r}, target: {!r}""".format(
+                    step, path_rest, indexes, target
+                )
+            )
+
+    @classmethod
+    def get_matcher(cls, step):
+        # Order is important!
+        if isinstance(step, Matcher):
+            return step
+        if isinstance(step, tuple):
+            return All(*map(cls.get_matcher, step))
+        if isinstance(step, string_types):
+            return Exact(step)
+        if isinstance(step, integer_types):
+            return Index(step)
+        if isinstance(step, slice):
+            return Slice(step)
+        if step is enumerate:
+            return Each()
+        if isinstance(step, RE_TYPE):
+            return Re(step)
+        if isinstance(step, collections.Callable):
+            return Callable(step)
+        if isinstance(step, type):
+            return Type(step)
+        raise Exception("Matcher not found for {!r}".format(step))
+
+
+class Matcher(object):
+
+    def __init__(self, rule=None):
+        self._rule = rule
+
+    def _match_item(self, item):
+        print self
+        raise NotImplementedError
+
+    def __call__(self, collection):
+        return tuple(i for i, x in enumerate(collection) if self._match_item(x))
+
+
+class Exact(Matcher):
+
+    def _match_item(self, item):
+        return self._rule == item
+
+
+class Type(Matcher):
+
+    def _match_item(self, item):
+        return type(item) == self._rule
+
+
+class Index(Matcher):
+
+    def __call__(self, collection):
+        return (self._rule,)
+
+
+class Slice(Matcher):
+
+    def __init__(self, start, stop=None, step=None):
+        if not isinstance(start, slice):
+            self._rule = start
+        else:
+            self._rule = slice(start, stop, step)
+
+    def __call__(self, collection):
+        return tuple(range(len(collection)))[self._rule]
+
+
+class Each(Matcher):
+
+    def __call__(self, collection):
+        return tuple(range(len(collection)))
+
+
+class Re(Matcher):
+
+    def __init__(self, pattern, flags=0):
+        if not isinstance(pattern, RE_TYPE):
+            pattern = re.compile(pattern, flags)
+        self._rule = pattern
+
+    def _match_item(self, item):
+        return isinstance(item, string_types) and self._rule.search(item)
+
+
+class Callable(Matcher):
+
+    def __call__(self, collection):
+        return (self._rule(collection),)
+
+
+class All(Matcher):
+
+    def __init__(self, *matchers):
+        self._rule = matchers
+
+    def __call__(self, collection):
+        matcher, matchers_rest = self._rule[0], self._rule[1:]
+        indexes = matcher(collection)
+        if matchers_rest:
+            sub_collection = [collection[i] for i in indexes]
+            sub_matcher = type(self)(*matchers_rest)
+            sub_indexes = sub_matcher(sub_collection)
+            indexes = tuple(indexes[i] for i in sub_indexes)
+        return indexes
+
+
+class Any(All):
+
+    def __call__(self, collection):
+        matcher, matchers_rest = self._rule[0], self._rule[1:]
+        indexes = matcher(collection)
+        if matchers_rest:
+            next_matcher = type(self)(*matchers_rest)
+            next_indexes = next_matcher(collection)
+            indexes += next_indexes
+            indexes = sorted(set(indexes))
+        return indexes
