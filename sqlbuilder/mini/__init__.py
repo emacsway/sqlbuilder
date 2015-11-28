@@ -351,3 +351,7 @@ class Any(All):
             indexes += next_indexes
             indexes = sorted(set(indexes))
         return indexes
+
+# TODO:
+# class Test("FROM", "tablename") - returns level where exists first step from test path.
+# class Down(matcher) - skip down currrent level
