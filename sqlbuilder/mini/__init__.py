@@ -291,7 +291,7 @@ class Index(Matcher):
 class Slice(Matcher):
 
     def __init__(self, start, stop=None, step=None):
-        if not isinstance(start, slice):
+        if isinstance(start, slice):
             self._rule = start
         else:
             self._rule = slice(start, stop, step)
@@ -309,9 +309,10 @@ class Each(Matcher):
 class Re(Matcher):
 
     def __init__(self, pattern, flags=0):
-        if not isinstance(pattern, RE_TYPE):
-            pattern = re.compile(pattern, flags)
-        self._rule = pattern
+        if isinstance(pattern, RE_TYPE):
+            self._rule = pattern
+        else:
+            self._rule = re.compile(pattern, flags)
 
     def _match_item(self, item):
         return isinstance(item, string_types) and self._rule.search(item)
