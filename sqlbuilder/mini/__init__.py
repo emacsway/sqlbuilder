@@ -243,7 +243,13 @@ class Q(UserList):
             )
 
     def get_children_from_index(self, idx):
-        return type(self)(self.data[idx + 1])
+        max_idx = len(self.data) - 1
+        i = idx
+        while i <= max_idx:
+            if type(self.data[i]) is list:
+                return type(self)(self.data[idx + 1])
+            i += 1
+        raise self.NotFound
 
     def get_matcher(self, step):
         # Order is important!
