@@ -247,7 +247,7 @@ class Q(UserList):
         i = idx
         while i <= max_idx:
             if type(self.data[i]) is list:
-                return type(self)(self.data[idx + 1])
+                return type(self)(self.data[i])
             i += 1
         raise self.NotFound
 
