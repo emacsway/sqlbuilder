@@ -21,10 +21,12 @@ try:
     string_types = (basestring,)
     integer_types = (int, long)
     range = xrange
+    from UserList import UserList
 
 except NameError:
     string_types = (str,)
     integer_types = (int,)
+    from collections import UserList
 
 PLACEHOLDER = "%s"  # Can be re-defined by Compiler
 
@@ -185,17 +187,18 @@ def compile_param(compile, expr, state):
     state.pop()
 
 
-class Sql(list):
+class Q(UserList):
 
     class NotFound(IndexError):
         pass
 
-    def _insert(self, path, values, strategy=lambda x: x):
-        target = self.find(path[:-1], self)
-        idx = self.get_matcher(path[-1])(target)[0]
-        idx = strategy(idx)
-        target[idx:idx] = values
-        return self
+    def __init__(self, initlist=None):
+        if initlist is None:
+            initlist = []
+        if isinstance(initlist, Q):
+            self.data = initlist.data
+        else:
+            self.data = initlist
 
     def insert_after(self, path, values):
         return self._insert(path, values, lambda x: x + 1)
@@ -204,43 +207,50 @@ class Sql(list):
         return self._insert(path, values)
 
     def append_to(self, path, values):
-        self.find(path, self).extend(values)
+        self.find(path).extend(values)
         return self
 
     def prepend_to(self, path, values):
-        self.find(path, self)[0:0] = values
+        self.find(path)[0:0] = values
         return self
 
-    @classmethod
-    def find(cls, path, target):
+    def _insert(self, path, values, strategy=lambda x: x):
+        target = self.find(path[:-1])
+        idx = self.get_matcher(path[-1])(target)[0]
+        idx = strategy(idx)
+        target[idx:idx] = values
+        return self
+
+    def find(self, path):
         step, path_rest = path[0], path[1:]
-        indexes = cls.get_matcher(step)(target)
-        # import pprint; print pprint.pprint((('step', step), ('path_rest', path_rest), ('indexes', indexes), ('target', target)))
+        indexes = self.get_matcher(step)(self.data)
         for index in indexes:
-            sub_target = target[index + 1]
+            children = self.get_children_from_index(index)
             if path_rest:
                 try:
-                    return cls.find(path_rest, sub_target)
+                    return children.find(path_rest)
                 except IndexError:
                     continue
                 else:
                     break
             else:
-                return sub_target
+                return children
         else:
-            raise cls.NotFound(
-                """step: {!r}, path_rest: {!r}, indexes: {!r}, target: {!r}""".format(
-                    step, path_rest, indexes, target
+            raise self.NotFound(
+                """step: {!r}, path_rest: {!r}, indexes: {!r}, data: {!r}""".format(
+                    step, path_rest, indexes, self.data
                 )
             )
 
-    @classmethod
-    def get_matcher(cls, step):
+    def get_children_from_index(self, idx):
+        return type(self)(self.data[idx + 1])
+
+    def get_matcher(self, step):
         # Order is important!
         if isinstance(step, Matcher):
             return step
         if isinstance(step, tuple):
-            return All(*map(cls.get_matcher, step))
+            return All(*map(self.get_matcher, step))
         if isinstance(step, string_types):
             return Exact(step)
         if isinstance(step, integer_types):
@@ -256,6 +266,8 @@ class Sql(list):
         if isinstance(step, type):
             return Type(step)
         raise Exception("Matcher not found for {!r}".format(step))
+
+compile.when(Q)(compile_list)
 
 
 class Matcher(object):

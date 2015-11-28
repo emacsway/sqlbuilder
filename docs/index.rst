@@ -1035,7 +1035,7 @@ It's just a hierarchical list of SQL strings, no more.
 
 ::
 
-    >>> from sqlbuilder.mini import P, Sql, compile
+    >>> from sqlbuilder.mini import P, Q, compile
     >>> sql = [
     ...     'SELECT', [
     ...         'author.id', 'author.first_name', 'author.last_name'
@@ -1083,7 +1083,7 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
     ...     ]
     ... ]
 
-    >>> sql = Sql(sql)
+    >>> sql = Q(sql)
     >>> sql.prepend_to(
     ...     ['FROM', 'INNER JOIN', 'SELECT'],  # path
     ...     ['book.id', 'book.pages']  # values to append

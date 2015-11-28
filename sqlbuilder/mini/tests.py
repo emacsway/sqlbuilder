@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import re
 import unittest
-from sqlbuilder.mini import P, Sql, compile
+from sqlbuilder.mini import P, Q, compile
 
 __all__ = ('TestMini', 'TestMiniSql')
 
@@ -93,7 +93,7 @@ class TestMiniSql(TestCase):
 
     def test_mini_sql(self):
 
-        sql = Sql(self._sql)
+        sql = Q(self._sql)
         sql.prepend_to(
             ['FROM', 'INNER JOIN', 'SELECT'],
             ['book.id', 'book.pages']
