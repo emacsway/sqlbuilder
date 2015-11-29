@@ -103,7 +103,7 @@ class TestMiniQ(TestCase):
             ['book.date']
         )
         sql.insert_after(
-            ['FROM', 'INNER JOIN', (lambda x: x.index('FROM') + 1), ],
+            ['FROM', 'INNER JOIN', (list, 1), ],
             ['WHERE', ['b.pages', '>', P(100)]]
         )
         sql.insert_before(
@@ -112,7 +112,7 @@ class TestMiniQ(TestCase):
         )
 
         sql.append_to(
-            ['FROM', 'INNER JOIN', lambda x: x.index('SELECT')],
+            ['FROM', 'INNER JOIN', (lambda i, item, collection: item == 'SELECT')],
             ['book.added_by_callable']
         )
         sql.append_to(

@@ -1032,6 +1032,7 @@ Short manual for sqlbuilder.mini
 
 There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
+Such form of presentation allows modify query without syntax analysis.
 
 ::
 
@@ -1093,7 +1094,7 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
     ...     ['book.date']
     ... )
     >>> sql.insert_after(
-    ...     ['FROM', 'INNER JOIN', (lambda x: x.index('FROM') + 1), ],
+    ...     ['FROM', 'INNER JOIN', (list, 1), ],
     ...     ['WHERE', ['b.pages', '>', P(100)]]
     ... )
     >>> sql.insert_before(
@@ -1106,7 +1107,7 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
 As step of path can be used:
 
 - Exact string: ['FROM', 'INNER JOIN', 'SELECT']
-- Callable object, that returns index: ['FROM', 'INNER JOIN', lambda x: x.index('SELECT')]
+- Callable object, that returns index: ['FROM', 'INNER JOIN', (lambda i, item, collection: item == 'SELECT')]
 - Index as integer (from zero): ['FROM', 'INNER JOIN', 1]
 - Slice:  ['FROM', 'INNER JOIN', slice(2, 5)]
 - Each item: ['FROM', enumerate, 'SELECT']

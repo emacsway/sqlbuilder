@@ -267,10 +267,10 @@ class Q(UserList):
             return Each()
         if isinstance(step, RE_TYPE):
             return Re(step)
-        if isinstance(step, collections.Callable):
-            return Callable(step)
         if isinstance(step, type):
             return Type(step)
+        if isinstance(step, collections.Callable):
+            return Callable(step)
         raise Exception("Matcher not found for {!r}".format(step))
 
 compile.when(Q)(compile_list)
@@ -338,8 +338,8 @@ class Re(Matcher):
 
 class Callable(Matcher):
 
-    def __call__(self, collection):
-        return (self._rule(collection),)
+    def _match_item(self, idx, item, collection):
+        return self._rule(idx, item, collection)
 
 
 class All(Matcher):
@@ -374,9 +374,10 @@ class Any(All):
 # Down - skip down currrent level
 # HasChild
 # HasDescendant
-# HasParent
-# HasAncestor
 # HasPrevSibling
 # HasNextSibling
 # HasPrev
 # HasNext
+
+# We don't need HasParent and HasAncestor, because it can be handled by previous steps.
+# Subquery should not depend on context of usage. We don't need pass ancestors to Matcher.
