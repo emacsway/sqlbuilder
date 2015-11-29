@@ -1033,6 +1033,7 @@ Short manual for sqlbuilder.mini
 There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
 Such form of presentation allows modify query without syntax analysis.
+You can use `pyparsing <http://pyparsing.wikispaces.com/>`__ library to `parse SQL-string to hierarchical list <http://pyparsing.wikispaces.com/file/detail/simpleSQL.py>`__.
 
 ::
 

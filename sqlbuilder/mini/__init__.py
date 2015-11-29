@@ -5,6 +5,8 @@ import collections
 from weakref import WeakKeyDictionary
 
 # See also:
+# http://pyparsing.wikispaces.com/file/view/simpleSQL.py
+# http://pyparsing.wikispaces.com/file/detail/select_parser.py
 # https://wiki.postgresql.org/wiki/Query_Parsing
 # https://github.com/pganalyze/queryparser/blob/master/queryparser.c
 # https://github.com/lfittl/pg_query
