@@ -1033,7 +1033,12 @@ Short manual for sqlbuilder.mini
 There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
 Such form of presentation allows modify query without syntax analysis.
-You can use `pyparsing <http://pyparsing.wikispaces.com/>`__ library to `parse SQL-string to hierarchical list <http://pyparsing.wikispaces.com/file/detail/simpleSQL.py>`__.
+
+You can use `sqlparse <https://pypi.python.org/pypi/sqlparse>`__ library to parse SQL-string to hierarchical list, see, for example, module :mod:`sqlbuilder.mini.parse`.
+By the way, you can use this library to change SQL directly, - it has very nice API like DOM manipulation.
+You can also parse SQL to DOM or `etree <https://docs.python.org/3/library/xml.etree.elementtree.html>`__, to have navigation by `XPath <https://docs.python.org/3/library/xml.etree.elementtree.html#xpath-support>`__.
+
+Also you can use `pyparsing <http://pyparsing.wikispaces.com/>`__ library to `parse SQL-string to hierarchical list <http://pyparsing.wikispaces.com/file/detail/simpleSQL.py>`__.
 
 ::
 
@@ -1060,7 +1065,7 @@ You can use `pyparsing <http://pyparsing.wikispaces.com/>`__ library to `parse S
     ('SELECT author.id, author.first_name, author.last_name, author.age FROM author INNER JOIN book as b ON b.author_id = author.id WHERE b.status == %s ORDER BY author.first_name, author.last_name', ['new'])
 
 
-To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini.Sql`::
+To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini.Q`::
 
     >>> sql = [
     ...     'SELECT', [
