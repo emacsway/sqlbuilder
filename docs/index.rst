@@ -1034,7 +1034,7 @@ There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini
 It's just a hierarchical list of SQL strings, no more.
 Such form of presentation allows modify query without syntax analysis.
 
-You can use `sqlparse <https://pypi.python.org/pypi/sqlparse>`__ library to parse SQL-string to hierarchical list, see, for example, module :mod:`sqlbuilder.mini.parse`.
+You can use `sqlparse <https://pypi.python.org/pypi/sqlparse>`__ library to parse SQL-string to hierarchical list, see, for example, module :mod:`sqlbuilder.mini.parser`.
 By the way, you can use this library to change SQL directly, - it has very nice API like DOM manipulation.
 You can also parse SQL to DOM or `etree <https://docs.python.org/3/library/xml.etree.elementtree.html>`__, to have navigation by `XPath <https://docs.python.org/3/library/xml.etree.elementtree.html#xpath-support>`__.
 
