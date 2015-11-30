@@ -15,8 +15,7 @@ from weakref import WeakKeyDictionary
 
 # Idea: parse SQL to DOM or JSON tree.
 
-TOKEN_PATTERN = re.compile(r'^[A-Z]+(?: [A-Z]+)*$')
-RE_TYPE = type(TOKEN_PATTERN)
+RE_TYPE = type(re.compile(""))
 
 try:
     str = unicode  # Python 2.* compatible
@@ -43,7 +42,8 @@ class State(object):
         self.sql = []
         self.params = []
         self._stack = []
-        self.callers = []
+        self.callers = ['query']
+        self.location = []
         self.precedence = 0
 
     def push(self, attr, new_value=None):
@@ -63,8 +63,17 @@ class Compiler(object):
     def __init__(self, parent=None):
         self._children = WeakKeyDictionary()
         self._parents = []
+
         self._local_registry = {}
+        self._local_reserved_words = {}
+        self._local_group_words = {}
+        self._local_list_words = {}
+
         self._registry = {}
+        self._reserved_words = {}
+        self._group_words = {}
+        self._list_words = {}
+
         if parent:
             self._parents.extend(parent._parents)
             self._parents.append(parent)
@@ -81,10 +90,49 @@ class Compiler(object):
             return func
         return deco
 
+    def add_reserved_words(self, words):
+        self._local_reserved_words.update((word.lower(), True) for word in words)
+        self._update_cache()
+
+    def remove_reserved_words(self, words):
+        self._local_reserved_words.update((word.lower(), None) for word in words)
+        self._update_cache()
+
+    def is_reserved_word(self, word):
+        return isinstance(word, string_types) and self._reserved_words.get(word.lower()) is not None
+
+    def add_group_words(self, words):
+        self._local_group_words.update((word.lower(), True) for word in words)
+        self._update_cache()
+
+    def remove_group_words(self, words):
+        self._local_group_words.update((word.lower(), None) for word in words)
+        self._update_cache()
+
+    def is_group_word(self, word):
+        return isinstance(word, string_types) and self._group_words.get(word.lower()) is not None
+
+    def add_list_words(self, words):
+        self._local_list_words.update((word.lower(), True) for word in words)
+        self._update_cache()
+
+    def remove_list_words(self, words):
+        self._local_list_words.update((word.lower(), None) for word in words)
+        self._update_cache()
+
+    def is_list_word(self, word):
+        return isinstance(word, string_types) and self._list_words.get(word.lower()) is not None
+
     def _update_cache(self):
         for parent in self._parents:
             self._registry.update(parent._local_registry)
+            self._reserved_words.update(parent._local_reserved_words)
+            self._group_words.update(parent._local_group_words)
+            self._list_words.update(parent._local_list_words)
         self._registry.update(self._local_registry)
+        self._reserved_words.update(self._local_reserved_words)
+        self._group_words.update(self._local_group_words)
+        self._list_words.update(self._local_list_words)
         for child in self._children:
             child._update_cache()
 
@@ -126,36 +174,24 @@ def compile_list_of_params(compile, expr, state):
         compile(item, state)
 
 
-def is_token(value):
-    return TOKEN_PATTERN.match(value)
-
-
-def get_caller(sql):
-    for i in range(1, len(sql) + 1):
-        caller = sql[-i].upper()
-        if is_token(caller):
-            break
-    else:
-        caller = 'QUERY'
-    return caller
-
-
 @compile.when(list)
 @compile.when(tuple)
 def compile_list(compile, expr, state):
     if Param in state.callers:
         return compile_list_of_params(compile, expr, state)
 
+    current_caller = state.callers[0]
     state.push('callers')
-    caller = get_caller(state.sql)
-    state.callers.insert(0, caller)
+    state.callers.insert(0, 'expression')
 
     first = True
     for item in expr:
+        if compile.is_reserved_word(item) and item.lower() not in ('by', 'into'):
+            state.callers[0] = item.lower()
         if first:
             first = False
         else:
-            if caller in ('SELECT', 'GROUP BY', 'ORDER BY'):
+            if compile.is_list_word(current_caller):
                 state.sql.append(", ")
             else:
                 state.sql.append(" ")
@@ -383,3 +419,39 @@ class Any(All):
 
 # We don't need HasParent and HasAncestor, because it can be handled by previous steps.
 # Subquery should not depend on context of usage. We don't need pass ancestors to Matcher.
+
+compile.add_reserved_words(
+    """
+    absolute action add all allocate alter and any are as asc assertion at
+    authorization avg begin between bit bit_length both by cascade cascaded
+    case cast catalog char character char_ length character_length check close
+    coalesce collate collation column commit connect connection constraint
+    constraints continue convert corresponding count create cross current
+    current_date current_time current_timestamp current_ user cursor date day
+    deallocate dec decimal declare default deferrable deferred delete desc
+    describe descriptor diagnostics disconnect distinct domain double drop
+    else end end-exec escape except exception exec execute exists external
+    extract false fetch first float for foreign found from full get global go
+    goto grant group having hour identity immediate in indicator initially
+    inner input insensitive insert int integer intersect interval into is
+    isolation join key language last leading left level like local lower
+    match max min minute module month names national natural nchar next no
+    not null nullif numeric octet_length of on only open option or order
+    outer output overlaps pad partial position precision prepare preserve
+    primary prior privileges procedure public read real references relative
+    restrict revoke right rollback rows schema scroll second section select
+    session session_ user set size smallint some space sql sqlcode sqlerror
+    sqlstate substring sum system_user table temporary then time timestamp
+    timezone_ hour timezone_minute to trailing transaction translate
+    translation trim true union unique unknown update upper usage user using
+    value values varchar varying view when whenever where with work write
+    year zone
+    """.split() + ['order by', 'group by']
+)
+
+# TODO: Should "SET" to be list word?
+compile.add_list_words(
+    """
+    group insert order select values
+    """.split() + ['order by', 'group by', 'insert into']
+)
