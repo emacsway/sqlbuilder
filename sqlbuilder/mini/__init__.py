@@ -334,14 +334,19 @@ class Exact(Matcher):
 
 class Type(Matcher):
 
+    def __init__(self, rule=None):
+        if not isinstance(rule, (list, tuple, set)):
+            rule = (rule,)
+        self._rule = rule
+
     def _match_item(self, idx, item, collection):
-        return type(item) == self._rule
+        return type(item) in self._rule
 
 
 class Index(Matcher):
 
-    def __call__(self, collection):
-        return (self._rule,)
+    def _match_item(self, idx, item, collection):
+        return idx == self._rule
 
 
 class Slice(Matcher):
