@@ -296,7 +296,7 @@ class Q(UserList):
         if isinstance(step, Matcher):
             return step
         if isinstance(step, tuple):
-            return All(*map(cls.get_matcher, step))
+            return Filter(*map(cls.get_matcher, step))
         if isinstance(step, string_types):
             return Exact(step)
         if isinstance(step, integer_types):
@@ -459,10 +459,13 @@ class AnyLevel(Matcher):
             return True
 
 
-class All(Matcher):
+class Composite(Matcher):
 
     def __init__(self, *matchers):
         self._rule = matchers
+
+
+class Filter(Composite):
 
     def __call__(self, collection):
         matcher, matchers_rest = self._rule[0], self._rule[1:]
@@ -475,7 +478,7 @@ class All(Matcher):
         return indexes
 
 
-class Any(All):
+class Intersect(Composite):
 
     def __call__(self, collection):
         matcher, matchers_rest = self._rule[0], self._rule[1:]
@@ -483,8 +486,19 @@ class Any(All):
         if matchers_rest:
             next_matcher = type(self)(*matchers_rest)
             next_indexes = next_matcher(collection)
-            indexes += next_indexes
-            indexes = sorted(set(indexes))
+            indexes = sorted(set(indexes) & set(next_indexes))
+        return indexes
+
+
+class Union(Composite):
+
+    def __call__(self, collection):
+        matcher, matchers_rest = self._rule[0], self._rule[1:]
+        indexes = matcher(collection)
+        if matchers_rest:
+            next_matcher = type(self)(*matchers_rest)
+            next_indexes = next_matcher(collection)
+            indexes = sorted(set(indexes) | set(next_indexes))
         return indexes
 
 

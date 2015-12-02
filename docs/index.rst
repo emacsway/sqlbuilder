@@ -1119,10 +1119,15 @@ As step of path can be used:
 - Each item: ['FROM', enumerate, 'SELECT']
 - Compiled Regular Expression Objects: ['FROM', 'INNER JOIN', re.compile("^SELECT$")]
 
-Also it's possible combine for all rules: ['FROM', 'INNER JOIN', ('SELECT', 0)] is egual to ['FROM', 'INNER JOIN', All(Exact('SELECT'), Index(0))]
+Also it's possible combine rules.
 
-And for any of rules: ['FROM', 'INNER JOIN', Any('SELECT', 0)]
+Filter result by each next rules: ['FROM', 'INNER JOIN', ('SELECT', 0)] is egual to ['FROM', 'INNER JOIN', Filter(Exact('SELECT'), Index(0))]
 
+Union results matched by any rules: ['FROM', 'INNER JOIN', Union(Exact('SELECT'), Index(1))].
+
+Intersect results matched by all rules: ['FROM', 'INNER JOIN', Intersect(Exact('SELECT'), Index(1))].
+
+The difference between Filter and Union in that, Filter handles only collection of matched elements by previous rules, and Union - a full collection.
 
 P.S.: See also `article (in Russian) about SQLBuilder <http://emacsway.bitbucket.org/ru/storm-orm/#query-object>`__.
 
