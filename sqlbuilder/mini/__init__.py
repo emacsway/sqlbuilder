@@ -245,40 +245,41 @@ class Q(UserList):
         return self._insert(path, values)
 
     def append_to(self, path, values):
-        self.find(path).extend(values)
+        for i in self.find(path):
+            i.extend(values)
         return self
 
     def prepend_to(self, path, values):
-        self.find(path)[0:0] = values
+        for i in self.find(path):
+            i[0:0] = values
         return self
 
     def _insert(self, path, values, strategy=lambda x: x):
-        target = self.find(path[:-1])
-        idx = self.get_matcher(path[-1])(target)[0]
-        idx = strategy(idx)
-        target[idx:idx] = values
+        for target in self.find(path[:-1]):
+            for idx in self.get_matcher(path[-1])(target):
+                idx = strategy(idx)
+                target[idx:idx] = values
         return self
 
     def find(self, path):
         step, path_rest = path[0], path[1:]
         indexes = self.get_matcher(step)(self.data)
+        if not indexes:
+            raise self.NotFound
+        result = []
         for index in indexes:
             children = self.get_children_from_index(index)
             if path_rest:
                 try:
-                    return children.find(path_rest)
-                except IndexError:
+                    for i in children.find(path_rest):
+                        if i not in result:
+                            result.append(i)
+                except self.NotFound:
                     continue
-                else:
-                    break
             else:
-                return children
-        else:
-            raise self.NotFound(
-                """step: {!r}, path_rest: {!r}, indexes: {!r}, data: {!r}""".format(
-                    step, path_rest, indexes, self.data
-                )
-            )
+                if children not in result:
+                    result.append(children)
+        return result
 
     def get_children_from_index(self, idx):
         max_idx = len(self.data) - 1
