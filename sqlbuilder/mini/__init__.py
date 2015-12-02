@@ -244,12 +244,12 @@ class Q(UserList):
     def insert_before(self, path, values):
         return self._insert(path, values)
 
-    def append_to(self, path, values):
+    def append_child(self, path, values):
         for i in self.find(path):
             i.extend(values)
         return self
 
-    def prepend_to(self, path, values):
+    def prepend_child(self, path, values):
         for i in self.find(path):
             i[0:0] = values
         return self

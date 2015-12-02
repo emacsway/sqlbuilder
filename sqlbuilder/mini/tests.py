@@ -94,11 +94,11 @@ class TestMiniQ(TestCase):
     def test_mini_q(self):
 
         sql = Q(self._sql)
-        sql.prepend_to(
+        sql.prepend_child(
             ['FROM', 'INNER JOIN', 'SELECT'],
             ['book.id', 'book.pages']
         )
-        sql.append_to(
+        sql.append_child(
             ['FROM', 'INNER JOIN', 'SELECT'],
             ['book.date']
         )
@@ -111,23 +111,23 @@ class TestMiniQ(TestCase):
             ['b.pages', '<', P(500), 'AND']
         )
 
-        sql.append_to(
+        sql.append_child(
             ['FROM', 'INNER JOIN', (lambda i, item, collection: item == 'SELECT')],
             ['book.added_by_callable']
         )
-        sql.append_to(
+        sql.append_child(
             ['FROM', 'INNER JOIN', ('SELECT', 0)],
             ['book.added_by_tuple']
         )
-        sql.append_to(
+        sql.append_child(
             ['FROM', enumerate, 'SELECT'],
             ['book.added_by_each']
         )
-        sql.append_to(
+        sql.append_child(
             ['FROM', 'INNER JOIN', 1],
             ['book.added_by_index']
         )
-        sql.append_to(
+        sql.append_child(
             ['FROM', 'INNER JOIN', re.compile("^SELECT$")],
             ['book.added_by_re']
         )

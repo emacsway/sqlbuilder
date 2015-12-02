@@ -1091,11 +1091,11 @@ To facilitate navigation and change SQL, there is helper :class:`sqlbuilder.mini
     ... ]
 
     >>> sql = Q(sql)
-    >>> sql.prepend_to(
+    >>> sql.prepend_child(
     ...     ['FROM', 'INNER JOIN', 'SELECT'],  # path
     ...     ['book.id', 'book.pages']  # values to append
     ... )
-    >>> sql.append_to(
+    >>> sql.append_child(
     ...     ['FROM', 'INNER JOIN', 'SELECT'],
     ...     ['book.date']
     ... )
