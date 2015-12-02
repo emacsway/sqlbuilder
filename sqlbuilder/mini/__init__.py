@@ -448,6 +448,17 @@ class HasNext(Matcher):
 # Subquery should not depend on context of usage. We don't need pass ancestors to Matcher.
 
 
+class AnyLevel(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        try:
+            Q(collection).get_children_from_index(idx)
+        except Q.NotFound:
+            return idx in self._rule(collection)
+        else:
+            return True
+
+
 class All(Matcher):
 
     def __init__(self, *matchers):
@@ -476,8 +487,6 @@ class Any(All):
             indexes = sorted(set(indexes))
         return indexes
 
-# TODO:
-# Down - skip down currrent level
 
 compile.add_reserved_words(
     """
