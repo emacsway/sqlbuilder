@@ -290,12 +290,13 @@ class Q(UserList):
             i += 1
         raise self.NotFound
 
-    def get_matcher(self, step):
+    @classmethod
+    def get_matcher(cls, step):
         # Order is important!
         if isinstance(step, Matcher):
             return step
         if isinstance(step, tuple):
-            return All(*map(self.get_matcher, step))
+            return All(*map(cls.get_matcher, step))
         if isinstance(step, string_types):
             return Exact(step)
         if isinstance(step, integer_types):
@@ -386,6 +387,67 @@ class Callable(Matcher):
         return self._rule(idx, item, collection)
 
 
+class HasChild(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        try:
+            child = Q(collection).get_children_from_index(idx)
+        except Q.NotFound:
+            return False
+        else:
+            return bool(self._rule(child))
+
+
+class HasDescendant(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        if HasChild(self._rule):
+            return True
+        try:
+            child = Q(collection).get_children_from_index(idx)
+        except Q.NotFound:
+            return False
+        else:
+            return bool(self(child))
+
+
+class HasPrevSibling(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        if idx == 0:
+            return False
+        return idx - 1 in self._rule(collection)
+
+
+class HasNextSibling(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        max_idx = len(collection) - 1
+        if idx == max_idx:
+            return False
+        return idx + 1 in self._rule(collection)
+
+
+class HasPrev(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        if idx == 0:
+            return False
+        return bool([i for i in self._rule(collection) if i < idx])
+
+
+class HasNext(Matcher):
+
+    def _match_item(self, idx, item, collection):
+        max_idx = len(collection) - 1
+        if idx == max_idx:
+            return False
+        return bool([i for i in self._rule(collection) if i > idx])
+
+# We don't need HasParent and HasAncestor, because it can be handled by previous steps.
+# Subquery should not depend on context of usage. We don't need pass ancestors to Matcher.
+
+
 class All(Matcher):
 
     def __init__(self, *matchers):
@@ -416,15 +478,6 @@ class Any(All):
 
 # TODO:
 # Down - skip down currrent level
-# HasChild
-# HasDescendant
-# HasPrevSibling
-# HasNextSibling
-# HasPrev
-# HasNext
-
-# We don't need HasParent and HasAncestor, because it can be handled by previous steps.
-# Subquery should not depend on context of usage. We don't need pass ancestors to Matcher.
 
 compile.add_reserved_words(
     """
