@@ -210,7 +210,7 @@ class Compiler(object):
 
     def get_inner_precedence(self, expr):
         cls = expr.__class__
-        if hasattr(expr, '_sql'):
+        if issubclass(cls, Expr) and hasattr(expr, '_sql'):
             try:
                 if (cls, expr._sql) in self._precedence:
                     return self._precedence[(cls, expr._sql)]
@@ -1097,7 +1097,7 @@ class ConstantSpace(object):
 class MetaField(type):
 
     def __getattr__(cls, key):
-        if key[0] == '_':
+        if key[0] == '__':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 2)
         prefix, name, alias = parts + [None] * (3 - len(parts))
@@ -1193,7 +1193,7 @@ class MetaTable(type):
         return type.__new__(cls, name, bases, attrs)
 
     def __getattr__(cls, key):
-        if key[0] == '_':
+        if key[0] == '__':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
@@ -1234,7 +1234,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         return self._cr.TableAlias(alias, self)
 
     def __getattr__(self, key):
-        if key[0] == '_':
+        if key[0] == '__':
             raise AttributeError
         return self.get_field(key)
 
