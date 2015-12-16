@@ -1895,7 +1895,7 @@ class Set(Query):
         super(Set, self).__init__()
         if 'op' in kw:
             self._sql = kw['op']
-        self._all = kw.get('all', False)
+        self._all = kw.get('all', False)  # Use All() instead?
         self._exprs = ExprList()
         for expr in exprs:
             self.add(expr)
