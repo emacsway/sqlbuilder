@@ -185,7 +185,7 @@ class Compiler(object):
         inner_precedence = self.get_inner_precedence(expr)
         if inner_precedence is None:
             # pass current precedence
-            # FieldList, ExprList?
+            # FieldList, ExprList, All, Distinct...?
             inner_precedence = outer_precedence
         state.precedence = inner_precedence
         if inner_precedence < outer_precedence:
@@ -440,6 +440,9 @@ class Comparable(object):
 
     def __invert__(self):
         return Not(self)
+
+    def all(self):
+        return All(self)
 
     def distinct(self):
         return Distinct(self)
@@ -899,6 +902,11 @@ class NamedPrefix(Prefix):
 class Not(NamedPrefix):
     __slots__ = ()
     _sql = 'NOT'
+
+
+class All(NamedPrefix):
+    __slots__ = ()
+    _sql = 'All'
 
 
 class Distinct(NamedPrefix):
@@ -2056,6 +2064,7 @@ compile.set_precedence(40, Or, 'OR')
 compile.set_precedence(30, Set, Union, Intersect, Except)
 compile.set_precedence(20, Query, SelectCount, Raw, Insert, Update, Delete)
 compile.set_precedence(10, Expr)
+compile.set_precedence(None, All, Distinct)
 
 A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
