@@ -1,4 +1,4 @@
-from .. import compile as parent_compile, SPACE, Name, Condition
+from .. import compile as parent_compile, SPACE, Name, Binary
 
 compile = parent_compile.create_child()
 
@@ -21,7 +21,7 @@ def compile_name(compile, expr, state):
     state.sql.append('`')
 
 
-@compile.when(Condition)
+@compile.when(Binary)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)

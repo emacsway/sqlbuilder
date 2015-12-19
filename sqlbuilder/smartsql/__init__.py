@@ -467,10 +467,10 @@ class Comparable(object):
         return Concat(self, *args).ws(sep)
 
     def op(self, op):
-        return lambda other: Condition(self, op, other)
+        return lambda other: Binary(self, op, other)
 
     def rop(self, op):  # useless, can be P('lookingfor').op('=')(expr)
-        return lambda other: Condition(other, op, self)
+        return lambda other: Binary(other, op, self)
 
     def asc(self):
         return Asc(self)
@@ -564,7 +564,7 @@ def compile_compositeexpr(compile, expr, state):
     state.pop()
 
 
-class Condition(Expr):
+class Binary(Expr):
     __slots__ = ('_left', '_right')
 
     def __init__(self, left, op, right):
@@ -572,8 +572,10 @@ class Condition(Expr):
         self._sql = op.upper()
         self._right = right
 
+Condition = Binary
 
-@compile.when(Condition)
+
+@compile.when(Binary)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
@@ -582,7 +584,7 @@ def compile_condition(compile, expr, state):
     compile(expr._right, state)
 
 
-class NamedCondition(Condition):
+class NamedBinary(Binary):
     __slots__ = ()
 
     def __init__(self, left, right):
@@ -591,92 +593,94 @@ class NamedCondition(Condition):
         self._left = left
         self._right = right
 
+NamedCondition = NamedBinary
 
-class Add(NamedCondition):
+
+class Add(NamedBinary):
     _sql = '+'
 
 
-class Sub(NamedCondition):
+class Sub(NamedBinary):
     __slots__ = ()
     _sql = '-'
 
 
-class Mul(NamedCondition):
+class Mul(NamedBinary):
     __slots__ = ()
     _sql = '*'
 
 
-class Div(NamedCondition):
+class Div(NamedBinary):
     __slots__ = ()
     _sql = '/'
 
 
-class Gt(NamedCondition):
+class Gt(NamedBinary):
     __slots__ = ()
     _sql = '>'
 
 
-class Lt(NamedCondition):
+class Lt(NamedBinary):
     __slots__ = ()
     _sql = '<'
 
 
-class Ge(NamedCondition):
+class Ge(NamedBinary):
     __slots__ = ()
     _sql = '>='
 
 
-class Le(NamedCondition):
+class Le(NamedBinary):
     __slots__ = ()
     _sql = '<='
 
 
-class And(NamedCondition):
+class And(NamedBinary):
     __slots__ = ()
     _sql = 'AND'
 
 
-class Or(NamedCondition):
+class Or(NamedBinary):
     __slots__ = ()
     _sql = 'OR'
 
 
-class Eq(NamedCondition):
+class Eq(NamedBinary):
     __slots__ = ()
     _sql = '='
 
 
-class Ne(NamedCondition):
+class Ne(NamedBinary):
     __slots__ = ()
     _sql = '<>'
 
 
-class Is(NamedCondition):
+class Is(NamedBinary):
     __slots__ = ()
     _sql = 'IS'
 
 
-class IsNot(NamedCondition):
+class IsNot(NamedBinary):
     __slots__ = ()
     _sql = 'IS NOT'
 
 
-class In(NamedCondition):
+class In(NamedBinary):
     __slots__ = ()
     _sql = 'IN'
 
 
-class NotIn(NamedCondition):
+class NotIn(NamedBinary):
     __slots__ = ()
     _sql = 'NOT IN'
 
 
-class RShift(NamedCondition):
+class RShift(NamedBinary):
     __slots__ = ()
     _sql = ">>"
 
 
-class LShift(NamedCondition):
+class LShift(NamedBinary):
     __slots__ = ()
     _sql = "<<"
 
@@ -702,7 +706,7 @@ def compile_escapeforlike(compile, expr, state):
     compile(escaped, state)
 
 
-class Like(NamedCondition):
+class Like(NamedBinary):
     __slots__ = ('_escape',)
     _sql = 'LIKE'
 
@@ -2040,12 +2044,13 @@ def warn(old, new, stacklevel=3):
 compile.set_precedence(270, '.')
 compile.set_precedence(260, '::')
 compile.set_precedence(250, '[', ']')  # array element selection
-compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'))  # unary minus
+compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'), '~')  # unary minus
 compile.set_precedence(230, '^')
 compile.set_precedence(220, Mul, Div, '*', '/', '%')
-compile.set_precedence(210, Add, Sub, (Condition, '+'), (Condition, '-'))
+compile.set_precedence(210, Add, Sub, (Binary, '+'), (Binary, '-'))
 compile.set_precedence(200, LShift, RShift, '<<', '>>')
 compile.set_precedence(190, '&')
+compile.set_precedence(185, '#')
 compile.set_precedence(180, '|')
 compile.set_precedence(170, Is, 'IS')
 compile.set_precedence(160, 'ISNULL')

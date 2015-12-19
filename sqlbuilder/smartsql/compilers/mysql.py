@@ -1,4 +1,4 @@
-from .. import compile as parent_compile, SPACE, Name, Value, Concat, Condition
+from .. import compile as parent_compile, SPACE, Name, Value, Concat, Binary
 
 try:
     str = unicode  # Python 2.* compatible
@@ -31,7 +31,7 @@ def compile_value(compile, expr, state):
     state.sql.append("'")
 
 
-@compile.when(Condition)
+@compile.when(Binary)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
