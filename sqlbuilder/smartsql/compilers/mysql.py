@@ -1,4 +1,7 @@
-from .. import compile as parent_compile, SPACE, Name, Value, ValueCompiler as ValueCompilerOrig, Concat, Binary
+from .. import (
+    compile as parent_compile, SPACE, Name, NameCompiler,
+    Value, ValueCompiler, Concat, Binary
+)
 
 try:
     str = unicode  # Python 2.* compatible
@@ -16,19 +19,10 @@ TRANSLATION_MAP = {
     'ILIKE': 'LIKE',
 }
 
+compile_name = NameCompiler(delimeter='`', escape_delimeter='`')
+compile.when(Name)(compile_name)
 
-@compile.when(Name)
-def compile_name(compile, expr, state):
-    state.sql.append('`')
-    state.sql.append(expr._name)
-    state.sql.append('`')
-
-
-class ValueCompiler(ValueCompilerOrig):
-
-    _translation_map = (("'", "\\'"),) + ValueCompilerOrig._translation_map[1:]
-
-compile_value = ValueCompiler()
+compile_value = ValueCompiler(escape_delimeter="\\")
 compile.when(Value)(compile_value)
 
 

@@ -2003,11 +2003,35 @@ class Name(object):
         self._name = name
 
 
-@compile.when(Name)
-def compile_name(compile, expr, state):
-    state.sql.append('"')
-    state.sql.append(expr._name)
-    state.sql.append('"')
+class NameCompiler(object):
+
+    _translation_map = (
+        ("\\", "\\\\"),
+        ("\000", "\\0"),
+        ('\b', '\\b'),
+        ('\n', '\\n'),
+        ('\r', '\\r'),
+        ('\t', '\\t'),
+        ("%", "%%")
+    )
+    _delimeter = '"'
+    _escape_delimeter = '"'
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, '_{}'.format(k), v)
+
+    def __call__(self, compile, expr, state):
+        state.sql.append(self._delimeter)
+        name = expr._name
+        name = name.replace(self._delimeter, self._escape_delimeter + self._delimeter)
+        for k, v in self._translation_map:
+            name = name.replace(k, v)
+        state.sql.append(name)
+        state.sql.append(self._delimeter)
+
+compile_name = NameCompiler()
+compile.when(Name)(compile_name)
 
 
 class Value(object):
@@ -2021,7 +2045,6 @@ class Value(object):
 class ValueCompiler(object):
 
     _translation_map = (
-        ("'", "''"),
         ("\\", "\\\\"),
         ("\000", "\\0"),
         ('\b', '\\b'),
@@ -2030,14 +2053,21 @@ class ValueCompiler(object):
         ('\t', '\\t'),
         ("%", "%%")
     )
+    _delimeter = "'"
+    _escape_delimeter = "'"
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, '_{}'.format(k), v)
 
     def __call__(self, compile, expr, state):
-        state.sql.append("'")
+        state.sql.append(self._delimeter)
         value = str(expr._value)
+        value = value.replace(self._delimeter, self._escape_delimeter + self._delimeter)
         for k, v in self._translation_map:
             value = value.replace(k, v)
         state.sql.append(value)
-        state.sql.append("'")
+        state.sql.append(self._delimeter)
 
 compile_value = ValueCompiler()
 compile.when(Value)(compile_value)

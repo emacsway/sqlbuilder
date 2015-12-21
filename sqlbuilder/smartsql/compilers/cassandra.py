@@ -1,5 +1,4 @@
-from .. import compile as parent_compile, Name, Field, Value
-from .mysql import compile_value
+from .. import compile as parent_compile, Name, Field, Value, ValueCompiler
 
 try:
     str = unicode  # Python 2.* compatible
@@ -21,4 +20,5 @@ def compile_field(compile, expr, state):
         compile(Name(expr._name), state)
 
 
+compile_value = ValueCompiler(escape_delimeter="\\")
 compile.when(Value)(compile_value)

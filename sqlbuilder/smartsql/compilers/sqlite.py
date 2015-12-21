@@ -1,4 +1,4 @@
-from .. import compile as parent_compile, SPACE, Name, Binary
+from .. import compile as parent_compile, SPACE, Name, NameCompiler, Binary
 
 compile = parent_compile.create_child()
 
@@ -14,11 +14,8 @@ def compile_object(compile, expr, state):
     state.params.append(expr)
 
 
-@compile.when(Name)
-def compile_name(compile, expr, state):
-    state.sql.append('`')
-    state.sql.append(expr._name)
-    state.sql.append('`')
+compile_name = NameCompiler(delimeter='`', escape_delimeter='`')
+compile.when(Name)(compile_name)
 
 
 @compile.when(Binary)
