@@ -2031,10 +2031,14 @@ class NameCompiler(object):
         name = name.replace(self._delimeter, self._escape_delimeter + self._delimeter)
         for k, v in self._translation_map:
             name = name.replace(k, v)
-        if len(name) > self._max_length:
+        if len(name) > self._get_max_length(state):
             raise self.MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
         state.sql.append(name)
         state.sql.append(self._delimeter)
+
+    def _get_max_length(self, state):
+        # Max length can depend on context.
+        return self._max_length
 
 compile_name = NameCompiler()
 compile.when(Name)(compile_name)
