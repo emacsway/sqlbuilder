@@ -1,4 +1,4 @@
-from .. import compile as parent_compile, SPACE, Name, Value, Concat, Binary
+from .. import compile as parent_compile, SPACE, Name, Value, ValueCompiler as ValueCompilerOrig, Concat, Binary
 
 try:
     str = unicode  # Python 2.* compatible
@@ -24,11 +24,12 @@ def compile_name(compile, expr, state):
     state.sql.append('`')
 
 
-@compile.when(Value)
-def compile_value(compile, expr, state):
-    state.sql.append("'")
-    state.sql.append(str(expr._value).replace('%', '%%').replace("'", "\\'"))
-    state.sql.append("'")
+class ValueCompiler(ValueCompilerOrig):
+
+    _translation_map = (("'", "\\'"),) + ValueCompilerOrig._translation_map[1:]
+
+compile_value = ValueCompiler()
+compile.when(Value)(compile_value)
 
 
 @compile.when(Binary)

@@ -2018,11 +2018,29 @@ class Value(object):
         self._value = value
 
 
-@compile.when(Value)
-def compile_value(compile, expr, state):
-    state.sql.append("'")
-    state.sql.append(str(expr._value).replace('%', '%%').replace("'", "''"))
-    state.sql.append("'")
+class ValueCompiler(object):
+
+    _translation_map = (
+        ("'", "''"),
+        ("\\", "\\\\"),
+        ("\000", "\\0"),
+        ('\b', '\\b'),
+        ('\n', '\\n'),
+        ('\r', '\\r'),
+        ('\t', '\\t'),
+        ("%", "%%")
+    )
+
+    def __call__(self, compile, expr, state):
+        state.sql.append("'")
+        value = str(expr._value)
+        for k, v in self._translation_map:
+            value = value.replace(k, v)
+        state.sql.append(value)
+        state.sql.append("'")
+
+compile_value = ValueCompiler()
+compile.when(Value)(compile_value)
 
 
 def is_list(v):
