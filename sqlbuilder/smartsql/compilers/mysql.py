@@ -19,7 +19,7 @@ TRANSLATION_MAP = {
     'ILIKE': 'LIKE',
 }
 
-compile_name = NameCompiler(delimeter='`', escape_delimeter='`')
+compile_name = NameCompiler(delimeter='`', escape_delimeter='`', max_length=64)
 compile.when(Name)(compile_name)
 
 compile_value = ValueCompiler(escape_delimeter="\\")
