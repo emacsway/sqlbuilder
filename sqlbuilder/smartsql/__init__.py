@@ -270,6 +270,17 @@ def compile_list(compile, expr, state):
     compile(Parentheses(ExprList(*expr).join(", ")), state)
 
 
+@compile.when(slice)
+def compile_slice(compile, expr, state):
+    # FIXME: Should be here numrange()? Looks like not, see http://initd.org/psycopg/docs/extras.html#adapt-range
+    state.sql.append("[")
+    state.sql.append("{0:d}".format(expr.start))
+    if expr.stop is not None:
+        state.sql.append(", ")
+        state.sql.append("{0:d}".format(expr.stop))
+    state.sql.append("]")
+
+
 class Error(Exception):
     pass
 
@@ -480,11 +491,15 @@ class Comparable(object):
 
     def __getitem__(self, key):
         """Returns self.between()"""
+        # TODO: return ArrayItem(key)
+        # TODO: resolve name conflict with Query.__getitem__(). Query can returns a single array.
         if isinstance(key, slice):
+            # warn('__getitem__(slice(...))', 'between(start, end)')
             start = key.start or 0
             end = key.stop or sys.maxsize
             return Between(self, start, end)
         else:
+            # warn('__getitem__(key)', '__eq__(key)')
             return self.__eq__(key)
 
     __hash__ = object.__hash__
@@ -828,6 +843,20 @@ class Concat(ExprList):
         return self
 
 
+class Array(ExprList):
+    __slots__ = ()
+
+    def __init__(self, *args):
+        self._sql, self.data = ", ", list(args)
+
+
+@compile.when(Array)
+def compile_array(compile, expr, state):
+    if not expr.data:
+        state.sql.append("'{}'")
+    state.sql.append("ARRAY[{0}]".format(compile_exprlist(compile, expr, state)))
+
+
 @compile.when(Concat)
 def compile_concat(compile, expr, state):
     if not expr._ws:
@@ -1142,6 +1171,46 @@ def compile_field(compile, expr, state):
         state.sql.append(expr._name)
     else:
         compile(Name(expr._name), state)
+
+
+class Subfield(Expr):
+
+    __slots__ = ('_parent', '_name')
+
+    def __init__(self, parent, name):
+        self._parent = parent
+        self._name = name
+
+
+@compile.when(Subfield)
+def compile_subfield(compile, expr, state):
+    parent = expr._parent
+    if True:  # get me from context
+        parent = Parentheses(parent)
+    compile(parent)
+    state.sql.append('.')
+    compile(Name(expr._name), state)
+
+
+class ArrayItem(Expr):
+
+    __slots__ = ('_array', '_key')
+
+    def __init__(self, array, key):
+        self._array = array
+        assert isinstance(key, slice)
+        self._key = key
+
+
+@compile.when(ArrayItem)
+def compile_arrayitem(compile, expr, state):
+    compile(expr._array)
+    state.sql.append("[")
+    state.sql.append("{0:d}".format(expr.start))
+    if expr.stop is not None:
+        state.sql.append(", ")
+        state.sql.append("{0:d}".format(expr.stop))
+    state.sql.append("]")
 
 
 class Alias(Expr):
