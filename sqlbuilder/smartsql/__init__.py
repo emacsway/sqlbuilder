@@ -491,15 +491,17 @@ class Comparable(object):
 
     def __getitem__(self, key):
         """Returns self.between()"""
-        # TODO: return ArrayItem(key)
-        # TODO: resolve name conflict with Query.__getitem__(). Query can returns a single array.
+        # Is it should return ArrayItem(key) or Subfield(self, key)?
+        # Ambiguity with Query and ExprList!!!
+        # Name conflict with Query.__getitem__(). Query can returns a single array.
+        # We also may want to apply Between() or Eq() to subquery.
         if isinstance(key, slice):
-            # warn('__getitem__(slice(...))', 'between(start, end)')
+            warn('__getitem__(slice(...))', 'between(start, end)')
             start = key.start or 0
             end = key.stop or sys.maxsize
             return Between(self, start, end)
         else:
-            # warn('__getitem__(key)', '__eq__(key)')
+            warn('__getitem__(key)', '__eq__(key)')
             return self.__eq__(key)
 
     __hash__ = object.__hash__
@@ -1294,6 +1296,11 @@ class FieldProxy(object):
 
     __call__ = __getattr__
     __getitem__ = __getattr__
+
+# TODO: Schema support. Not only for table.
+# A database contains one or more named schemas, which in turn contain tables. Schemas also contain other kinds of named objects, including data types, functions, and operators.
+# http://www.postgresql.org/docs/9.4/static/ddl-schemas.html
+# Ideas: S.public(T.user), S('public', T.user)
 
 
 @cr
