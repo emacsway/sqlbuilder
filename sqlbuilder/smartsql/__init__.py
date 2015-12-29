@@ -1394,6 +1394,8 @@ class TableJoin(object):
 
     __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using')
 
+    # TODO: support for ONLY http://www.postgresql.org/docs/9.4/static/tutorial-inheritance.html
+
     def __init__(self, table_or_alias, join_type=None, on=None, left=None):
         self._table = table_or_alias
         self._join_type = join_type
