@@ -1151,7 +1151,8 @@ class MetaField(type):
 
 
 class Field(MetaField("NewBase", (Expr,), {})):
-
+    # It's a field, not column, because prefix can be alias of subquery.
+    # It also can be a field of composite column.
     __slots__ = ('_name', '_prefix', '__cached__')
 
     def __init__(self, name, prefix=None):
