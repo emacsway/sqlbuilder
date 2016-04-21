@@ -1156,6 +1156,11 @@ class Field(MetaField("NewBase", (Expr,), {})):
     __slots__ = ('_name', '_prefix', '__cached__')
 
     def __init__(self, name, prefix=None):
+        if isinstance(name, string_types):
+            if name == '*':
+                name = Constant(name)
+            else:
+                name = Name(name)
         self._name = name
         if isinstance(prefix, string_types):
             prefix = Table(prefix)
@@ -1170,10 +1175,7 @@ def compile_field(compile, expr, state):
         state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
         compile(expr._prefix, state)
         state.sql.append('.')
-    if expr._name == '*':
-        state.sql.append(expr._name)
-    else:
-        compile(Name(expr._name), state)
+    compile(expr._name, state)
 
 
 class Subfield(Expr):
@@ -1182,6 +1184,8 @@ class Subfield(Expr):
 
     def __init__(self, parent, name):
         self._parent = parent
+        if isinstance(name, string_types):
+            name = Name(name)
         self._name = name
 
 
@@ -1192,7 +1196,7 @@ def compile_subfield(compile, expr, state):
         parent = Parentheses(parent)
     compile(parent)
     state.sql.append('.')
-    compile(Name(expr._name), state)
+    compile(expr._name, state)
 
 
 class ArrayItem(Expr):
@@ -1222,6 +1226,8 @@ class Alias(Expr):
 
     def __init__(self, alias, expr=None):
         self._expr = expr
+        if isinstance(alias, string_types):
+            alias = Name(alias)
         super(Alias, self).__init__(alias)
 
 
@@ -1236,7 +1242,7 @@ def compile_alias(compile, expr, state):
         if render_column:
             compile(expr._expr, state)
             state.sql.append(' AS ')
-    compile(Name(expr._sql), state)
+    compile(expr._sql, state)
 
 
 class MetaTableSpace(type):
@@ -1315,6 +1321,8 @@ class Table(MetaTable("NewBase", (object, ), {})):
     __slots__ = ('_name', '__cached__', 'f')
 
     def __init__(self, name):
+        if isinstance(name, string_types):
+            name = Name(name)
         self._name = name
         self.__cached__ = {}
         self.f = FieldProxy(self)
@@ -1357,7 +1365,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
 
 @compile.when(Table)
 def compile_table(compile, expr, state):
-    compile(Name(expr._name), state)
+    compile(expr._name, state)
 
 
 @cr
@@ -1366,8 +1374,10 @@ class TableAlias(Table):
     __slots__ = ('_table', '_alias', 'fields')
 
     def __init__(self, alias, table=None):
-        self._table = table
+        if isinstance(alias, string_types):
+            alias = Name(alias)
         self._alias = alias
+        self._table = table
         self.__cached__ = {}
         self.f = FieldProxy(self)
 
@@ -1387,7 +1397,7 @@ def compile_tablealias(compile, expr, state):
         if render_table:
             compile(expr._table, state)
             state.sql.append(' AS ')
-    compile(Name(expr._alias), state)
+    compile(expr._alias, state)
 
 
 @cr
@@ -2183,7 +2193,7 @@ compile.set_precedence(260, '::')
 compile.set_precedence(250, '[', ']')  # array element selection
 compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'), '~')  # unary minus
 compile.set_precedence(230, '^')
-compile.set_precedence(220, Mul, Div, '*', '/', '%')
+compile.set_precedence(220, Mul, Div, (Binary, '*'), (Binary, '/'), (Binary, '%'))
 compile.set_precedence(210, Add, Sub, (Binary, '+'), (Binary, '-'))
 compile.set_precedence(200, LShift, RShift, '<<', '>>')
 compile.set_precedence(190, '&')
