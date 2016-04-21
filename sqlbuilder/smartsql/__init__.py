@@ -1901,8 +1901,12 @@ def compile_insert(compile, expr, state):
     compile(expr._table, state)
     state.sql.append(SPACE)
     compile(Parentheses(expr._fields), state)
-    state.sql.append(" VALUES ")
-    compile(ExprList(*expr._values).join(', '), state)
+    if isinstance(expr._values, Query):
+        state.sql.append(SPACE)
+        compile(expr._values, state)
+    else:
+        state.sql.append(" VALUES ")
+        compile(ExprList(*expr._values).join(', '), state)
     if expr._on_duplicate_key_update:
         state.sql.append(" ON DUPLICATE KEY UPDATE ")
         first = True

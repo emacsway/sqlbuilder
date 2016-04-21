@@ -807,9 +807,9 @@ class TestQuery(TestCase):
                 (T.stats.object_id, 15),
                 (T.stats.counter, 1),
             )), on_duplicate_key_update=OrderedDict((
-                (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+                (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
             ))),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q(T.stats).insert(OrderedDict((
@@ -817,9 +817,9 @@ class TestQuery(TestCase):
                 ('object_id', 15),
                 ('counter', 1),
             )), on_duplicate_key_update=OrderedDict((
-                ('counter', T.stats.counter + func.VALUES(T.stats.couner)),
+                ('counter', T.stats.counter + func.VALUES(T.stats.counter)),
             ))),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -827,10 +827,10 @@ class TestQuery(TestCase):
             ).tables(T.stats).insert(
                 values=('author', 15, 1),
                 on_duplicate_key_update=OrderedDict((
-                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
                 ))
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -841,10 +841,10 @@ class TestQuery(TestCase):
                     ('author', 16, 1),
                 ),
                 on_duplicate_key_update=OrderedDict((
-                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.couner)),
+                    (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
                 ))
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."couner")', ['author', 15, 1, 'author', 16, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -854,6 +854,21 @@ class TestQuery(TestCase):
                 ignore=True
             ),
             ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
+        )
+
+    def test_insert_select(self):
+        self.assertEqual(
+            Q().fields(
+                T.stats.object_type, T.stats.object_id, T.stats.counter
+            ).tables(T.stats).insert(
+                values=Q().fields(
+                    T.old_stats.object_type, T.old_stats.object_id, T.old_stats.counter
+                ).tables(T.old_stats),
+                on_duplicate_key_update=OrderedDict((
+                    (T.stats.counter, T.stats.counter + T.old_stats.counter),
+                ))
+            ),
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + "old_stats"."counter"', [])
         )
 
     def test_update(self):
