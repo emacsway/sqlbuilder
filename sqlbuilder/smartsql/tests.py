@@ -6,11 +6,11 @@ from collections import OrderedDict
 
 from sqlbuilder.smartsql import (
     PLACEHOLDER, Q, T, Table, TA, F, Field, A, E, P, Not, func, const, CompositeExpr,
-    FieldList, ExprList, Result, TableJoin, compile
+    Case, FieldList, ExprList, Result, TableJoin, compile
 )
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
-__all__ = ('TestTable', 'TestField', 'TestExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
+__all__ = ('TestTable', 'TestField', 'TestExpr', 'TestCaseExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
 
 
 class TestCase(unittest.TestCase):
@@ -488,6 +488,54 @@ class TestExpr(TestCase):
         self.assertEqual(
             compile((T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))),
             ('"author"."first_name" <> %s OR "author"."last_name" IN (%s, %s)', ['Tom', 'Smith', 'Johnson'])
+        )
+
+
+class TestCaseExpr(TestCase):
+
+    def test_case(self):
+        self.assertEqual(
+            compile(Case([
+                (F.a == 1, 'one'),
+                (F.b == 2, 'two'),
+            ])),
+            ('CASE WHEN ("a" = %s) THEN %s WHEN ("b" = %s) THEN %s END ', [1, 'one', 2, 'two'])
+        )
+
+    def test_case_with_default(self):
+        self.assertEqual(
+            compile(Case([
+                (F.a == 1, 'one'),
+                (F.b == 2, 'two'),
+            ], default='other')),
+            ('CASE WHEN ("a" = %s) THEN %s WHEN ("b" = %s) THEN %s ELSE %s END ', [1, 'one', 2, 'two', 'other'])
+        )
+
+    def test_case_with_expr(self):
+        self.assertEqual(
+            compile(Case([
+                (1, 'one'),
+                (2, 'two'),
+            ], F.a)),
+            ('CASE "a" WHEN %s THEN %s WHEN %s THEN %s END ', [1, 'one', 2, 'two'])
+        )
+
+    def test_case_with_expr_and_default(self):
+        self.assertEqual(
+            compile(Case([
+                (1, 'one'),
+                (2, 'two'),
+            ], F.a, 'other')),
+            ('CASE "a" WHEN %s THEN %s WHEN %s THEN %s ELSE %s END ', [1, 'one', 2, 'two', 'other'])
+        )
+
+    def test_case_in_query(self):
+        self.assertEqual(
+            compile(Q().tables(T.t1).fields('*').where(F.c == Case([
+                (F.a == 1, 'one'),
+                (F.b == 2, 'two'),
+            ], default='other'))),
+            ('SELECT * FROM "t1" WHERE "c" = CASE WHEN ("a" = %s) THEN %s WHEN ("b" = %s) THEN %s ELSE %s END ', [1, 'one', 2, 'two', 'other'])
         )
 
 

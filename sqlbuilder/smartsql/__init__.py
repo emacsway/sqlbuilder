@@ -1058,22 +1058,19 @@ class Case(Expr):
 
 @compile.when(Case)
 def compile_case(compile, expr, state):
-    cases = [
-        "WHEN %s THEN %s" % (
-            compile(condition, state), compile(value, state))
-        for condition, value in expr._cases]
-
+    state.sql.append('CASE')
     if expr._expr is not Undef:
-        expression = compile(expr._expr, state) + " "
-    else:
-        expression = ""
-
+        state.sql.append(SPACE)
+        compile(expr._expr, state)
+    for clouse, value in expr._cases:
+        state.sql.append(' WHEN ')
+        compile(clouse, state)
+        state.sql.append(' THEN ')
+        compile(value, state)
     if expr._default is not Undef:
-        default = " ELSE %s" % compile(expr._default, state)
-    else:
-        default = ""
-
-    state.sql.append("CASE %s%s%s END" % (expression, " ".join(cases), default))
+        state.sql.append(' ELSE ')
+        compile(expr._default, state)
+    state.sql.append(' END ')
 
 
 class Callable(Expr):
