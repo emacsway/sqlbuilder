@@ -613,7 +613,15 @@ class NamedBinary(Binary):
 NamedCondition = NamedBinary
 
 
-class Add(NamedBinary):
+class NamedCompound(NamedBinary):
+    __slots__ = ()
+
+    def __init__(self, *exprs):
+        self._left = reduce(self.__class__, exprs[:-1])
+        self._right = exprs[-1]
+
+
+class Add(NamedCompound):
     _sql = '+'
 
 
@@ -622,7 +630,7 @@ class Sub(NamedBinary):
     _sql = '-'
 
 
-class Mul(NamedBinary):
+class Mul(NamedCompound):
     __slots__ = ()
     _sql = '*'
 
@@ -652,12 +660,12 @@ class Le(NamedBinary):
     _sql = '<='
 
 
-class And(NamedBinary):
+class And(NamedCompound):
     __slots__ = ()
     _sql = 'AND'
 
 
-class Or(NamedBinary):
+class Or(NamedCompound):
     __slots__ = ()
     _sql = 'OR'
 
