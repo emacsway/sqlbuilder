@@ -7,7 +7,7 @@ from django.db.models import Model
 
 from .. import smartsql
 from ..smartsql.compilers import mysql
-from ..smartsql.compilers import sqlite
+from .compilers import sqlite
 from .signals import field_conversion
 
 try:

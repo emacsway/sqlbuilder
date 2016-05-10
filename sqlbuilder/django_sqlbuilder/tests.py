@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
+from django.conf import settings
 from django.db import models
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from sqlbuilder.smartsql import Table, TableAlias, Field, Query, compile
 from sqlbuilder.smartsql.tests import *
 from sqlbuilder.mini.tests import *
@@ -62,6 +63,7 @@ class TestDjangoSqlbuilder(TestCase):
             ('"book_alias"."author_id"', [])
         )
 
+    @override_settings(DEBUG=True)
     def test_query(self):
         author, book = self._create_objects()
         self.assertIsInstance(Book.s.q, Query)
