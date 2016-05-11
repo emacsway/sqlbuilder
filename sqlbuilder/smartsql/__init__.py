@@ -36,44 +36,6 @@ def same(name):
     return f
 
 
-class ClassRegistry(object):
-    """Minimalistic factory.
-
-    See more info about IoC: http://www.martinfowler.com/articles/injection.html
-    """
-
-    def __init__(self):
-        self._data = dict()
-
-    def __call__(self, name_or_callable):
-        name = name_or_callable if isinstance(name_or_callable, string_types) else name_or_callable.__name__
-
-        def deco(callable_obj):
-            if isinstance(callable_obj, type):
-                callable_obj._cr = self  # Set default factory if it's a class
-
-            def wraped_obj(*a, **kw):
-                instance = callable_obj(*a, **kw)
-                instance._cr = self
-                return instance
-
-            self._data[name] = wraped_obj
-            setattr(self, name, wraped_obj)
-            return callable_obj
-
-        return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
-
-    def __copy__(self):
-        c = self.__class__()
-        c._data = self._data.copy()
-        return c
-
-    def __getattr__(self, key):
-        return self._data[key]
-
-cr = ClassRegistry()
-
-
 class State(object):
 
     def __init__(self):
@@ -1223,18 +1185,17 @@ class MetaTableSpace(type):
         return issubclass(subclass, Table)
 
     def __getattr__(cls, key):
-        if key in ('_cr',) or key.startswith('__'):
+        if key.startswith('__'):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = cls._cr.Table(name)
+        table = Table(name)
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
-        return cls._cr.Table(name, *a, **kw)
+        return Table(name, *a, **kw)
 
 
-@cr
 class T(MetaTableSpace("NewBase", (object, ), {})):
     pass
 
@@ -1244,7 +1205,7 @@ class MetaTable(type):
     def __new__(cls, name, bases, attrs):
         if bases[0] is object:
             def _f(attr):
-                return lambda self, *a, **kw: getattr(self._cr.TableJoin(self), attr)(*a, **kw)
+                return lambda self, *a, **kw: getattr(TableJoin(self), attr)(*a, **kw)
 
             for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
                       'join', 'on', 'hint', 'natural', 'using']:
@@ -1279,7 +1240,6 @@ class FieldProxy(object):
 # Ideas: S.public(T.user), S('public', T.user)
 
 
-@cr
 class Table(MetaTable("NewBase", (object, ), {})):
     # Variants:
     # tb.as_ => Field(); tb().as_ => instancemethod() ???
@@ -1297,7 +1257,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         self.f = FieldProxy(self)
 
     def as_(self, alias):
-        return self._cr.TableAlias(alias, self)
+        return TableAlias(alias, self)
 
     def __getattr__(self, key):
         if key[0] == '__':
@@ -1337,7 +1297,6 @@ def compile_table(compile, expr, state):
     compile(expr._name, state)
 
 
-@cr
 class TableAlias(Table):
 
     __slots__ = ('_table', '_alias', 'fields')
@@ -1369,7 +1328,6 @@ def compile_tablealias(compile, expr, state):
     compile(expr._alias, state)
 
 
-@cr
 class TableJoin(object):
 
     __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using')
@@ -1523,7 +1481,6 @@ class Result(object):
     __copy__ = clone
 
 
-@cr
 class Query(Expr):
     # Without methods like insert, delete, update etc. it will be named Select.
 
@@ -1543,7 +1500,7 @@ class Query(Expr):
         self._fields = FieldList().join(", ")
         if tables is not None:
             if not isinstance(tables, TableJoin):
-                tables = self._cr.TableJoin(tables)
+                tables = TableJoin(tables)
         self._tables = tables
         self._wheres = None
         self._havings = None
@@ -1571,7 +1528,7 @@ class Query(Expr):
         if tables is None:
             return self._tables
         self = self.clone('_tables')
-        self._tables = tables if isinstance(tables, TableJoin) else self._cr.TableJoin(tables)
+        self._tables = tables if isinstance(tables, TableJoin) else TableJoin(tables)
         return self
 
     @opt_checker(["reset", ])
@@ -1700,7 +1657,7 @@ class Query(Expr):
     def insert(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(self._cr.Insert(map=key_values, **kw)).insert()
+        return self.result(Insert(map=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         # Deprecated
@@ -1712,23 +1669,23 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Update(map=key_values, **kw)).update()
+        return self.result(Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(self._cr.Delete(**kw)).delete()
+        return self.result(Delete(**kw)).delete()
 
     def as_table(self, alias):
-        return self._cr.TableAlias(alias, self)
+        return TableAlias(alias, self)
 
     def as_set(self, all=False):
-        return self._cr.Set(self, all=all, result=self.result)
+        return Set(self, all=all, result=self.result)
 
     def raw(self, sql, params=()):
-        return self._cr.Raw(sql, params, result=self.result)
+        return Raw(sql, params, result=self.result)
 
     def result_wraps(self, name, *args, **kwargs):
         """Wrapper to call implementation method."""
@@ -1816,7 +1773,6 @@ def compile_query(compile, expr, state):
     state.pop()
 
 
-@cr
 class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
@@ -1824,7 +1780,6 @@ class SelectCount(Query):
         self._fields.append(Constant('COUNT')(Constant('1')).as_(field_alias))
 
 
-@cr
 class Raw(Query):
 
     def __init__(self, sql, params, result=None):
@@ -1847,7 +1802,6 @@ class Modify(object):
     pass
 
 
-@cr
 class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
@@ -1889,7 +1843,6 @@ def compile_insert(compile, expr, state):
             compile(v, state)
 
 
-@cr
 class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
@@ -1929,7 +1882,6 @@ def compile_update(compile, expr, state):
         compile(expr._limit, state)
 
 
-@cr
 class Delete(Modify):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
@@ -1954,7 +1906,6 @@ def compile_delete(compile, expr, state):
         compile(expr._limit, state)
 
 
-@cr
 class Set(Query):
 
     def __init__(self, *exprs, **kw):
@@ -1998,13 +1949,13 @@ class Set(Query):
         return c
 
     def __or__(self, other):
-        return self._op(self._cr.Union, other)
+        return self._op(Union, other)
 
     def __and__(self, other):
-        return self._op(self._cr.Intersect, other)
+        return self._op(Intersect, other)
 
     def __sub__(self, other):
-        return self._op(self._cr.Except, other)
+        return self._op(Except, other)
 
     def all(self, all=True):
         self._all = all
@@ -2016,19 +1967,16 @@ class Set(Query):
         return self
 
 
-@cr
 class Union(Set):
     __slots__ = ()
     _sql = 'UNION'
 
 
-@cr
 class Intersect(Set):
     __slots__ = ()
     _sql = 'INTERSECT'
 
 
-@cr
 class Except(Set):
     __slots__ = ()
     _sql = 'EXCEPT'

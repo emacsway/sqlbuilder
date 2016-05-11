@@ -1,5 +1,4 @@
 from __future__ import absolute_import, unicode_literals
-import copy
 import collections
 from django.conf import settings
 from django.db import connections
@@ -26,8 +25,6 @@ SMARTSQL_COMPILERS = {
     'postgresql_psycopg2': smartsql.compile,
     'postgis': smartsql.compile,
 }
-
-cr = copy.copy(smartsql.cr)
 
 
 class classproperty(object):
@@ -105,7 +102,6 @@ class Result(smartsql.Result):
         return self._model.objects.raw(*self.compile(self._query)).using(self._using)
 
 
-@cr
 class Table(smartsql.Table):
     """Table class for Django model"""
 
@@ -171,8 +167,10 @@ class Table(smartsql.Table):
 
         return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
+    def as_(self, alias):
+        return TableAlias(alias, self)
 
-@cr
+
 class TableAlias(smartsql.TableAlias, Table):
     @property
     def _model(self):
@@ -183,7 +181,7 @@ class TableAlias(smartsql.TableAlias, Table):
 def s(cls):
     a = '_{0}'.format(SMARTSQL_ALIAS)
     if a not in cls.__dict__:
-        setattr(cls, a, cr.Table(cls))
+        setattr(cls, a, Table(cls))
     return getattr(cls, a)
 
 setattr(Model, SMARTSQL_ALIAS, s)
