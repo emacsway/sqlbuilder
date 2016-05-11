@@ -36,20 +36,16 @@ def same(name):
     return f
 
 
-class ClassRegistry(object):
-    """Minimalistic factory.
+class Factory(object):
 
-    See more info about IoC: http://www.martinfowler.com/articles/injection.html
-    """
-
-    def __call__(self, name_or_callable):
+    def register(self, name_or_callable):
         name = name_or_callable if isinstance(name_or_callable, string_types) else name_or_callable.__name__
 
         def deco(callable_obj):
 
             def wraped_obj(*a, **kw):
                 instance = callable_obj(*a, **kw)
-                instance._cr = self
+                instance._factory = self
                 return instance
 
             setattr(self, name, wraped_obj)
@@ -57,14 +53,21 @@ class ClassRegistry(object):
 
         return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
 
-    @staticmethod
-    def get(instance):  # To bypass the restriction of __slots__
+    @classmethod
+    def get(cls, instance):  # Hack to bypass the restriction of __slots__
         try:
-            return instance._cr
+            return instance._factory
         except AttributeError:
-            return cr
+            return cls.default()
 
-cr = ClassRegistry()
+    @staticmethod
+    def default():
+        cls = Factory
+        if not hasattr(cls, '_default'):
+            cls._default = cls()
+        return cls._default
+
+factory = Factory.default()
 
 
 class State(object):
@@ -1216,18 +1219,18 @@ class MetaTableSpace(type):
         return issubclass(subclass, Table)
 
     def __getattr__(cls, key):
-        if key in ('_cr',) or key.startswith('__'):
+        if key in ('_factory',) or key.startswith('__'):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = cr.Table(name)
+        table = factory.Table(name)
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
-        return cr.Table(name, *a, **kw)
+        return factory.Table(name, *a, **kw)
 
 
-@cr
+@factory.register
 class T(MetaTableSpace("NewBase", (object, ), {})):
     pass
 
@@ -1237,7 +1240,7 @@ class MetaTable(type):
     def __new__(cls, name, bases, attrs):
         if bases[0] is object:
             def _f(attr):
-                return lambda self, *a, **kw: getattr(cr.get(self).TableJoin(self), attr)(*a, **kw)
+                return lambda self, *a, **kw: getattr(Factory.get(self).TableJoin(self), attr)(*a, **kw)
 
             for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
                       'join', 'on', 'hint', 'natural', 'using']:
@@ -1272,7 +1275,7 @@ class FieldProxy(object):
 # Ideas: S.public(T.user), S('public', T.user)
 
 
-@cr
+@factory.register
 class Table(MetaTable("NewBase", (object, ), {})):
     # Variants:
     # tb.as_ => Field(); tb().as_ => instancemethod() ???
@@ -1280,7 +1283,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
     # Add __call__() method to Field/Alias
     # Use sys._getframe(), compiler.visitor.ASTVisitor or tokenize.generate_tokens() to get context for Table.__getattr__()
 
-    __slots__ = ('_name', '__cached__', 'f', '_cr')
+    __slots__ = ('_name', '__cached__', 'f', '_factory')
 
     def __init__(self, name):
         if isinstance(name, string_types):
@@ -1290,7 +1293,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         self.f = FieldProxy(self)
 
     def as_(self, alias):
-        return cr.get(self).TableAlias(alias, self)
+        return Factory.get(self).TableAlias(alias, self)
 
     def __getattr__(self, key):
         if key[0] == '__':
@@ -1330,7 +1333,7 @@ def compile_table(compile, expr, state):
     compile(expr._name, state)
 
 
-@cr
+@factory.register
 class TableAlias(Table):
 
     __slots__ = ('_table', '_alias', 'fields')
@@ -1362,10 +1365,10 @@ def compile_tablealias(compile, expr, state):
     compile(expr._alias, state)
 
 
-@cr
+@factory.register
 class TableJoin(object):
 
-    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '_cr')
+    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '_factory')
 
     # TODO: support for ONLY http://www.postgresql.org/docs/9.4/static/tutorial-inheritance.html
 
@@ -1516,7 +1519,7 @@ class Result(object):
     __copy__ = clone
 
 
-@cr
+@factory.register
 class Query(Expr):
     # Without methods like insert, delete, update etc. it will be named Select.
 
@@ -1536,7 +1539,7 @@ class Query(Expr):
         self._fields = FieldList().join(", ")
         if tables is not None:
             if not isinstance(tables, TableJoin):
-                tables = cr.get(self).TableJoin(tables)
+                tables = Factory.get(self).TableJoin(tables)
         self._tables = tables
         self._wheres = None
         self._havings = None
@@ -1564,7 +1567,7 @@ class Query(Expr):
         if tables is None:
             return self._tables
         self = self.clone('_tables')
-        self._tables = tables if isinstance(tables, TableJoin) else cr.get(self).TableJoin(tables)
+        self._tables = tables if isinstance(tables, TableJoin) else Factory.get(self).TableJoin(tables)
         return self
 
     @opt_checker(["reset", ])
@@ -1693,7 +1696,7 @@ class Query(Expr):
     def insert(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(cr.get(self).Insert(map=key_values, **kw)).insert()
+        return self.result(Factory.get(self).Insert(map=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         # Deprecated
@@ -1705,23 +1708,23 @@ class Query(Expr):
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(cr.get(self).Update(map=key_values, **kw)).update()
+        return self.result(Factory.get(self).Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._wheres)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(cr.get(self).Delete(**kw)).delete()
+        return self.result(Factory.get(self).Delete(**kw)).delete()
 
     def as_table(self, alias):
-        return cr.get(self).TableAlias(alias, self)
+        return Factory.get(self).TableAlias(alias, self)
 
     def as_set(self, all=False):
-        return cr.get(self).Set(self, all=all, result=self.result)
+        return Factory.get(self).Set(self, all=all, result=self.result)
 
     def raw(self, sql, params=()):
-        return cr.get(self).Raw(sql, params, result=self.result)
+        return Factory.get(self).Raw(sql, params, result=self.result)
 
     def result_wraps(self, name, *args, **kwargs):
         """Wrapper to call implementation method."""
@@ -1809,7 +1812,7 @@ def compile_query(compile, expr, state):
     state.pop()
 
 
-@cr
+@factory.register
 class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
@@ -1817,7 +1820,7 @@ class SelectCount(Query):
         self._fields.append(Constant('COUNT')(Constant('1')).as_(field_alias))
 
 
-@cr
+@factory.register
 class Raw(Query):
 
     def __init__(self, sql, params, result=None):
@@ -1840,7 +1843,7 @@ class Modify(object):
     pass
 
 
-@cr
+@factory.register
 class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
@@ -1882,7 +1885,7 @@ def compile_insert(compile, expr, state):
             compile(v, state)
 
 
-@cr
+@factory.register
 class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
@@ -1922,7 +1925,7 @@ def compile_update(compile, expr, state):
         compile(expr._limit, state)
 
 
-@cr
+@factory.register
 class Delete(Modify):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
@@ -1947,7 +1950,7 @@ def compile_delete(compile, expr, state):
         compile(expr._limit, state)
 
 
-@cr
+@factory.register
 class Set(Query):
 
     def __init__(self, *exprs, **kw):
@@ -1991,13 +1994,13 @@ class Set(Query):
         return c
 
     def __or__(self, other):
-        return self._op(cr.get(self).Union, other)
+        return self._op(Factory.get(self).Union, other)
 
     def __and__(self, other):
-        return self._op(cr.get(self).Intersect, other)
+        return self._op(Factory.get(self).Intersect, other)
 
     def __sub__(self, other):
-        return self._op(cr.get(self).Except, other)
+        return self._op(Factory.get(self).Except, other)
 
     def all(self, all=True):
         self._all = all
@@ -2009,19 +2012,19 @@ class Set(Query):
         return self
 
 
-@cr
+@factory.register
 class Union(Set):
     __slots__ = ()
     _sql = 'UNION'
 
 
-@cr
+@factory.register
 class Intersect(Set):
     __slots__ = ()
     _sql = 'INTERSECT'
 
 
-@cr
+@factory.register
 class Except(Set):
     __slots__ = ()
     _sql = 'EXCEPT'

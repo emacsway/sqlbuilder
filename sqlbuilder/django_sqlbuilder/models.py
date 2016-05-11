@@ -27,7 +27,7 @@ SMARTSQL_COMPILERS = {
     'postgis': smartsql.compile,
 }
 
-cr = copy.copy(smartsql.cr)
+factory = copy.copy(smartsql.factory)
 
 
 class classproperty(object):
@@ -105,7 +105,7 @@ class Result(smartsql.Result):
         return self._model.objects.raw(*self.compile(self._query)).using(self._using)
 
 
-@cr
+@factory.register
 class Table(smartsql.Table):
     """Table class for Django model"""
 
@@ -118,7 +118,7 @@ class Table(smartsql.Table):
         if isinstance(self._q, collections.Callable):
             self._q = self._q(self)
         elif self._q is None:
-            self._q = cr.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
+            self._q = smartsql.Factory.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
         return self._q.clone()
 
     def _set_q(self, val):
@@ -172,7 +172,7 @@ class Table(smartsql.Table):
         return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
 
-@cr
+@factory.register
 class TableAlias(smartsql.TableAlias, Table):
     @property
     def _model(self):
@@ -183,7 +183,7 @@ class TableAlias(smartsql.TableAlias, Table):
 def s(cls):
     a = '_{0}'.format(SMARTSQL_ALIAS)
     if a not in cls.__dict__:
-        setattr(cls, a, cr.Table(cls))
+        setattr(cls, a, factory.Table(cls))
     return getattr(cls, a)
 
 setattr(Model, SMARTSQL_ALIAS, s)
