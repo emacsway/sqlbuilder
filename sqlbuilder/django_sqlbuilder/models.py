@@ -183,7 +183,7 @@ class TableAlias(smartsql.TableAlias, Table):
 def s(cls):
     a = '_{0}'.format(SMARTSQL_ALIAS)
     if a not in cls.__dict__:
-        setattr(cls, a, Table(cls))
+        setattr(cls, a, cr.Table(cls))
     return getattr(cls, a)
 
 setattr(Model, SMARTSQL_ALIAS, s)

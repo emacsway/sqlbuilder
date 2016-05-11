@@ -36,76 +36,40 @@ def same(name):
     return f
 
 
-class ClassRegistry(dict):
-    """Minimalistic Service Locator for related classes.
-    See more info about IoC: http://www.martinfowler.com/articles/injection.html
+class ClassRegistry(object):
+    """Minimalistic factory.
 
-    Allows use extended subclasses, if need.
-    >>> new_cr = copy.copy(cr)
-    >>> # or
-    >>> class CustomClassRegistry(ClassRegistry):
-    ...     def initTable(self, *args, **kwargs):
-    ...         kwargs.update(self._get_custom_table_extra_kwargs())
-    ...         kwargs['some_executable_kwarg'] = kwargs['some_executable_kwarg'](self, *args, **kwargs)
-    ...         return CustomTable(*args, **kwargs)
-    ...
-    >>> new_cr = CustomClassRegistry(**cr)
+    See more info about IoC: http://www.martinfowler.com/articles/injection.html
     """
 
-    class MarkCallable(object):
+    def __init__(self):
+        self._data = dict()
 
-        def __init__(self, func):
-            self._func = func
+    def __call__(self, name_or_callable):
+        name = name_or_callable if isinstance(name_or_callable, string_types) else name_or_callable.__name__
 
-    def __call__(self, name_or_cls, args=None, kwargs=None, attrs=None):
-        name = name_or_cls if isinstance(name_or_cls, string_types) else name_or_cls.__name__
+        def deco(callable_obj):
+            if isinstance(callable_obj, type):
+                callable_obj._cr = self  # Set default factory if it's a class
 
-        def deco(cls):
-            self[name] = (cls, tuple(args or ()), kwargs or {}, attrs or {})
-            setattr(self, name, cls)  # speed up
-            init_name = 'init{0}'.format(name)
-            if not hasattr(type(self), init_name):
-                setattr(self, init_name, partial(self._init, name))  # speed up
-            cls._cr = self
-            return cls
+            def wraped_obj(*a, **kw):
+                instance = callable_obj(*a, **kw)
+                instance._cr = self
+                return instance
 
-        return deco if isinstance(name_or_cls, string_types) else deco(name_or_cls)
+            self._data[name] = wraped_obj
+            setattr(self, name, wraped_obj)
+            return callable_obj
 
-    def __getattr__(self, name):
-        if name in self:
-            return self[name][0]
-        if name.startswith('init'):
-            # if ConcreteClassRegistry.initClassName() is not defined
-            return partial(self._init, name)
-        raise AttributeError
-
-    def _init(self, name, *args, **kwargs):
-        cls, default_args, default_kwargs, default_attrs = self[name]
-        resolve = partial(self._resolve_values, name, args, kwargs)
-        final_args = tuple(map(resolve, default_args)) + args
-        final_kwargs = dict(zip(default_kwargs.keys(), map(resolve, default_kwargs.values())))
-        final_kwargs.update(kwargs)
-        final_attrs = dict(zip(default_attrs.keys(), map(resolve, default_attrs.values())))
-        obj = cls(*final_args, **final_kwargs)
-        for k, v in final_attrs:
-            setattr(obj, k, v)
-        return obj
-
-    def _resolve_values(self, name, args, kwargs, values):
-        return (val._func(self, name, *args, **kwargs) if val.__class__ == self.MarkCallable else val for val in values)
+        return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
 
     def __copy__(self):
-        c = copy.copy(super(ClassRegistry, self))
-        for name, (cls, args, kwargs, attrs) in c.items():
-            c(cls.__name__, args, kwargs, attrs)(c._ext_cls(cls))
+        c = self.__class__()
+        c._data = self._data.copy()
         return c
 
-    @staticmethod
-    def _ext_cls(cls):
-        attrs = {}
-        if '__slots__' in cls.__dict__:
-            attrs['__slots__'] = ()
-        return type(cls)(cls.__name__, (cls,), attrs)
+    def __getattr__(self, key):
+        return self._data[key]
 
 cr = ClassRegistry()
 
@@ -1253,21 +1217,21 @@ def compile_alias(compile, expr, state):
 class MetaTableSpace(type):
 
     def __instancecheck__(cls, instance):
-        return isinstance(instance, cls._cr.Table)
+        return isinstance(instance, Table)
 
     def __subclasscheck__(cls, subclass):
-        return issubclass(subclass, cls._cr.Table)
+        return issubclass(subclass, Table)
 
     def __getattr__(cls, key):
         if key in ('_cr',) or key.startswith('__'):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = cls._cr.initTable(name)
+        table = cls._cr.Table(name)
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
-        return cls._cr.initTable(name, *a, **kw)
+        return cls._cr.Table(name, *a, **kw)
 
 
 @cr
