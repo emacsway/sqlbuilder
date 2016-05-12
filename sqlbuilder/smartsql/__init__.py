@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # Some ideas from http://code.google.com/p/py-smart-sql-constructor/ , but implementation another.
+# Pay attention also to excellent lightweight SQLBuilder
+# of Storm ORM http://bazaar.launchpad.net/~storm/storm/trunk/view/head:/storm/expr.py
 from __future__ import absolute_import
 import sys
 import copy
@@ -1291,6 +1293,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         self._name = name
         self.__cached__ = {}
         self.f = FieldProxy(self)
+        self._factory = factory
 
     def as_(self, alias):
         return Factory.get(self).TableAlias(alias, self)
@@ -1336,7 +1339,7 @@ def compile_table(compile, expr, state):
 @factory.register
 class TableAlias(Table):
 
-    __slots__ = ('_table', '_alias', 'fields')
+    __slots__ = ('_table', '_alias')
 
     def __init__(self, alias, table=None):
         if isinstance(alias, string_types):
@@ -1345,6 +1348,7 @@ class TableAlias(Table):
         self._table = table
         self.__cached__ = {}
         self.f = FieldProxy(self)
+        self._factory = factory
 
     def as_(self, alias):
         return type(self)(alias, self._table)
