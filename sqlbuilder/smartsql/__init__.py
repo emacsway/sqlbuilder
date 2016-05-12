@@ -1107,7 +1107,7 @@ class ConstantSpace(object):
 class MetaField(type):
 
     def __getattr__(cls, key):
-        if key[0] == '__':
+        if key[:2] == '__':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 2)
         prefix, name, alias = parts + [None] * (3 - len(parts))
@@ -1250,7 +1250,7 @@ class MetaTable(type):
         return type.__new__(cls, name, bases, attrs)
 
     def __getattr__(cls, key):
-        if key[0] == '__':
+        if key[:2] == '__':
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
@@ -1293,13 +1293,12 @@ class Table(MetaTable("NewBase", (object, ), {})):
         self._name = name
         self.__cached__ = {}
         self.f = FieldProxy(self)
-        self._factory = factory
 
     def as_(self, alias):
         return Factory.get(self).TableAlias(alias, self)
 
     def __getattr__(self, key):
-        if key[0] == '__':
+        if key[:2] == '__' or key in Table.__slots__:
             raise AttributeError
         return self.get_field(key)
 
@@ -1339,16 +1338,15 @@ def compile_table(compile, expr, state):
 @factory.register
 class TableAlias(Table):
 
-    __slots__ = ('_table', '_alias')
+    __slots__ = ('_table',)
 
-    def __init__(self, alias, table=None):
-        if isinstance(alias, string_types):
-            alias = Name(alias)
-        self._alias = alias
+    def __init__(self, name, table=None):
+        if isinstance(name, string_types):
+            name = Name(name)
+        self._name = name
         self._table = table
         self.__cached__ = {}
         self.f = FieldProxy(self)
-        self._factory = factory
 
     def as_(self, alias):
         return type(self)(alias, self._table)
@@ -1366,7 +1364,7 @@ def compile_tablealias(compile, expr, state):
         if render_table:
             compile(expr._table, state)
             state.sql.append(' AS ')
-    compile(expr._alias, state)
+    compile(expr._name, state)
 
 
 @factory.register
