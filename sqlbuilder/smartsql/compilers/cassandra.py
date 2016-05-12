@@ -14,10 +14,7 @@ compile = parent_compile.create_child()
 
 @compile.when(Field)
 def compile_field(compile, expr, state):
-    if expr._name == '*':
-        state.sql.append(expr._name)
-    else:
-        compile(Name(expr._name), state)
+    compile(expr._name, state)
 
 
 compile_value = ValueCompiler(escape_delimeter="\\")
