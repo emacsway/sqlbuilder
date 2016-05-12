@@ -1370,7 +1370,7 @@ def compile_tablealias(compile, expr, state):
 @factory.register
 class TableJoin(object):
 
-    __slots__ = ('_table', '_alias', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '_factory')
+    __slots__ = ('_table', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '_factory')
 
     # TODO: support for ONLY http://www.postgresql.org/docs/9.4/static/tutorial-inheritance.html
 
