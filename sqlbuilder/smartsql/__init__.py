@@ -47,7 +47,7 @@ class Factory(object):
 
             def wraped_obj(*a, **kw):
                 instance = callable_obj(*a, **kw)
-                instance._factory = self
+                instance.__factory__ = self
                 return instance
 
             setattr(self, name, wraped_obj)
@@ -56,9 +56,9 @@ class Factory(object):
         return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
 
     @classmethod
-    def get(cls, instance):  # Hack to bypass the restriction of __slots__
+    def get(cls, instance):  # Hack to bypass the restriction of __slots__, the class attribute should be a descriptor.
         try:
-            return instance._factory
+            return instance.__factory__
         except AttributeError:
             return cls.default()
 
@@ -1221,20 +1221,20 @@ class MetaTableSpace(type):
         return issubclass(subclass, Table)
 
     def __getattr__(cls, key):
-        if key in ('_factory',) or key.startswith('__'):
+        if key.startswith('__'):
             raise AttributeError
         parts = key.split(LOOKUP_SEP, 1)
         name, alias = parts + [None] * (2 - len(parts))
-        table = factory.Table(name)
+        table = cls.__factory__.Table(name)
         return table.as_(alias) if alias else table
 
     def __call__(cls, name, *a, **kw):
-        return factory.Table(name, *a, **kw)
+        return cls.__factory__.Table(name, *a, **kw)
 
 
 @factory.register
 class T(MetaTableSpace("NewBase", (object, ), {})):
-    pass
+    __factory__ = factory
 
 
 class MetaTable(type):
@@ -1285,7 +1285,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
     # Add __call__() method to Field/Alias
     # Use sys._getframe(), compiler.visitor.ASTVisitor or tokenize.generate_tokens() to get context for Table.__getattr__()
 
-    __slots__ = ('_name', '__cached__', 'f', '_factory')
+    __slots__ = ('_name', '__cached__', 'f', '__factory__')
 
     def __init__(self, name):
         if isinstance(name, string_types):
@@ -1370,7 +1370,7 @@ def compile_tablealias(compile, expr, state):
 @factory.register
 class TableJoin(object):
 
-    __slots__ = ('_table', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '_factory')
+    __slots__ = ('_table', '_join_type', '_on', '_left', '_hint', '_nested', '_natural', '_using', '__factory__')
 
     # TODO: support for ONLY http://www.postgresql.org/docs/9.4/static/tutorial-inheritance.html
 
