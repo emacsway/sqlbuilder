@@ -1667,6 +1667,9 @@ class Select(Expr):
             setattr(c, a, copy.copy(getattr(c, a, None)))
         return c
 
+    columns = same('fields')
+    __copy__ = same('clone')
+
 
 @compile.when(Select)
 def compile_query(compile, expr, state):
@@ -1823,9 +1826,6 @@ class Query(Select):
     def set(self, *args, **kwargs):
         warn('set([all=False])', 'as_set([all=False])')
         return self.as_set(*args, **kwargs)
-
-    columns = same('fields')
-    __copy__ = same('clone')
 
 
 QuerySet = Query
