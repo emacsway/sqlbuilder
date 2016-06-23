@@ -1522,15 +1522,10 @@ class Result(object):
 
 
 @factory.register
-class Query(Expr):
-    # Without methods like insert, delete, update etc. it will be named Select.
+class Select(Expr):
 
-    result = Result()
-
-    def __init__(self, tables=None, result=None):
-        """ Query class.
-
-        It uses the Bridge pattern to separate implementation from interface.
+    def __init__(self, tables=None):
+        """ Select class.
 
         :param tables: tables
         :type tables: Table, TableAlias, TableJoin or None
@@ -1550,20 +1545,6 @@ class Query(Expr):
         self._limit = None
         self._offset = None
         self._for_update = False
-
-        if result is not None:
-            self.result = result
-        else:
-            self.result = self.result.clone()
-
-    def clone(self, *attrs):
-        c = copy.copy(super(Query, self))
-        # if not attrs:
-        #     attrs = ('_fields', '_tables', '_group_by', '_order_by')
-        for a in attrs:
-            setattr(c, a, copy.copy(getattr(c, a, None)))
-        c.result = c.result.clone()
-        return c
 
     def tables(self, tables=None):
         if tables is None:
@@ -1678,6 +1659,93 @@ class Query(Expr):
             c._offset = kwargs.get('offset', 0)
         return c
 
+    def clone(self, *attrs):
+        c = copy.copy(super(Select, self))
+        # if not attrs:
+        #     attrs = ('_fields', '_tables', '_group_by', '_order_by')
+        for a in attrs:
+            setattr(c, a, copy.copy(getattr(c, a, None)))
+        return c
+
+
+@compile.when(Select)
+def compile_query(compile, expr, state):
+    state.push("auto_tables", [])  # this expr can be a subquery
+    state.sql.append("SELECT ")
+    if expr._distinct:
+        state.sql.append("DISTINCT ")
+        if expr._distinct[0] is not True:
+            state.sql.append("ON ")
+            compile(Parentheses(expr._distinct), state)
+            state.sql.append(SPACE)
+    compile(expr._fields, state)
+
+    tables_sql_pos = len(state.sql)
+    tables_params_pos = len(state.params)
+
+    if expr._wheres:
+        state.sql.append(" WHERE ")
+        compile(expr._wheres, state)
+    if expr._group_by:
+        state.sql.append(" GROUP BY ")
+        compile(expr._group_by, state)
+    if expr._havings:
+        state.sql.append(" HAVING ")
+        compile(expr._havings, state)
+    if expr._order_by:
+        state.sql.append(" ORDER BY ")
+        compile(expr._order_by, state)
+    if expr._limit is not None:
+        state.sql.append(" LIMIT ")
+        compile(expr._limit, state)
+    if expr._offset:
+        state.sql.append(" OFFSET ")
+        compile(expr._offset, state)
+    if expr._for_update:
+        state.sql.append(" FOR UPDATE")
+
+    state.push('join_tables', [])
+    state.push('sql', [])
+    state.push('params', [])
+    state.sql.append(" FROM ")
+    compile(expr._tables, state)
+    tables_sql = state.sql
+    tables_params = state.params
+    state.pop()
+    state.pop()
+    state.pop()
+    state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
+    state.params[tables_params_pos:tables_params_pos] = tables_params
+    state.pop()
+
+
+@factory.register
+class Query(Select):
+    # Without methods like insert, delete, update etc. it will be named Select.
+
+    result = Result()
+
+    def __init__(self, tables=None, result=None):
+        """ Query class.
+
+        It uses the Bridge pattern to separate implementation from interface.
+
+        :param tables: tables
+        :type tables: Table, TableAlias, TableJoin or None
+        :param result: Object of implementation.
+        :type tables: Result
+        """
+        super(Query, self).__init__(tables)
+        if result is not None:
+            self.result = result
+        else:
+            self.result = self.result.clone()
+
+    def clone(self, *attrs):
+        c = super(Query, self).clone(*attrs)
+        c.result = c.result.clone()
+        return c
+
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
         c = self.clone()
@@ -1761,57 +1829,6 @@ class Query(Expr):
 
 
 QuerySet = Query
-
-
-@compile.when(Query)
-def compile_query(compile, expr, state):
-    state.push("auto_tables", [])  # this expr can be a subquery
-    state.sql.append("SELECT ")
-    if expr._distinct:
-        state.sql.append("DISTINCT ")
-        if expr._distinct[0] is not True:
-            state.sql.append("ON ")
-            compile(Parentheses(expr._distinct), state)
-            state.sql.append(SPACE)
-    compile(expr._fields, state)
-
-    tables_sql_pos = len(state.sql)
-    tables_params_pos = len(state.params)
-
-    if expr._wheres:
-        state.sql.append(" WHERE ")
-        compile(expr._wheres, state)
-    if expr._group_by:
-        state.sql.append(" GROUP BY ")
-        compile(expr._group_by, state)
-    if expr._havings:
-        state.sql.append(" HAVING ")
-        compile(expr._havings, state)
-    if expr._order_by:
-        state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
-    if expr._limit is not None:
-        state.sql.append(" LIMIT ")
-        compile(expr._limit, state)
-    if expr._offset:
-        state.sql.append(" OFFSET ")
-        compile(expr._offset, state)
-    if expr._for_update:
-        state.sql.append(" FOR UPDATE")
-
-    state.push('join_tables', [])
-    state.push('sql', [])
-    state.push('params', [])
-    state.sql.append(" FROM ")
-    compile(expr._tables, state)
-    tables_sql = state.sql
-    tables_params = state.params
-    state.pop()
-    state.pop()
-    state.pop()
-    state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
-    state.params[tables_params_pos:tables_params_pos] = tables_params
-    state.pop()
 
 
 @factory.register
@@ -2185,7 +2202,7 @@ compile.set_precedence(60, Not, 'NOT')
 compile.set_precedence(50, And, 'AND')
 compile.set_precedence(40, Or, 'OR')
 compile.set_precedence(30, Set, Union, Intersect, Except)
-compile.set_precedence(20, Query, SelectCount, Raw, Insert, Update, Delete)
+compile.set_precedence(20, Select, Query, SelectCount, Raw, Insert, Update, Delete)
 compile.set_precedence(10, Expr)
 compile.set_precedence(None, All, Distinct)
 
