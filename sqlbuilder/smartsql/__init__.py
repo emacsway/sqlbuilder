@@ -1521,6 +1521,44 @@ class Result(object):
     __copy__ = clone
 
 
+class Executable(object):
+
+    result = Result()  # IoC
+
+    def __init__(self, result=None):
+        """ Query class.
+
+        It uses the Bridge pattern to separate implementation from interface.
+
+        :param result: Object of implementation.
+        :type result: Result
+        """
+        if result is not None:
+            self.result = result
+        else:
+            self.result = self.result.clone()
+
+    def clone(self, *attrs):
+        c = super(Executable, self).clone(*attrs)
+        c.result = c.result.clone()
+        return c
+
+    def result_wraps(self, name, *args, **kwargs):
+        """Wrapper to call implementation method."""
+        c = self.clone()
+        return getattr(c.result(c), name)(*args, **kwargs)
+
+    def __getattr__(self, name):
+        """Delegates unknown attributes to object of implementation."""
+        if hasattr(self.result, name):
+            attr = getattr(self.result, name)
+            if isinstance(attr, types.MethodType):
+                return partial(self.result_wraps, name)
+            else:
+                return attr
+        raise AttributeError
+
+
 @factory.register
 class Select(Expr):
 
@@ -1724,9 +1762,7 @@ def compile_query(compile, expr, state):
 
 
 @factory.register
-class Query(Select):
-
-    result = Result()
+class Query(Executable, Select):
 
     def __init__(self, tables=None, result=None):
         """ Query class.
@@ -1738,16 +1774,8 @@ class Query(Select):
         :param result: Object of implementation.
         :type result: Result
         """
-        super(Query, self).__init__(tables)
-        if result is not None:
-            self.result = result
-        else:
-            self.result = self.result.clone()
-
-    def clone(self, *attrs):
-        c = super(Query, self).clone(*attrs)
-        c.result = c.result.clone()
-        return c
+        Select.__init__(self, tables)
+        Executable.__init__(self, result)
 
     @opt_checker(["distinct", "for_update"])
     def select(self, *args, **opts):
@@ -1759,7 +1787,7 @@ class Query(Select):
         if opts.get("for_update"):
             c._for_update = True
         return c.result(c).select()
-        # Never do clone result. It should to have back link to Query instance.
+        # Never clone result. It should have back link to Query instance.
         # State of Result should be corresponding to state of Query object.
         # We need clone both Result and Query synchronously.
 
@@ -1800,11 +1828,6 @@ class Query(Select):
     def raw(self, sql, params=()):
         return Factory.get(self).Raw(sql, params, result=self.result)
 
-    def result_wraps(self, name, *args, **kwargs):
-        """Wrapper to call implementation method."""
-        c = self.clone()
-        return getattr(c.result(c), name)(*args, **kwargs)
-
     def __getitem__(self, key):
         return self.result(self).__getitem__(key)
 
@@ -1813,16 +1836,6 @@ class Query(Select):
 
     def __iter__(self):
         return self.result(self).__iter__()
-
-    def __getattr__(self, name):
-        """Delegates unknown attributes to object of implementation."""
-        if hasattr(self.result, name):
-            attr = getattr(self.result, name)
-            if isinstance(attr, types.MethodType):
-                return partial(self.result_wraps, name)
-            else:
-                return attr
-        raise AttributeError
 
 
 QuerySet = Query
@@ -1970,17 +1983,13 @@ def compile_delete(compile, expr, state):
 class Set(Query):
 
     def __init__(self, *exprs, **kw):
-        super(Set, self).__init__()
+        super(Set, self).__init__(result=kw.get('result'))
         if 'op' in kw:
             self._sql = kw['op']
         self._all = kw.get('all', False)  # Use All() instead?
         self._exprs = ExprList()
         for expr in exprs:
             self.add(expr)
-        if 'result' in kw:
-            self.result = kw['result']
-        else:
-            self.result = self.result.clone()
 
     def add(self, other):
         if (isinstance(other, self.__class__) and
