@@ -2004,7 +2004,7 @@ class Set(Query):
             self._exprs.append(other)
             # TODO: reset _order_by, _for_update?
 
-    def _op(self, cls, other):
+    def _op(self, cls, *others):
         if not getattr(self, '_sql', None):
             c = cls(*self._exprs, all=self._all)
             c._limit = self._limit
@@ -2015,18 +2015,23 @@ class Set(Query):
             c = cls(self, all=self._all)  # TODO: Should be here "all"?
         else:
             c = self.clone()
-        c.add(other)
+        for other in others:
+            c.add(other)
         return c
 
+    def union(self, *others):
+        return self._op(Factory.get(self).Union, *others)
+
+    def intersection(self, *others):
+        return self._op(Factory.get(self).Intersect, *others)
+
+    def difference(self, *others):
+        return self._op(Factory.get(self).Except, *others)
+
     # FIXME: violates the interface contract, changing the semantic of its interface
-    def __or__(self, other):
-        return self._op(Factory.get(self).Union, other)
-
-    def __and__(self, other):
-        return self._op(Factory.get(self).Intersect, other)
-
-    def __sub__(self, other):
-        return self._op(Factory.get(self).Except, other)
+    __or__ = same('union')
+    __and__ = same('intersection')
+    __sub__ = same('difference')
 
     def all(self, all=True):
         self._all = all
