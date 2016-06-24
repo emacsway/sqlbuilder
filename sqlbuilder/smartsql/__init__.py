@@ -1529,8 +1529,6 @@ class Select(Expr):
 
         :param tables: tables
         :type tables: Table, TableAlias, TableJoin or None
-        :param result: Object of implementation.
-        :type tables: Result
         """
         self._distinct = ExprList().join(", ")
         self._fields = FieldList().join(", ")
@@ -1659,6 +1657,9 @@ class Select(Expr):
             c._offset = kwargs.get('offset', 0)
         return c
 
+    def as_table(self, alias):
+        return Factory.get(self).TableAlias(alias, self)
+
     def clone(self, *attrs):
         c = copy.copy(super(Select, self))
         # if not attrs:
@@ -1724,7 +1725,6 @@ def compile_query(compile, expr, state):
 
 @factory.register
 class Query(Select):
-    # Without methods like insert, delete, update etc. it will be named Select.
 
     result = Result()
 
@@ -1736,7 +1736,7 @@ class Query(Select):
         :param tables: tables
         :type tables: Table, TableAlias, TableJoin or None
         :param result: Object of implementation.
-        :type tables: Result
+        :type result: Result
         """
         super(Query, self).__init__(tables)
         if result is not None:
@@ -1790,11 +1790,12 @@ class Query(Select):
         kw.setdefault('limit', self._limit)
         return self.result(Factory.get(self).Delete(**kw)).delete()
 
-    def as_table(self, alias):
-        return Factory.get(self).TableAlias(alias, self)
-
     def as_set(self, all=False):
         return Factory.get(self).Set(self, all=all, result=self.result)
+
+    def set(self, *args, **kwargs):
+        warn('set([all=False])', 'as_set([all=False])')
+        return self.as_set(*args, **kwargs)
 
     def raw(self, sql, params=()):
         return Factory.get(self).Raw(sql, params, result=self.result)
@@ -1822,10 +1823,6 @@ class Query(Select):
             else:
                 return attr
         raise AttributeError
-
-    def set(self, *args, **kwargs):
-        warn('set([all=False])', 'as_set([all=False])')
-        return self.as_set(*args, **kwargs)
 
 
 QuerySet = Query
@@ -2012,6 +2009,7 @@ class Set(Query):
         c.add(other)
         return c
 
+    # FIXME: violates the interface contract, changing the semantic of its interface
     def __or__(self, other):
         return self._op(Factory.get(self).Union, other)
 
