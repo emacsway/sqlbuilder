@@ -1,6 +1,6 @@
 from .. import (
-    compile as parent_compile, SPACE, Name, NameCompiler,
-    Value, ValueCompiler, Concat, Binary
+    compile as parent_compile, SPACE, Binary, Concat, ExprList, Insert, Name,
+    NameCompiler, Parentheses, Query, Value, ValueCompiler
 )
 
 try:
@@ -54,3 +54,31 @@ def compile_concat(compile, expr, state):
             state.sql.append(expr._sql)
             compile(a, state)
         state.sql.append(')')
+
+
+@compile.when(Insert)
+def compile_insert(compile, expr, state):
+    state.sql.append("INSERT ")
+    if expr._ignore:
+        state.sql.append("IGNORE ")
+    state.sql.append("INTO ")
+    compile(expr._table, state)
+    state.sql.append(SPACE)
+    compile(Parentheses(expr._fields), state)
+    if isinstance(expr._values, Query):
+        state.sql.append(SPACE)
+        compile(expr._values, state)
+    else:
+        state.sql.append(" VALUES ")
+        compile(ExprList(*expr._values).join(', '), state)
+    if expr._on_duplicate_key_update:
+        state.sql.append(" ON DUPLICATE KEY UPDATE ")
+        first = True
+        for f, v in expr._on_duplicate_key_update:
+            if first:
+                first = False
+            else:
+                state.sql.append(", ")
+            compile(f, state)
+            state.sql.append(" = ")
+            compile(v, state)

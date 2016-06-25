@@ -1889,8 +1889,6 @@ class Insert(Modify):
 @compile.when(Insert)
 def compile_insert(compile, expr, state):
     state.sql.append("INSERT ")
-    if expr._ignore:
-        state.sql.append("IGNORE ")
     state.sql.append("INTO ")
     compile(expr._table, state)
     state.sql.append(SPACE)
@@ -1901,8 +1899,10 @@ def compile_insert(compile, expr, state):
     else:
         state.sql.append(" VALUES ")
         compile(ExprList(*expr._values).join(', '), state)
-    if expr._on_duplicate_key_update:
-        state.sql.append(" ON DUPLICATE KEY UPDATE ")
+    if expr._ignore:
+        state.sql.append(" ON CONFLICT DO NOTHING")
+    elif expr._on_duplicate_key_update:
+        state.sql.append(" ON CONFLICT DO UPDATE SET ")
         first = True
         for f, v in expr._on_duplicate_key_update:
             if first:

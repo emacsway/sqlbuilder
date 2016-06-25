@@ -753,7 +753,7 @@ Query object
             ...     T.stats.counter: T.stats.counter + func.VALUES(T.stats.counter)
             ... })
             ... 
-            ('INSERT INTO "stats" ("stats"."counter", "stats"."object_id", "stats"."object_type") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', [1, 15, 'author'])
+            ('INSERT INTO "stats" ("stats"."counter", "stats"."object_id", "stats"."object_type") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', [1, 15, 'author'])
 
             >>> # Keys of dict are strings
             >>> Q(T.stats).insert({
@@ -764,7 +764,7 @@ Query object
             ...     'counter': T.stats.counter + func.VALUES(T.stats.counter)
             ... })
             ... 
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
 
             >>> # Use "values" keyword argument
             >>> Q().fields(
@@ -774,7 +774,7 @@ Query object
             ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.counter)}
             ... )
             ... 
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
 
             >>> # Insert many
             >>> Q().fields(
@@ -787,7 +787,7 @@ Query object
             ...     on_duplicate_key_update={T.stats.counter: T.stats.counter + func.VALUES(T.stats.counter)}
             ... )
             ... 
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
 
             >>> # Insert ignore
             >>> Q().fields(
@@ -797,7 +797,7 @@ Query object
             ...     ignore=True
             ... )
             ... 
-            ('INSERT IGNORE INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s', ['author', 15, 1])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON CONFLICT DO NOTHING', ['author', 15, 1])
 
             >>> # INSERT ... SELECT Syntax
             >>> Q().fields(
@@ -810,7 +810,7 @@ Query object
             ...         T.stats.counter: T.stats.counter + T.old_stats.counter,
             ...     }
             ... )
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON DUPLICATE KEY UPDATE "stats"."counter" = "stats"."counter" + "old_stats"."counter"', [])
+            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + "old_stats"."counter"', [])
 
     .. method:: update([key_values=None, **kw])
 
