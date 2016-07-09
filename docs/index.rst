@@ -969,7 +969,7 @@ You can develop your own implementation, or, at least, specify what same compile
 
 See also examples of implementation in `Django integration <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/django_sqlbuilder/models.py>`__ or `Ascetic ORM integration <https://bitbucket.org/emacsway/ascetic/src/master/ascetic/models.py>`__
 
-Instance of :class:`Query` delegates all unknown methods and properties to :attr:`Query.result`. Example::
+Instance of :class:`Query` also delegates all unknown methods and properties to :attr:`Query.result`. Example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
     >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
