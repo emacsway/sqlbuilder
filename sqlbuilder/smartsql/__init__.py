@@ -6,9 +6,10 @@ from __future__ import absolute_import
 import sys
 import copy
 import types
+import weakref
 import operator
 import warnings
-import weakref
+import collections
 from functools import wraps, reduce, partial
 
 try:
@@ -1304,14 +1305,17 @@ class Table(MetaTable("NewBase", (object, ), {})):
     # Add __call__() method to Field/Alias
     # Use sys._getframe(), compiler.visitor.ASTVisitor or tokenize.generate_tokens() to get context for Table.__getattr__()
 
-    __slots__ = ('_name', '__cached__', 'f', '__factory__')
+    __slots__ = ('_name', '__cached__', 'f', '_fields', '__factory__')
 
-    def __init__(self, name):
+    def __init__(self, name, *fields):
         if isinstance(name, string_types):
             name = Name(name)
         self._name = name
         self.__cached__ = {}
         self.f = FieldProxy(self)
+        self._fields = collections.OrderedDict()
+        for f in fields:
+            self._append_field(f)
 
     def as_(self, alias):
         return Factory.get(self).TableAlias(alias, self)
@@ -1324,6 +1328,10 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getitem__(self, key):
         return self.get_field(key)
 
+    def _append_field(self, field):
+        self._fields[field._name] = field
+        field.prefix = self
+
     def get_field(self, key):
         cache = self.f.__dict__
         if key in cache:
@@ -1335,7 +1343,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         if name in cache:
             f = cache[name]
         else:
-            f = Field(name, self)
+            f = self._fields[name] if name in self._fields else Field(name, self)
             cache[name] = f
         if alias:
             f = f.as_(alias)
@@ -1359,13 +1367,12 @@ class TableAlias(Table):
 
     __slots__ = ('_table',)
 
-    def __init__(self, name, table=None):
-        if isinstance(name, string_types):
-            name = Name(name)
-        self._name = name
+    def __init__(self, name, table=None, *fields):
+        Table.__init__(self, name, *fields)
         self._table = table
-        self.__cached__ = {}
-        self.f = FieldProxy(self)
+        if not fields and isinstance(table, Table):
+            for f in table._fields.values():
+                self._append_field(copy.copy(f))
 
     def as_(self, alias):
         return type(self)(alias, self._table)
