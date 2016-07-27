@@ -1080,6 +1080,25 @@ class Replace(NamedCallable):
     _sql = 'REPLACE'
 
 
+class Cast(NamedCallable):
+    __slots__ = ("_expr", "_type",)
+    _sql = "CAST"
+
+    def __init__(self, expr, type):
+        self._expr = expr
+        self._type = type
+
+
+@compile.when(Cast)
+def compile_cast(compile, expr, state):
+    state.sql.append(expr._sql)
+    state.sql.append('(')
+    compile(expr._expr, state)
+    state.sql.append(' AS ')
+    state.sql.append(expr._type)
+    state.sql.append(')')
+
+
 class Constant(Expr):
 
     __slots__ = ()

@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 from sqlbuilder.smartsql import (
     PLACEHOLDER, Q, T, Table, TA, F, Field, A, E, P, Not, func, const, CompositeExpr,
-    Case, FieldList, ExprList, Result, TableJoin, compile
+    Case, Cast, FieldList, ExprList, Result, TableJoin, compile
 )
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
@@ -536,6 +536,15 @@ class TestCaseExpr(TestCase):
                 (F.b == 2, 'two'),
             ], default='other'))),
             ('SELECT * FROM "t1" WHERE "c" = CASE WHEN ("a" = %s) THEN %s WHEN ("b" = %s) THEN %s ELSE %s END ', [1, 'one', 2, 'two', 'other'])
+        )
+
+
+class TestCallable(TestCase):
+
+    def test_case(self):
+        self.assertEqual(
+            compile(Cast(F.field_name, 'text')),
+            ('field_name AS text', [])
         )
 
 
