@@ -395,7 +395,7 @@ class Comparable(object):
 
     startswith = _l(1)
     istartswith = _l(1, 1)
-    contains = _l(5)
+    contains = _l(5)  # TODO: ambiguous with "@>" operator of postgresql.
     icontains = _l(5, 1)
     endswith = _l(4)
     iendswith = _l(4, 1)
