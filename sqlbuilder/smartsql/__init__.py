@@ -815,7 +815,7 @@ class Concat(ExprList):
         return self
 
 
-class Array(ExprList):
+class Array(ExprList):  # TODO: use composition instead of inheritance, to solve ambiguous of __getitem__()???
     __slots__ = ()
 
     def __init__(self, *args):
