@@ -1666,11 +1666,6 @@ class Executable(object):
         c.result = c.result.clone()
         return c
 
-    def result_wraps(self, name, *args, **kwargs):
-        """Wrapper to call implementation method."""
-        c = self.clone()
-        return getattr(c.result(c), name)(*args, **kwargs)
-
     def __getattr__(self, name):
         """Delegates unknown attributes to object of implementation."""
         try:
@@ -1679,7 +1674,8 @@ class Executable(object):
             if hasattr(self.result, name):
                 attr = getattr(self.result, name)
                 if isinstance(attr, types.MethodType):
-                    return partial(self.result_wraps, name)
+                    c = self.clone()
+                    return getattr(c.result(c), name)
                 else:
                     return attr
             raise AttributeError
