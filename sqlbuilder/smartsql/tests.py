@@ -10,7 +10,7 @@ from sqlbuilder.smartsql import (
 )
 from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
 
-__all__ = ('TestTable', 'TestField', 'TestExpr', 'TestCaseExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
+__all__ = ('TestTable', 'TestField', 'TestExpr', 'TestCaseExpr', 'TestCallable', 'TestCompositeExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
 
 
 class TestCase(unittest.TestCase):
@@ -544,7 +544,7 @@ class TestCallable(TestCase):
     def test_case(self):
         self.assertEqual(
             compile(Cast(F.field_name, 'text')),
-            ('field_name AS text', [])
+            ('CAST("field_name" AS text)', [])
         )
 
 
