@@ -266,29 +266,6 @@ class Comparable(object):
     def _ca(op, inv=False):
         return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
 
-    def _l(mask, ci=False, inv=False):
-        def f(self, other):
-
-            if ci:
-                cls = ILike
-            else:
-                cls = Like
-
-            if inv:
-                left, right = other, self
-            else:
-                left, right = self, other
-
-            right = EscapeForLike(right)
-
-            args = [right]
-            if 0b100 & mask:
-                args.insert(0, Value('%'))
-            if 0b001 & mask:
-                args.append(Value('%'))
-            return cls(left, Concat(*args), escape=right._escape)  # other can be expression, so, using Concat()
-        return f
-
     def __add__(self, other):
         return Add(self, other)
 
@@ -403,18 +380,53 @@ class Comparable(object):
     def rilike(self, other, escape=Undef):
         return ILike(other, self, escape)
 
-    startswith = _l(0b001)
-    istartswith = _l(1, True)
-    contains = _l(0b101)  # TODO: ambiguous with "@>" operator of postgresql.
-    icontains = _l(0b101, True)
-    endswith = _l(0b100)
-    iendswith = _l(0b100, True)
-    rstartswith = _l(0b001, False, True)
-    ristartswith = _l(0b001, True, True)
-    rcontains = _l(0b101, False, True)
-    ricontains = _l(0b101, True, True)
-    rendswith = _l(0b100, False, True)
-    riendswith = _l(0b100, True, True)
+    def startswith(self, other):
+        pattern = EscapeForLike(other)
+        return Like(self, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def istartswith(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def contains(self, other):  # TODO: ambiguous with "@>" operator of postgresql.
+        pattern = EscapeForLike(other)
+        return Like(self, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def icontains(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def endswith(self, other):
+        pattern = EscapeForLike(other)
+        return Like(self, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def iendswith(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def rstartswith(self, other):
+        pattern = EscapeForLike(self)
+        return Like(other, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def ristartswith(self, other):
+        pattern = EscapeForLike(self)
+        return ILike(other, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def rcontains(self, other):
+        pattern = EscapeForLike(self)
+        return Like(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def ricontains(self, other):
+        pattern = EscapeForLike(self)
+        return ILike(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def rendswith(self, other):
+        pattern = EscapeForLike(self)
+        return Like(other, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def riendswith(self, other):
+        pattern = EscapeForLike(self)
+        return ILike(other, Concat(Value('%'), pattern), escape=pattern._escape)
 
     def __pos__(self):
         return Pos(self)
