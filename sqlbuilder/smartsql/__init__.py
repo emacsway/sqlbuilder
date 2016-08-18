@@ -263,9 +263,6 @@ class Comparable(object):
 
     __slots__ = ()
 
-    def _ca(op, inv=False):
-        return (lambda self, *a: Constant(op)(self, *a)) if not inv else (lambda self, other: Constant(op)(other, self))
-
     def __add__(self, other):
         return Add(self, other)
 
@@ -443,12 +440,23 @@ class Comparable(object):
     def distinct(self):
         return Distinct(self)
 
-    __pow__ = _ca("POW")
-    __rpow__ = _ca("POW", True)
-    __mod__ = _ca("MOD")
-    __rmod__ = _ca("MOD", True)
-    __abs__ = _ca("ABS")
-    count = _ca("COUNT")
+    def __pow__(self, other):
+        return Constant("POW")(self, other)
+
+    def __rpow__(self, other):
+        return Constant("POW")(other, self)
+
+    def __mod__(self, other):
+        return Constant("MOD")(self, other)
+
+    def __rmod__(self, other):
+        return Constant("MOD")(other, self)
+
+    def __abs__(self):
+        return Constant("ABS")(self)
+
+    def count(self):
+        return Constant("COUNT")(self)
 
     def as_(self, alias):
         return Alias(alias, self)
