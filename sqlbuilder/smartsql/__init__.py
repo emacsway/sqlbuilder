@@ -1281,16 +1281,6 @@ class T(MetaTableSpace("NewBase", (object, ), {})):
 
 class MetaTable(type):
 
-    def __new__(cls, name, bases, attrs):
-        if bases[0] is object:
-            def _f(attr):
-                return lambda self, *a, **kw: getattr(Factory.get(self).TableJoin(self), attr)(*a, **kw)
-
-            for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
-                      'join', 'on', 'hint', 'natural', 'using']:
-                attrs[a] = _f(a)
-        return type.__new__(cls, name, bases, attrs)
-
     def __getattr__(cls, key):
         if key[:2] == '__':
             raise AttributeError
@@ -1342,13 +1332,35 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def as_(self, alias):
         return Factory.get(self).TableAlias(alias, self)
 
-    def __getattr__(self, key):
-        if key[:2] == '__' or key in Table.__slots__:
-            raise AttributeError
-        return self.get_field(key)
+    def inner_join(self, right):
+        return Factory.get(self).TableJoin(self).inner_join(right)
 
-    def __getitem__(self, key):
-        return self.get_field(key)
+    def left_join(self, right):
+        return Factory.get(self).TableJoin(self).left_join(right)
+
+    def right_join(self, right):
+        return Factory.get(self).TableJoin(self).right_join(right)
+
+    def full_join(self, right):
+        return Factory.get(self).TableJoin(self).full_join(right)
+
+    def cross_join(self, right):
+        return Factory.get(self).TableJoin(self).cross_join(right)
+
+    def join(self, join_type, obj):
+        return Factory.get(self).TableJoin(self).join(join_type, obj)
+
+    def on(self, cond):
+        return Factory.get(self).TableJoin(self).on(cond)
+
+    def hint(self, expr):
+        return Factory.get(self).TableJoin(self).hint(expr)
+
+    def natural(self):
+        return Factory.get(self).TableJoin(self).natural()
+
+    def using(self, *fields):
+        return Factory.get(self).TableJoin(self).using(*fields)
 
     def _append_field(self, field):
         self._fields[field._name] = field
@@ -1371,6 +1383,14 @@ class Table(MetaTable("NewBase", (object, ), {})):
             f = f.as_(alias)
             cache[key] = f
         return f
+
+    def __getattr__(self, key):
+        if key[:2] == '__' or key in Table.__slots__:
+            raise AttributeError
+        return self.get_field(key)
+
+    def __getitem__(self, key):
+        return self.get_field(key)
 
     __and__ = same('inner_join')
     __add__ = same('left_join')
@@ -1435,17 +1455,26 @@ class TableJoin(object):
     def _j(j):
         return lambda self, obj: self.join(j, obj)
 
-    inner_join = _j("INNER JOIN")
-    left_join = _j("LEFT OUTER JOIN")
-    right_join = _j("RIGHT OUTER JOIN")
-    full_join = _j("FULL OUTER JOIN")
-    cross_join = _j("CROSS JOIN")
+    def inner_join(self, right):
+        return self.join("INNER JOIN", right)
 
-    def join(self, join_type, obj):
-        if not isinstance(obj, TableJoin) or obj.left():
-            obj = type(self)(obj, left=self)
-        obj = obj.left(self).join_type(join_type)
-        return obj
+    def left_join(self, right):
+        return self.join("LEFT OUTER JOIN", right)
+
+    def right_join(self, right):
+        return self.join("RIGHT OUTER JOIN", right)
+
+    def full_join(self, right):
+        return self.join("FULL OUTER JOIN", right)
+
+    def cross_join(self, right):
+        return self.join("CROSS JOIN", right)
+
+    def join(self, join_type, right):
+        if not isinstance(right, TableJoin) or right.left():
+            right = type(self)(right, left=self)
+        right = right.left(self).join_type(join_type)
+        return right
 
     def left(self, left=None):
         if left is None:
