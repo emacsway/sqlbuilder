@@ -6,6 +6,7 @@
 ^\#
 ^etags$
 ^.ropeproject/
+^\.idea$
 ^\.project$
 ^\.pydevproject$
 ^\.settings/
