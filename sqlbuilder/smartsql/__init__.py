@@ -46,12 +46,12 @@ class Factory(object):
 
         def deco(callable_obj):
 
-            def wraped_obj(*a, **kw):
+            def wrapped_obj(*a, **kw):
                 instance = callable_obj(*a, **kw)
                 instance.__factory__ = self
                 return instance
 
-            setattr(self, name, wraped_obj)
+            setattr(self, name, wrapped_obj)
             return callable_obj
 
         return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
@@ -270,7 +270,7 @@ class Comparable(object):
         def f(self, other):
 
             if ci:
-                cls = Ilike
+                cls = ILike
             else:
                 cls = Like
 
@@ -395,13 +395,13 @@ class Comparable(object):
         return Like(self, other, escape)
 
     def ilike(self, other, escape=Undef):
-        return Ilike(self, other, escape)
+        return ILike(self, other, escape)
 
     def rlike(self, other, escape=Undef):
         return Like(other, self, escape)
 
     def rilike(self, other, escape=Undef):
-        return Ilike(other, self, escape)
+        return ILike(other, self, escape)
 
     startswith = _l(0b001)
     istartswith = _l(1, True)
@@ -685,7 +685,7 @@ class LShift(NamedBinary):
 
 class EscapeForLike(Expr):
 
-    __slots__ = ('_expr')
+    __slots__ = ('_expr',)
 
     _escape = "!"
     _escape_map = tuple(  # Ordering is important!
@@ -717,7 +717,7 @@ class Like(NamedBinary):
             self._escape = escape
 
 
-class Ilike(Like):
+class ILike(Like):
     __slots__ = ()
     _sql = 'ILIKE'
 
@@ -765,8 +765,8 @@ class ExprList(Expr):
     def insert(self, i, x):
         return self.data.insert(i, x)
 
-    def extend(self, L):
-        return self.data.extend(L)
+    def extend(self, l):
+        return self.data.extend(l)
 
     def pop(self, i):
         return self.data.pop(i)
@@ -1021,14 +1021,6 @@ def compile_between(compile, expr, state):
 
 
 class Case(Expr):
-    """A CASE statement.
-
-    @params cases: a list of tuples of (condition, result) or (value, result),
-        if an expression is passed too.
-    @param expression: the expression to compare (if the simple form is used).
-    @param default: an optional default condition if no other case matches.
-    """
-
     __slots__ = ('_cases', '_expr', '_default')
 
     def __init__(self, cases, expr=Undef, default=Undef):
@@ -1043,9 +1035,9 @@ def compile_case(compile, expr, state):
     if expr._expr is not Undef:
         state.sql.append(SPACE)
         compile(expr._expr, state)
-    for clouse, value in expr._cases:
+    for clause, value in expr._cases:
         state.sql.append(' WHEN ')
-        compile(clouse, state)
+        compile(clause, state)
         state.sql.append(' THEN ')
         compile(value, state)
     if expr._default is not Undef:
@@ -1445,11 +1437,13 @@ class TableJoin(object):
         self._join_type = join_type
         return self
 
-    def on(self, c):
+    def on(self, cond):
         if self._on is not None:
-            self = self.__class__(self)  # TODO: Test me.
-        self._on = c
-        return self
+            c = self.__class__(self)  # TODO: Test me.
+        else:
+            c = self
+        c._on = cond
+        return c
 
     def natural(self):
         self._natural = True
@@ -1524,6 +1518,7 @@ class Result(object):
     def __init__(self, compile=None):
         if compile is not None:
             self.compile = compile
+        self._query = None
 
     def execute(self):
         return self.compile(self._query)
@@ -1617,9 +1612,9 @@ class Select(Expr):
     def tables(self, tables=None):
         if tables is None:
             return self._tables
-        self = self.clone('_tables')
-        self._tables = tables if isinstance(tables, TableJoin) else Factory.get(self).TableJoin(tables)
-        return self
+        c = self.clone('_tables')
+        c._tables = tables if isinstance(tables, TableJoin) else Factory.get(c).TableJoin(tables)
+        return c
 
     @opt_checker(["reset", ])
     def distinct(self, *args, **opts):
@@ -1661,11 +1656,11 @@ class Select(Expr):
 
     def on(self, cond):
         # TODO: Remove?
-        self = self.clone()
-        if not isinstance(self._tables, TableJoin):
+        c = self.clone()
+        if not isinstance(c._tables, TableJoin):
             raise Error("Can't set on without join table")
-        self._tables = self._tables.on(cond)
-        return self
+        c._tables = c._tables.on(cond)
+        return c
 
     def where(self, cond, op=operator.and_):
         c = self.clone()
@@ -2278,7 +2273,7 @@ compile.set_precedence(140, '(any other)')  # all other native and user-defined 
 compile.set_precedence(130, In, NotIn, 'IN')
 compile.set_precedence(120, Between, 'BETWEEN')
 compile.set_precedence(110, 'OVERLAPS')
-compile.set_precedence(100, Like, Ilike, 'LIKE', 'ILIKE', 'SIMILAR')
+compile.set_precedence(100, Like, ILike, 'LIKE', 'ILIKE', 'SIMILAR')
 compile.set_precedence(90, Lt, Gt, '<', '>')
 compile.set_precedence(80, Le, Ge, Ne, '<=', '>=', '<>', '!=')
 compile.set_precedence(70, Eq, '=')
