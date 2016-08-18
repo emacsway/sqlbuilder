@@ -1452,9 +1452,6 @@ class TableJoin(object):
         self._natural = False
         self._using = None
 
-    def _j(j):
-        return lambda self, obj: self.join(j, obj)
-
     def inner_join(self, right):
         return self.join("INNER JOIN", right)
 
