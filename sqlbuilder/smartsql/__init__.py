@@ -173,14 +173,14 @@ class Compiler(object):
 
     def get_inner_precedence(self, expr):
         cls = expr.__class__
-        if issubclass(cls, Expr) and hasattr(expr, '_sql'):
+        if issubclass(cls, Expr) and hasattr(expr, 'sql'):
             try:
-                if (cls, expr._sql) in self._precedence:
-                    return self._precedence[(cls, expr._sql)]
-                elif expr._sql in self._precedence:
-                    return self._precedence[expr._sql]
+                if (cls, expr.sql) in self._precedence:
+                    return self._precedence[(cls, expr.sql)]
+                elif expr.sql in self._precedence:
+                    return self._precedence[expr.sql]
             except TypeError:
-                # For case when expr._sql is unhashable, for example we can allow T('tablename')._sql in future.
+                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql in future.
                 # I'm not sure, whether Field() should be unhashable.
                 pass
 
@@ -409,51 +409,51 @@ class BaseType(AbstractType):
 
     def startswith(self, other):
         pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(pattern, Value('%')), escape=pattern._escape)
+        return Like(self._expr, Concat(pattern, Value('%')), escape=pattern.escape)
 
     def istartswith(self, other):
         pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(pattern, Value('%')), escape=pattern._escape)
+        return ILike(self._expr, Concat(pattern, Value('%')), escape=pattern.escape)
 
     def contains(self, other):  # TODO: ambiguous with "@>" operator of postgresql.
         pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+        return Like(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
 
     def icontains(self, other):
         pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+        return ILike(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
 
     def endswith(self, other):
         pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(Value('%'), pattern), escape=pattern._escape)
+        return Like(self._expr, Concat(Value('%'), pattern), escape=pattern.escape)
 
     def iendswith(self, other):
         pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(Value('%'), pattern), escape=pattern._escape)
+        return ILike(self._expr, Concat(Value('%'), pattern), escape=pattern.escape)
 
     def rstartswith(self, other):
         pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(pattern, Value('%')), escape=pattern._escape)
+        return Like(other, Concat(pattern, Value('%')), escape=pattern.escape)
 
     def ristartswith(self, other):
         pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(pattern, Value('%')), escape=pattern._escape)
+        return ILike(other, Concat(pattern, Value('%')), escape=pattern.escape)
 
     def rcontains(self, other):
         pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+        return Like(other, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
 
     def ricontains(self, other):
         pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+        return ILike(other, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
 
     def rendswith(self, other):
         pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(Value('%'), pattern), escape=pattern._escape)
+        return Like(other, Concat(Value('%'), pattern), escape=pattern.escape)
 
     def riendswith(self, other):
         pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(Value('%'), pattern), escape=pattern._escape)
+        return ILike(other, Concat(Value('%'), pattern), escape=pattern.escape)
 
     def __pos__(self):
         return Pos(self._expr)
@@ -548,8 +548,8 @@ def operable_p3(delegate_attr):
 class Operable(object):
     __slots__ = ('_datatype', '__weakref__')
 
-    def __init__(self):
-        self._datatype = BaseType  # Set default type
+    def __init__(self, datatype=BaseType):
+        self._datatype = datatype
 
     def __getattr__(self, name):
         """Use in derived classes:
@@ -574,19 +574,20 @@ class Operable(object):
 
 
 class Expr(Operable):
-    __slots__ = ('_sql', '_params')
+    __slots__ = ('sql', 'params')
 
-    def __init__(self, sql, *params):
-        Operable.__init__(self)
+    def __init__(self, sql, *params, **kwargs):
+        Operable.__init__(self, kwargs.get('datatype', BaseType))
         if params and is_list(params[0]):
-            return self.__init__(sql, *params[0])
-        self._sql, self._params = sql, params
+            self.__init__(sql, *params[0])
+            return
+        self.sql, self.params = sql, params
 
 
 @compile.when(Expr)
 def compile_expr(compile, expr, state):
-    state.sql.append(expr._sql)
-    state.params += expr._params
+    state.sql.append(expr.sql)
+    state.params += expr.params
 
 
 class MetaCompositeExpr(type):
@@ -608,11 +609,11 @@ class MetaCompositeExpr(type):
 
 class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
 
-    __slots__ = ('data', '_sql')
+    __slots__ = ('data', 'sql')
 
     def __init__(self, *args):
         self.data = args
-        self._sql = ", "
+        self.sql = ", "
 
     def as_(self, aliases):
         return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
@@ -648,24 +649,24 @@ def compile_compositeexpr(compile, expr, state):
 
 
 class Binary(Expr):
-    __slots__ = ('_left', '_right')
+    __slots__ = ('left', 'right')
 
     def __init__(self, left, op, right):
-        self._datatype = operator_registry.get((self.__class__, op), self._typeof(left), self._typeof(right))
-        self._left = left
-        self._sql = op.upper()
-        self._right = right
+        datatype = operator_registry.get((self.__class__, op), self._typeof(left), self._typeof(right))
+        Expr.__init__(self, op.upper(), datatype=datatype)
+        self.left = left
+        self.right = right
 
 Condition = Binary
 
 
 @compile.when(Binary)
 def compile_condition(compile, expr, state):
-    compile(expr._left, state)
+    compile(expr.left, state)
     state.sql.append(SPACE)
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
     state.sql.append(SPACE)
-    compile(expr._right, state)
+    compile(expr.right, state)
 
 
 class NamedBinary(Binary):
@@ -674,9 +675,10 @@ class NamedBinary(Binary):
     def __init__(self, left, right):
         # Don't use multi-arguments form like And(*args)
         # Use reduce(operator.and_, args) or reduce(And, args) instead. SRP.
-        self._datatype = operator_registry.get(self.__class__, self._typeof(left), self._typeof(right))
-        self._left = left
-        self._right = right
+        datatype = operator_registry.get(self.__class__, self._typeof(left), self._typeof(right))
+        Operable.__init__(self, datatype)
+        self.left = left
+        self.right = right
 
 NamedCondition = NamedBinary
 
@@ -685,147 +687,151 @@ class NamedCompound(NamedBinary):
     __slots__ = ()
 
     def __init__(self, *exprs):
-        self._left = reduce(self.__class__, exprs[:-1])
-        self._right = exprs[-1]
-        self._datatype = operator_registry.get(self.__class__, self._typeof(self._left), self._typeof(self._right))
+        self.left = reduce(self.__class__, exprs[:-1])
+        self.right = exprs[-1]
+        datatype = operator_registry.get(self.__class__, self._typeof(self.left), self._typeof(self.right))
+        Operable.__init__(self, datatype)
 
 
 class Add(NamedCompound):
-    _sql = '+'
+    sql = '+'
 
 
 class Sub(NamedBinary):
     __slots__ = ()
-    _sql = '-'
+    sql = '-'
 
 
 class Mul(NamedCompound):
     __slots__ = ()
-    _sql = '*'
+    sql = '*'
 
 
 class Div(NamedBinary):
     __slots__ = ()
-    _sql = '/'
+    sql = '/'
 
 
 class Gt(NamedBinary):
     __slots__ = ()
-    _sql = '>'
+    sql = '>'
 
 
 class Lt(NamedBinary):
     __slots__ = ()
-    _sql = '<'
+    sql = '<'
 
 
 class Ge(NamedBinary):
     __slots__ = ()
-    _sql = '>='
+    sql = '>='
 
 
 class Le(NamedBinary):
     __slots__ = ()
-    _sql = '<='
+    sql = '<='
 
 
 class And(NamedCompound):
     __slots__ = ()
-    _sql = 'AND'
+    sql = 'AND'
 
 
 class Or(NamedCompound):
     __slots__ = ()
-    _sql = 'OR'
+    sql = 'OR'
 
 
 class Eq(NamedBinary):
     __slots__ = ()
-    _sql = '='
+    sql = '='
 
 
 class Ne(NamedBinary):
     __slots__ = ()
-    _sql = '<>'
+    sql = '<>'
 
 
 class Is(NamedBinary):
     __slots__ = ()
-    _sql = 'IS'
+    sql = 'IS'
 
 
 class IsNot(NamedBinary):
     __slots__ = ()
-    _sql = 'IS NOT'
+    sql = 'IS NOT'
 
 
 class In(NamedBinary):
     __slots__ = ()
-    _sql = 'IN'
+    sql = 'IN'
 
 
 class NotIn(NamedBinary):
     __slots__ = ()
-    _sql = 'NOT IN'
+    sql = 'NOT IN'
 
 
 class RShift(NamedBinary):
     __slots__ = ()
-    _sql = ">>"
+    sql = ">>"
 
 
 class LShift(NamedBinary):
     __slots__ = ()
-    _sql = "<<"
+    sql = "<<"
 
 
 class EscapeForLike(Expr):
 
-    __slots__ = ('_expr',)
+    __slots__ = ('expr',)
 
-    _escape = "!"
-    _escape_map = tuple(  # Ordering is important!
+    escape = "!"
+    escape_map = tuple(  # Ordering is important!
         (i, "!{0}".format(i)) for i in ('!', '_', '%')
     )
 
     def __init__(self, expr):
         Operable.__init__(self)
-        self._expr = expr
+        self.expr = expr
 
 
 @compile.when(EscapeForLike)
 def compile_escapeforlike(compile, expr, state):
-    escaped = expr._expr
-    for k, v in expr._escape_map:
+    escaped = expr.expr
+    for k, v in expr.escape_map:
         escaped = Replace(escaped, Value(k), Value(v))
     compile(escaped, state)
 
 
 class Like(NamedBinary):
-    __slots__ = ('_escape',)
-    _sql = 'LIKE'
+    __slots__ = ('escape',)
+    sql = 'LIKE'
 
     def __init__(self, left, right, escape=Undef):
+        """
+        :type escape: str | Undef
+        """
         Operable.__init__(self)
-        self._left = left
-        self._right = right
+        self.left = left
+        self.right = right
         if isinstance(right, EscapeForLike):
-            self._escape = right._escape
+            self.escape = right.escape
         else:
-            self._escape = escape
+            self.escape = escape
 
 
 class ILike(Like):
     __slots__ = ()
-    _sql = 'ILIKE'
+    sql = 'ILIKE'
 
 
 @compile.when(Like)
 def compile_like(compile, expr, state):
     compile_condition(compile, expr, state)
-    if expr._escape is not Undef:
+    if expr.escape is not Undef:
         state.sql.append(' ESCAPE ')
-        compile(Value(expr._escape) if isinstance(expr._escape, string_types) else expr._escape, state)
+        compile(Value(expr.escape) if isinstance(expr.escape, string_types) else expr.escape, state)
 
 
 class ExprList(Expr):
@@ -834,12 +840,13 @@ class ExprList(Expr):
 
     def __init__(self, *args):
         # if args and is_list(args[0]):
-        #     return self.__init__(*args[0])
-        Operable.__init__(self)
-        self._sql, self.data = " ", list(args)
+        #     self.__init__(*args[0])
+        #     return
+        Expr.__init__(self, ' ')
+        self.data = list(args)
 
     def join(self, sep):
-        self._sql = sep
+        self.sql = sep
         return self
 
     def __len__(self):
@@ -890,7 +897,7 @@ def compile_exprlist(compile, expr, state):
         if first:
             first = False
         else:
-            state.sql.append(expr._sql)
+            state.sql.append(expr.sql)
         compile(a, state)
 
 
@@ -901,7 +908,7 @@ class FieldList(ExprList):
         # if args and is_list(args[0]):
         #     return self.__init__(*args[0])
         Operable.__init__(self)
-        self._sql, self.data = ", ", list(args)
+        self.sql, self.data = ", ", list(args)
 
 
 @compile.when(FieldList)
@@ -917,12 +924,14 @@ class Concat(ExprList):
 
     def __init__(self, *args):
         super(Concat, self).__init__(*args)
-        self._sql = ' || '
+        self.sql = ' || '
         self._ws = None
 
-    def ws(self, sep):
+    def ws(self, sep=None):
+        if sep is None:
+            return self._ws
         self._ws = sep
-        self._sql = ', '
+        self.sql = ', '
         return self
 
 
@@ -931,7 +940,7 @@ class Array(ExprList):  # TODO: use composition instead of inheritance, to solve
 
     def __init__(self, *args):
         Operable.__init__(self)
-        self._sql, self.data = ", ", list(args)
+        self.sql, self.data = ", ", list(args)
 
 
 @compile.when(Array)
@@ -943,12 +952,12 @@ def compile_array(compile, expr, state):
 
 @compile.when(Concat)
 def compile_concat(compile, expr, state):
-    if not expr._ws:
+    if not expr.ws():
         return compile_exprlist(compile, expr, state)
     state.sql.append('concat_ws(')
-    compile(expr._ws, state)
+    compile(expr.ws(), state)
     for a in expr:
-        state.sql.append(expr._sql)
+        state.sql.append(expr.sql)
         compile(a, state)
     state.sql.append(')')
 
@@ -959,12 +968,12 @@ class Param(Expr):
 
     def __init__(self, params):
         Operable.__init__(self)
-        self._params = params
+        self.params = params
 
 
 @compile.when(Param)
 def compile_param(compile, expr, state):
-    compile(expr._params, state)
+    compile(expr.params, state)
 
 
 Placeholder = Param
@@ -972,17 +981,17 @@ Placeholder = Param
 
 class Parentheses(Expr):
 
-    __slots__ = ('_expr', )
+    __slots__ = ('expr', )
 
     def __init__(self, expr):
         Operable.__init__(self)
-        self._expr = expr
+        self.expr = expr
 
 
 @compile.when(Parentheses)
 def compile_parentheses(compile, expr, state):
     state.precedence += MAX_PRECEDENCE
-    compile(expr._expr, state)
+    compile(expr.expr, state)
 
 
 class OmitParentheses(Parentheses):
@@ -992,24 +1001,23 @@ class OmitParentheses(Parentheses):
 @compile.when(OmitParentheses)
 def compile_omitparentheses(compile, expr, state):
     state.precedence = 0
-    compile(expr._expr, state)
+    compile(expr.expr, state)
 
 
 class Prefix(Expr):
 
-    __slots__ = ('_expr', )
+    __slots__ = ('expr', )
 
     def __init__(self, prefix, expr):
-        Operable.__init__(self)
-        self._sql = prefix
-        self._expr = expr
+        Expr.__init__(self, prefix)
+        self.expr = expr
 
 
 @compile.when(Prefix)
 def compile_prefix(compile, expr, state):
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
     state.sql.append(SPACE)
-    compile(expr._expr, state)
+    compile(expr.expr, state)
 
 
 class NamedPrefix(Prefix):
@@ -1017,27 +1025,27 @@ class NamedPrefix(Prefix):
 
     def __init__(self, expr):
         Operable.__init__(self)
-        self._expr = expr
+        self.expr = expr
 
 
 class Not(NamedPrefix):
     __slots__ = ()
-    _sql = 'NOT'
+    sql = 'NOT'
 
 
 class All(NamedPrefix):
     __slots__ = ()
-    _sql = 'ALL'
+    sql = 'ALL'
 
 
 class Distinct(NamedPrefix):
     __slots__ = ()
-    _sql = 'DISTINCT'
+    sql = 'DISTINCT'
 
 
 class Exists(NamedPrefix):
     __slots__ = ()
-    _sql = 'EXISTS'
+    sql = 'EXISTS'
 
 
 class Unary(Prefix):
@@ -1046,41 +1054,40 @@ class Unary(Prefix):
 
 @compile.when(Unary)
 def compile_unary(compile, expr, state):
-    state.sql.append(expr._sql)
-    compile(expr._expr, state)
+    state.sql.append(expr.sql)
+    compile(expr.expr, state)
 
 
 class NamedUnary(Unary):
     __slots__ = ()
 
     def __init__(self, expr):
-        self._expr = expr
+        self.expr = expr
 
 
 class Pos(NamedUnary):
     __slots__ = ()
-    _sql = '+'
+    sql = '+'
 
 
 class Neg(NamedUnary):
     __slots__ = ()
-    _sql = '-'
+    sql = '-'
 
 
 class Postfix(Expr):
-    __slots__ = ('_expr', )
+    __slots__ = ('expr', )
 
     def __init__(self, expr, postfix):
-        Operable.__init__(self)
-        self._sql = postfix
-        self._expr = expr
+        Expr.__init__(self, postfix)
+        self.expr = expr
 
 
 @compile.when(Postfix)
 def compile_postfix(compile, expr, state):
-    compile(expr._expr, state)
+    compile(expr.expr, state)
     state.sql.append(SPACE)
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
 
 
 class NamedPostfix(Postfix):
@@ -1088,7 +1095,7 @@ class NamedPostfix(Postfix):
 
     def __init__(self, expr):
         Operable.__init__(self)
-        self._expr = expr
+        self.expr = expr
 
 
 class OrderDirection(NamedPostfix):
@@ -1097,80 +1104,80 @@ class OrderDirection(NamedPostfix):
     def __init__(self, expr):
         Operable.__init__(self)
         if isinstance(expr, OrderDirection):
-            expr = expr._expr
-        self._expr = expr
+            expr = expr.expr
+        self.expr = expr
 
 
 class Asc(OrderDirection):
     __slots__ = ()
-    _sql = 'ASC'
+    sql = 'ASC'
 
 
 class Desc(OrderDirection):
     __slots__ = ()
-    _sql = 'DESC'
+    sql = 'DESC'
 
 
 class Between(Expr):
 
-    __slots__ = ('_expr', '_start', '_end')
+    __slots__ = ('expr', 'start', 'end')
 
     def __init__(self, expr, start, end):
         Operable.__init__(self)
-        self._expr, self._start, self._end = expr, start, end
+        self.expr, self.start, self.end = expr, start, end
 
 
 @compile.when(Between)
 def compile_between(compile, expr, state):
-    compile(expr._expr, state)
+    compile(expr.expr, state)
     state.sql.append(' BETWEEN ')
-    compile(expr._start, state)
+    compile(expr.start, state)
     state.sql.append(' AND ')
-    compile(expr._end, state)
+    compile(expr.end, state)
 
 
 class Case(Expr):
-    __slots__ = ('_cases', '_expr', '_default')
+    __slots__ = ('cases', 'expr', 'default')
 
     def __init__(self, cases, expr=Undef, default=Undef):
         Operable.__init__(self)
-        self._cases = cases
-        self._expr = expr
-        self._default = default
+        self.cases = cases
+        self.expr = expr
+        self.default = default
 
 
 @compile.when(Case)
 def compile_case(compile, expr, state):
     state.sql.append('CASE')
-    if expr._expr is not Undef:
+    if expr.expr is not Undef:
         state.sql.append(SPACE)
-        compile(expr._expr, state)
-    for clause, value in expr._cases:
+        compile(expr.expr, state)
+    for clause, value in expr.cases:
         state.sql.append(' WHEN ')
         compile(clause, state)
         state.sql.append(' THEN ')
         compile(value, state)
-    if expr._default is not Undef:
+    if expr.default is not Undef:
         state.sql.append(' ELSE ')
-        compile(expr._default, state)
+        compile(expr.default, state)
     state.sql.append(' END ')
 
 
 class Callable(Expr):
 
-    __slots__ = ('_expr', '_args')
+    __slots__ = ('expr', 'args')
 
     def __init__(self, expr, *args):
         Operable.__init__(self)
-        self._expr = expr
-        self._args = ExprList(*args).join(", ")
+        self.expr = expr
+        self.args = ExprList(*args).join(", ")
 
 
 @compile.when(Callable)
 def compile_callable(compile, expr, state):
-    compile(expr._expr, state)
+    compile(expr.expr, state)
     state.sql.append('(')
-    compile(expr._args, state)
+    compile(expr.args, state)
     state.sql.append(')')
 
 
@@ -1179,39 +1186,39 @@ class NamedCallable(Callable):
 
     def __init__(self, *args):
         Operable.__init__(self)
-        self._args = ExprList(*args).join(", ")
+        self.args = ExprList(*args).join(", ")
 
 
 @compile.when(NamedCallable)
 def compile_namedcallable(compile, expr, state):
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
     state.sql.append('(')
-    compile(expr._args, state)
+    compile(expr.args, state)
     state.sql.append(')')
 
 
 class Replace(NamedCallable):
     __slots__ = ()
-    _sql = 'REPLACE'
+    sql = 'REPLACE'
 
 
 class Cast(NamedCallable):
-    __slots__ = ("_expr", "_type",)
-    _sql = "CAST"
+    __slots__ = ("expr", "type",)
+    sql = "CAST"
 
     def __init__(self, expr, type):
         Operable.__init__(self)
-        self._expr = expr
-        self._type = type
+        self.expr = expr
+        self.type = type
 
 
 @compile.when(Cast)
 def compile_cast(compile, expr, state):
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
     state.sql.append('(')
-    compile(expr._expr, state)
+    compile(expr.expr, state)
     state.sql.append(' AS ')
-    state.sql.append(expr._type)
+    state.sql.append(expr.type)
     state.sql.append(')')
 
 
@@ -1220,8 +1227,7 @@ class Constant(Expr):
     __slots__ = ()
 
     def __init__(self, const):
-        Operable.__init__(self)
-        self._sql = const.upper()
+        Expr.__init__(self, const.upper())
 
     def __call__(self, *args):
         return Callable(self, *args)
@@ -1229,7 +1235,7 @@ class Constant(Expr):
 
 @compile.when(Constant)
 def compile_constant(compile, expr, state):
-    state.sql.append(expr._sql)
+    state.sql.append(expr.sql)
 
 
 class ConstantSpace(object):
@@ -1284,54 +1290,54 @@ def compile_field(compile, expr, state):
 
 class Subfield(Expr):
 
-    __slots__ = ('_parent', '_name')
+    __slots__ = ('parent', 'name')
 
     def __init__(self, parent, name):
         Operable.__init__(self)
-        self._parent = parent
+        self.parent = parent
         if isinstance(name, string_types):
             name = Name(name)
-        self._name = name
+        self.name = name
 
 
 @compile.when(Subfield)
 def compile_subfield(compile, expr, state):
-    parent = expr._parent
+    parent = expr.parent
     if True:  # get me from context
         parent = Parentheses(parent)
     compile(parent)
     state.sql.append('.')
-    compile(expr._name, state)
+    compile(expr.name, state)
 
 
 class ArrayItem(Expr):
 
-    __slots__ = ('_array', '_key')
+    __slots__ = ('array', 'key')
 
     def __init__(self, array, key):
         Operable.__init__(self)
-        self._array = array
+        self.array = array
         assert isinstance(key, slice)
-        self._key = key
+        self.key = key
 
 
 @compile.when(ArrayItem)
 def compile_arrayitem(compile, expr, state):
-    compile(expr._array)
+    compile(expr.array)
     state.sql.append("[")
-    state.sql.append("{0:d}".format(expr.start))
-    if expr.stop is not None:
+    state.sql.append("{0:d}".format(expr.key.start))
+    if expr.key.stop is not None:
         state.sql.append(", ")
-        state.sql.append("{0:d}".format(expr.stop))
+        state.sql.append("{0:d}".format(expr.key.stop))
     state.sql.append("]")
 
 
 class Alias(Expr):
 
-    __slots__ = ('_expr', '_sql')
+    __slots__ = ('expr', 'sql')
 
     def __init__(self, alias, expr=None):
-        self._expr = expr
+        self.expr = expr
         if isinstance(alias, string_types):
             alias = Name(alias)
         super(Alias, self).__init__(alias)
@@ -1346,9 +1352,9 @@ def compile_alias(compile, expr, state):
         pass
     else:
         if render_column:
-            compile(expr._expr, state)
+            compile(expr.expr, state)
             state.sql.append(' AS ')
-    compile(expr._sql, state)
+    compile(expr.sql, state)
 
 
 class MetaTableSpace(type):
@@ -1378,16 +1384,6 @@ class T(MetaTableSpace("NewBase", (object, ), {})):
 
 class MetaTable(type):
 
-    def __new__(cls, name, bases, attrs):
-        if bases[0] is object:
-            def _f(attr):
-                return lambda self, *a, **kw: getattr(Factory.get(self).TableJoin(self), attr)(*a, **kw)
-
-            for a in ['inner_join', 'left_join', 'right_join', 'full_join', 'cross_join',
-                      'join', 'on', 'hint', 'natural', 'using']:
-                attrs[a] = _f(a)
-        return type.__new__(cls, name, bases, attrs)
-
     def __getattr__(cls, key):
         if key[:2] == '__':
             raise AttributeError
@@ -1411,7 +1407,8 @@ class FieldProxy(object):
     __getitem__ = __getattr__
 
 # TODO: Schema support. Not only for table.
-# A database contains one or more named schemas, which in turn contain tables. Schemas also contain other kinds of named objects, including data types, functions, and operators.
+# A database contains one or more named schemas, which in turn contain tables.
+# Schemas also contain other kinds of named objects, including data types, functions, and operators.
 # http://www.postgresql.org/docs/9.4/static/ddl-schemas.html
 # Ideas: S.public(T.user), S('public', T.user)
 
@@ -1439,13 +1436,35 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def as_(self, alias):
         return Factory.get(self).TableAlias(alias, self)
 
-    def __getattr__(self, key):
-        if key[:2] == '__' or key in Table.__slots__:
-            raise AttributeError
-        return self.get_field(key)
+    def inner_join(self, right):
+        return Factory.get(self).TableJoin(self).inner_join(right)
 
-    def __getitem__(self, key):
-        return self.get_field(key)
+    def left_join(self, right):
+        return Factory.get(self).TableJoin(self).left_join(right)
+
+    def right_join(self, right):
+        return Factory.get(self).TableJoin(self).right_join(right)
+
+    def full_join(self, right):
+        return Factory.get(self).TableJoin(self).full_join(right)
+
+    def cross_join(self, right):
+        return Factory.get(self).TableJoin(self).cross_join(right)
+
+    def join(self, join_type, obj):
+        return Factory.get(self).TableJoin(self).join(join_type, obj)
+
+    def on(self, cond):
+        return Factory.get(self).TableJoin(self).on(cond)
+
+    def hint(self, expr):
+        return Factory.get(self).TableJoin(self).hint(expr)
+
+    def natural(self):
+        return Factory.get(self).TableJoin(self).natural()
+
+    def using(self, *fields):
+        return Factory.get(self).TableJoin(self).using(*fields)
 
     def _append_field(self, field):
         self._fields[field._name] = field
@@ -1468,6 +1487,14 @@ class Table(MetaTable("NewBase", (object, ), {})):
             f = f.as_(alias)
             cache[key] = f
         return f
+
+    def __getattr__(self, key):
+        if key[:2] == '__' or key in Table.__slots__:
+            raise AttributeError
+        return self.get_field(key)
+
+    def __getitem__(self, key):
+        return self.get_field(key)
 
     __and__ = same('inner_join')
     __add__ = same('left_join')
@@ -1529,20 +1556,26 @@ class TableJoin(object):
         self._natural = False
         self._using = None
 
-    def _j(j):
-        return lambda self, obj: self.join(j, obj)
+    def inner_join(self, right):
+        return self.join("INNER JOIN", right)
 
-    inner_join = _j("INNER JOIN")
-    left_join = _j("LEFT OUTER JOIN")
-    right_join = _j("RIGHT OUTER JOIN")
-    full_join = _j("FULL OUTER JOIN")
-    cross_join = _j("CROSS JOIN")
+    def left_join(self, right):
+        return self.join("LEFT OUTER JOIN", right)
 
-    def join(self, join_type, obj):
-        if not isinstance(obj, TableJoin) or obj.left():
-            obj = type(self)(obj, left=self)
-        obj = obj.left(self).join_type(join_type)
-        return obj
+    def right_join(self, right):
+        return self.join("RIGHT OUTER JOIN", right)
+
+    def full_join(self, right):
+        return self.join("FULL OUTER JOIN", right)
+
+    def cross_join(self, right):
+        return self.join("CROSS JOIN", right)
+
+    def join(self, join_type, right):
+        if not isinstance(right, TableJoin) or right.left():
+            right = type(self)(right, left=self)
+        right = right.left(self).join_type(join_type)
+        return right
 
     def left(self, left=None):
         if left is None:
@@ -1722,8 +1755,8 @@ class Select(Expr):
             if not isinstance(tables, TableJoin):
                 tables = Factory.get(self).TableJoin(tables)
         self._tables = tables
-        self._wheres = None
-        self._havings = None
+        self._where = None
+        self._having = None
         self._group_by = ExprList().join(", ")
         self._order_by = ExprList().join(", ")
         self._limit = None
@@ -1783,9 +1816,14 @@ class Select(Expr):
         c._tables = c._tables.on(cond)
         return c
 
-    def where(self, cond, op=operator.and_):
+    def where(self, cond=None, op=operator.and_):
+        if cond is None:
+            return self._where
         c = self.clone()
-        c._wheres = cond if c._wheres is None or op is None else op(c._wheres, cond)
+        if c._where is None or op is None:
+            c._where = cond
+        else:
+            c._where = op(c._where, cond)
         return c
 
     def or_where(self, cond):
@@ -1807,9 +1845,14 @@ class Select(Expr):
             c._group_by.extend(args)
         return c
 
-    def having(self, cond, op=operator.and_):
+    def having(self, cond=None, op=operator.and_):
+        if cond is None:
+            return self._having
         c = self.clone()
-        c._havings = cond if c._havings is None or op is None else op(self._havings, cond)
+        if c._having is None or op is None:
+            c._having = cond
+        else:
+            c._having = op(self._having, cond)
         return c
 
     def or_having(self, cond):
@@ -1833,6 +1876,8 @@ class Select(Expr):
         return c
 
     def limit(self, *args, **kwargs):
+        if not args and not kwargs:
+            return (self._offset, self._limit)
         c = self.clone()
         if args:
             if len(args) < 2:
@@ -1862,29 +1907,29 @@ class Select(Expr):
 def compile_query(compile, expr, state):
     state.push("auto_tables", [])  # this expr can be a subquery
     state.sql.append("SELECT ")
-    if expr._distinct:
+    if expr.distinct():
         state.sql.append("DISTINCT ")
-        if expr._distinct[0] is not True:
+        if expr.distinct()[0] is not True:
             state.sql.append("ON ")
             compile(Parentheses(expr._distinct), state)
             state.sql.append(SPACE)
-    compile(expr._fields, state)
+    compile(expr.fields(), state)
 
     tables_sql_pos = len(state.sql)
     tables_params_pos = len(state.params)
 
-    if expr._wheres:
+    if expr.where():
         state.sql.append(" WHERE ")
-        compile(expr._wheres, state)
-    if expr._group_by:
+        compile(expr.where(), state)
+    if expr.group_by():
         state.sql.append(" GROUP BY ")
-        compile(expr._group_by, state)
-    if expr._havings:
+        compile(expr.group_by(), state)
+    if expr.having():
         state.sql.append(" HAVING ")
-        compile(expr._havings, state)
-    if expr._order_by:
+        compile(expr.having(), state)
+    if expr.order_by():
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
+        compile(expr.order_by(), state)
     if expr._limit is not None:
         state.sql.append(" LIMIT ")
         compile(expr._limit, state)
@@ -1898,7 +1943,7 @@ def compile_query(compile, expr, state):
     state.push('sql', [])
     state.push('params', [])
     state.sql.append(" FROM ")
-    compile(expr._tables, state)
+    compile(expr.tables(), state)
     tables_sql = state.sql
     tables_params = state.params
     state.pop()
@@ -1954,14 +1999,14 @@ class Query(Executable, Select):
     def update(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        kw.setdefault('where', self._wheres)
+        kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
         return self.result(Factory.get(self).Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
-        kw.setdefault('where', self._wheres)
+        kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
         return self.result(Factory.get(self).Delete(**kw)).delete()
@@ -2024,11 +2069,11 @@ class Modify(object):
 class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
-        self._table = table
-        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
-        self._values = (tuple(map.values()),) if map else values
-        self._ignore = ignore
-        self._on_duplicate_key_update = tuple(
+        self.table = table
+        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.values = (tuple(map.values()),) if map else values
+        self.ignore = ignore
+        self.on_duplicate_key_update = tuple(
             (k if isinstance(k, Expr) else Field(k), v)
             for k, v in on_duplicate_key_update.items()
         ) if on_duplicate_key_update else None
@@ -2038,21 +2083,21 @@ class Insert(Modify):
 def compile_insert(compile, expr, state):
     state.sql.append("INSERT ")
     state.sql.append("INTO ")
-    compile(expr._table, state)
+    compile(expr.table, state)
     state.sql.append(SPACE)
-    compile(Parentheses(expr._fields), state)
-    if isinstance(expr._values, Query):
+    compile(Parentheses(expr.fields), state)
+    if isinstance(expr.values, Query):
         state.sql.append(SPACE)
-        compile(expr._values, state)
+        compile(expr.values, state)
     else:
         state.sql.append(" VALUES ")
-        compile(ExprList(*expr._values).join(', '), state)
-    if expr._ignore:
+        compile(ExprList(*expr.values).join(', '), state)
+    if expr.ignore:
         state.sql.append(" ON CONFLICT DO NOTHING")
-    elif expr._on_duplicate_key_update:
+    elif expr.on_duplicate_key_update:
         state.sql.append(" ON CONFLICT DO UPDATE SET ")
         first = True
-        for f, v in expr._on_duplicate_key_update:
+        for f, v in expr.on_duplicate_key_update:
             if first:
                 first = False
             else:
@@ -2066,24 +2111,24 @@ def compile_insert(compile, expr, state):
 class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
-        self._table = table
-        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
-        self._values = tuple(map.values()) if map else values
-        self._ignore = ignore
-        self._where = where
-        self._order_by = order_by
-        self._limit = limit
+        self.table = table
+        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.values = tuple(map.values()) if map else values
+        self.ignore = ignore
+        self.where = where
+        self.order_by = order_by
+        self.limit = limit
 
 
 @compile.when(Update)
 def compile_update(compile, expr, state):
     state.sql.append("UPDATE ")
-    if expr._ignore:
+    if expr.ignore:
         state.sql.append("IGNORE ")
-    compile(expr._table, state)
+    compile(expr.table, state)
     state.sql.append(" SET ")
     first = True
-    for f, v in zip(expr._fields, expr._values):
+    for f, v in zip(expr.fields, expr.values):
         if first:
             first = False
         else:
@@ -2091,40 +2136,40 @@ def compile_update(compile, expr, state):
         compile(f, state)
         state.sql.append(" = ")
         compile(v, state)
-    if expr._where:
+    if expr.where:
         state.sql.append(" WHERE ")
-        compile(expr._where, state)
-    if expr._order_by:
+        compile(expr.where, state)
+    if expr.order_by:
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
-    if expr._limit is not None:
+        compile(expr.order_by, state)
+    if expr.limit is not None:
         state.sql.append(" LIMIT ")
-        compile(expr._limit, state)
+        compile(expr.limit, state)
 
 
 @factory.register
 class Delete(Modify):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
-        self._table = table
-        self._where = where
-        self._order_by = order_by
-        self._limit = limit
+        self.table = table
+        self.where = where
+        self.order_by = order_by
+        self.limit = limit
 
 
 @compile.when(Delete)
 def compile_delete(compile, expr, state):
     state.sql.append("DELETE FROM ")
-    compile(expr._table, state)
-    if expr._where:
+    compile(expr.table, state)
+    if expr.where:
         state.sql.append(" WHERE ")
-        compile(expr._where, state)
-    if expr._order_by:
+        compile(expr.where, state)
+    if expr.order_by:
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
-    if expr._limit is not None:
+        compile(expr.order_by, state)
+    if expr.limit is not None:
         state.sql.append(" LIMIT ")
-        compile(expr._limit, state)
+        compile(expr.limit, state)
 
 
 @factory.register
@@ -2133,7 +2178,7 @@ class Set(Query):
     def __init__(self, *exprs, **kw):
         super(Set, self).__init__(result=kw.get('result'))
         if 'op' in kw:
-            self._sql = kw['op']
+            self.sql = kw['op']
         self._all = kw.get('all', False)  # Use All() instead?
         self._exprs = ExprList()
         for expr in exprs:
@@ -2153,7 +2198,7 @@ class Set(Query):
             # TODO: reset _order_by, _for_update?
 
     def _op(self, cls, *others):
-        if not getattr(self, '_sql', None):
+        if not getattr(self, 'sql', None):
             c = cls(*self._exprs, all=self._all)
             c._limit = self._limit
             c._offset = self._offset
@@ -2194,27 +2239,27 @@ class Set(Query):
 @factory.register
 class Union(Set):
     __slots__ = ()
-    _sql = 'UNION'
+    sql = 'UNION'
 
 
 @factory.register
 class Intersect(Set):
     __slots__ = ()
-    _sql = 'INTERSECT'
+    sql = 'INTERSECT'
 
 
 @factory.register
 class Except(Set):
     __slots__ = ()
-    _sql = 'EXCEPT'
+    sql = 'EXCEPT'
 
 
 @compile.when(Set)
 def compile_set(compile, expr, state):
     if expr._all:
-        op = ' {0} ALL '.format(expr._sql)
+        op = ' {0} ALL '.format(expr.sql)
     else:
-        op = ' {0} '.format(expr._sql)
+        op = ' {0} '.format(expr.sql)
     # TODO: add tests for nested sets.
     state.precedence += 0.5  # to correct handle sub-set with limit, offset
     compile(expr._exprs.join(op), state)
@@ -2234,10 +2279,10 @@ def compile_set(compile, expr, state):
 
 class Name(object):
 
-    __slots__ = ('_name', )
+    __slots__ = ('name', )
 
     def __init__(self, name=None):
-        self._name = name
+        self.name = name
 
 
 class NameCompiler(object):
@@ -2264,7 +2309,7 @@ class NameCompiler(object):
 
     def __call__(self, compile, expr, state):
         state.sql.append(self._delimiter)
-        name = expr._name
+        name = expr.name
         name = name.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             name = name.replace(k, v)
@@ -2283,10 +2328,10 @@ compile.when(Name)(compile_name)
 
 class Value(object):
 
-    __slots__ = ('_value', )
+    __slots__ = ('value', )
 
     def __init__(self, value):
-        self._value = value
+        self.value = value
 
 
 class ValueCompiler(object):
@@ -2309,7 +2354,7 @@ class ValueCompiler(object):
 
     def __call__(self, compile, expr, state):
         state.sql.append(self._delimiter)
-        value = str(expr._value)
+        value = str(expr.value)
         value = value.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             value = value.replace(k, v)
@@ -2340,7 +2385,7 @@ class Infix(object):
             left_precedence = self._compiler.get_inner_precedence(left)
             result_precedence = self._compiler.get_inner_precedence(result)
             if result_precedence > left_precedence:
-                left._right, result._left = result, left._right
+                left.right, result.left = result, left.right
                 return left
         return result
 
@@ -2368,7 +2413,7 @@ def is_allowed_attr(instance, key):
     if key.startswith('__'):
         return False
     if key in dir(instance.__class__):  # type(instance)?
-        # It's a descriptor, like '_sql' defined in slots
+        # It's a descriptor, like 'sql' defined in slots
         return False
     return True
 
