@@ -293,32 +293,6 @@ class BaseType(AbstractType):
     def __init__(self, expr):
         self._expr = expr  # weakref.ref(expr)
 
-    def _ca(op, inv=False):
-        return (lambda self, *a: Constant(op)(self._expr, *a)) if not inv else (lambda self, other: Constant(op)(other, self._expr))
-
-    def _l(mask, ci=False, inv=False):
-        def f(self, other):
-
-            if ci:
-                cls = ILike
-            else:
-                cls = Like
-
-            if inv:
-                left, right = other, self._expr
-            else:
-                left, right = self._expr, other
-
-            right = EscapeForLike(right)
-
-            args = [right]
-            if 0b100 & mask:
-                args.insert(0, Value('%'))
-            if 0b001 & mask:
-                args.append(Value('%'))
-            return cls(left, Concat(*args), escape=right._escape)  # other can be expression, so, using Concat()
-        return f
-
     def __add__(self, other):
         return Add(self._expr, other)
 
@@ -433,18 +407,53 @@ class BaseType(AbstractType):
     def rilike(self, other, escape=Undef):
         return ILike(other, self._expr, escape)
 
-    startswith = _l(0b001)
-    istartswith = _l(1, True)
-    contains = _l(0b101)  # TODO: ambiguous with "@>" operator of postgresql.
-    icontains = _l(0b101, True)
-    endswith = _l(0b100)
-    iendswith = _l(0b100, True)
-    rstartswith = _l(0b001, False, True)
-    ristartswith = _l(0b001, True, True)
-    rcontains = _l(0b101, False, True)
-    ricontains = _l(0b101, True, True)
-    rendswith = _l(0b100, False, True)
-    riendswith = _l(0b100, True, True)
+    def startswith(self, other):
+        pattern = EscapeForLike(other)
+        return Like(self._expr, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def istartswith(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self._expr, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def contains(self, other):  # TODO: ambiguous with "@>" operator of postgresql.
+        pattern = EscapeForLike(other)
+        return Like(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def icontains(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def endswith(self, other):
+        pattern = EscapeForLike(other)
+        return Like(self._expr, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def iendswith(self, other):
+        pattern = EscapeForLike(other)
+        return ILike(self._expr, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def rstartswith(self, other):
+        pattern = EscapeForLike(self._expr)
+        return Like(other, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def ristartswith(self, other):
+        pattern = EscapeForLike(self._expr)
+        return ILike(other, Concat(pattern, Value('%')), escape=pattern._escape)
+
+    def rcontains(self, other):
+        pattern = EscapeForLike(self._expr)
+        return Like(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def ricontains(self, other):
+        pattern = EscapeForLike(self._expr)
+        return ILike(other, Concat(Value('%'), pattern, Value('%')), escape=pattern._escape)
+
+    def rendswith(self, other):
+        pattern = EscapeForLike(self._expr)
+        return Like(other, Concat(Value('%'), pattern), escape=pattern._escape)
+
+    def riendswith(self, other):
+        pattern = EscapeForLike(self._expr)
+        return ILike(other, Concat(Value('%'), pattern), escape=pattern._escape)
 
     def __pos__(self):
         return Pos(self._expr)
@@ -461,12 +470,23 @@ class BaseType(AbstractType):
     def distinct(self):
         return Distinct(self._expr)
 
-    __pow__ = _ca("POW")
-    __rpow__ = _ca("POW", True)
-    __mod__ = _ca("MOD")
-    __rmod__ = _ca("MOD", True)
-    __abs__ = _ca("ABS")
-    count = _ca("COUNT")
+    def __pow__(self, other):
+        return Constant("POW")(self._expr, other)
+
+    def __rpow__(self, other):
+        return Constant("POW")(other, self._expr)
+
+    def __mod__(self, other):
+        return Constant("MOD")(self._expr, other)
+
+    def __rmod__(self, other):
+        return Constant("MOD")(other, self._expr)
+
+    def __abs__(self):
+        return Constant("ABS")(self._expr)
+
+    def count(self):
+        return Constant("COUNT")(self._expr)
 
     def as_(self, alias):
         return Alias(alias, self._expr)
