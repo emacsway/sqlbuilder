@@ -579,9 +579,9 @@ class Binary(Expr):
     __slots__ = ('left', 'right')
 
     def __init__(self, left, op, right):
+        Expr.__init__(self, op.upper())
         self.left = left
         self.right = right
-        Expr.__init__(self, op.upper())
 
 Condition = Binary
 
@@ -760,9 +760,10 @@ class ExprList(Expr):
 
     def __init__(self, *args):
         # if args and is_list(args[0]):
-        #     return self.__init__(*args[0])
-        self.data = list(args)
+        #     self.__init__(*args[0])
+        #     return
         Expr.__init__(self, ' ')
+        self.data = list(args)
 
     def join(self, sep):
         self.sql = sep
@@ -924,8 +925,8 @@ class Prefix(Expr):
     __slots__ = ('expr', )
 
     def __init__(self, prefix, expr):
-        self.expr = expr
         Expr.__init__(self, prefix)
+        self.expr = expr
 
 
 @compile.when(Prefix)
@@ -993,8 +994,8 @@ class Postfix(Expr):
     __slots__ = ('expr', )
 
     def __init__(self, expr, postfix):
-        self.expr = expr
         Expr.__init__(self, postfix)
+        self.expr = expr
 
 
 @compile.when(Postfix)
