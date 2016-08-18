@@ -8,7 +8,7 @@ from sqlbuilder.smartsql import (
     PLACEHOLDER, Q, T, Table, TA, F, Field, A, E, P, Not, func, const, CompositeExpr,
     Case, Cast, FieldList, ExprList, Result, TableJoin, compile
 )
-from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
 
 __all__ = ('TestTable', 'TestField', 'TestExpr', 'TestCaseExpr', 'TestCallable', 'TestCompositeExpr', 'TestQuery', 'TestResult', 'TestSmartSQLLegacy',)
 
