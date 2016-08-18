@@ -14,7 +14,7 @@ def compile_object(compile, expr, state):
     state.params.append(expr)
 
 
-compile_name = NameCompiler(delimeter='`', escape_delimeter='`')
+compile_name = NameCompiler(delimiter='`', escape_delimiter='`')
 compile.when(Name)(compile_name)
 
 

@@ -2130,8 +2130,8 @@ class NameCompiler(object):
         ('\t', '\\t'),
         ("%", "%%")
     )
-    _delimeter = '"'
-    _escape_delimeter = '"'
+    _delimiter = '"'
+    _escape_delimiter = '"'
     _max_length = 63
 
     class MaxLengthError(Error):
@@ -2142,15 +2142,15 @@ class NameCompiler(object):
             setattr(self, '_{}'.format(k), v)
 
     def __call__(self, compile, expr, state):
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
         name = expr._name
-        name = name.replace(self._delimeter, self._escape_delimeter + self._delimeter)
+        name = name.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             name = name.replace(k, v)
         if len(name) > self._get_max_length(state):
             raise self.MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
         state.sql.append(name)
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
 
     def _get_max_length(self, state):
         # Max length can depend on context.
@@ -2179,21 +2179,21 @@ class ValueCompiler(object):
         ('\t', '\\t'),
         ("%", "%%")
     )
-    _delimeter = "'"
-    _escape_delimeter = "'"
+    _delimiter = "'"
+    _escape_delimiter = "'"
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, '_{}'.format(k), v)
 
     def __call__(self, compile, expr, state):
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
         value = str(expr._value)
-        value = value.replace(self._delimeter, self._escape_delimeter + self._delimeter)
+        value = value.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             value = value.replace(k, v)
         state.sql.append(value)
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
 
 
 compile_value = ValueCompiler()
