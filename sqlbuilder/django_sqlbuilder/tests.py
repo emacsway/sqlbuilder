@@ -3,8 +3,6 @@ from django.conf import settings
 from django.db import models
 from django.test import TestCase, override_settings
 from sqlbuilder.smartsql import Table, TableAlias, Field, Query, compile
-from sqlbuilder.smartsql.tests import *
-from sqlbuilder.mini.tests import *
 
 
 class Author(models.Model):
