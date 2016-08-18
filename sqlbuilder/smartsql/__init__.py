@@ -282,9 +282,9 @@ class Comparable(object):
             right = EscapeForLike(right)
 
             args = [right]
-            if 4 & mask:
+            if 0b100 & mask:
                 args.insert(0, Value('%'))
-            if 1 & mask:
+            if 0b001 & mask:
                 args.append(Value('%'))
             return cls(left, Concat(*args), escape=right._escape)  # other can be expression, so, using Concat()
         return f
@@ -403,18 +403,18 @@ class Comparable(object):
     def rilike(self, other, escape=Undef):
         return Ilike(other, self, escape)
 
-    startswith = _l(1)
-    istartswith = _l(1, 1)
-    contains = _l(5)  # TODO: ambiguous with "@>" operator of postgresql.
-    icontains = _l(5, 1)
-    endswith = _l(4)
-    iendswith = _l(4, 1)
-    rstartswith = _l(1, 0, 1)
-    ristartswith = _l(1, 1, 1)
-    rcontains = _l(5, 0, 1)
-    ricontains = _l(5, 1, 1)
-    rendswith = _l(4, 0, 1)
-    riendswith = _l(4, 1, 1)
+    startswith = _l(0b001)
+    istartswith = _l(1, True)
+    contains = _l(0b101)  # TODO: ambiguous with "@>" operator of postgresql.
+    icontains = _l(0b101, True)
+    endswith = _l(0b100)
+    iendswith = _l(0b100, True)
+    rstartswith = _l(0b001, False, True)
+    ristartswith = _l(0b001, True, True)
+    rcontains = _l(0b101, False, True)
+    ricontains = _l(0b101, True, True)
+    rendswith = _l(0b100, False, True)
+    riendswith = _l(0b100, True, True)
 
     def __pos__(self):
         return Pos(self)
@@ -432,9 +432,9 @@ class Comparable(object):
         return Distinct(self)
 
     __pow__ = _ca("POW")
-    __rpow__ = _ca("POW", 1)
+    __rpow__ = _ca("POW", True)
     __mod__ = _ca("MOD")
-    __rmod__ = _ca("MOD", 1)
+    __rmod__ = _ca("MOD", True)
     __abs__ = _ca("ABS")
     count = _ca("COUNT")
 
@@ -1461,8 +1461,8 @@ class TableJoin(object):
 
     def __call__(self):
         self._nested = True
-        self = self.__class__(self)
-        return self
+        c = self.__class__(self)
+        return c
 
     def hint(self, expr):
         if isinstance(expr, string_types):
@@ -1668,9 +1668,9 @@ class Select(Expr):
         return self
 
     def where(self, cond, op=operator.and_):
-        self = self.clone()
-        self._wheres = cond if self._wheres is None or op is None else op(self._wheres, cond)
-        return self
+        c = self.clone()
+        c._wheres = cond if c._wheres is None or op is None else op(c._wheres, cond)
+        return c
 
     def or_where(self, cond):
         warn('or_where(cond)', 'where(cond, op=operator.or_)')
@@ -2070,9 +2070,9 @@ class Set(Query):
         return self
 
     def clone(self, *attrs):
-        self = Query.clone(self, *attrs)
-        self._exprs = copy.copy(self._exprs)
-        return self
+        c = Query.clone(self, *attrs)
+        c._exprs = copy.copy(c._exprs)
+        return c
 
 
 @factory.register
