@@ -1955,11 +1955,11 @@ class Modify(object):
 class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
-        self._table = table
-        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
-        self._values = (tuple(map.values()),) if map else values
-        self._ignore = ignore
-        self._on_duplicate_key_update = tuple(
+        self.table = table
+        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.values = (tuple(map.values()),) if map else values
+        self.ignore = ignore
+        self.on_duplicate_key_update = tuple(
             (k if isinstance(k, Expr) else Field(k), v)
             for k, v in on_duplicate_key_update.items()
         ) if on_duplicate_key_update else None
@@ -1969,21 +1969,21 @@ class Insert(Modify):
 def compile_insert(compile, expr, state):
     state.sql.append("INSERT ")
     state.sql.append("INTO ")
-    compile(expr._table, state)
+    compile(expr.table, state)
     state.sql.append(SPACE)
-    compile(Parentheses(expr._fields), state)
-    if isinstance(expr._values, Query):
+    compile(Parentheses(expr.fields), state)
+    if isinstance(expr.values, Query):
         state.sql.append(SPACE)
-        compile(expr._values, state)
+        compile(expr.values, state)
     else:
         state.sql.append(" VALUES ")
-        compile(ExprList(*expr._values).join(', '), state)
-    if expr._ignore:
+        compile(ExprList(*expr.values).join(', '), state)
+    if expr.ignore:
         state.sql.append(" ON CONFLICT DO NOTHING")
-    elif expr._on_duplicate_key_update:
+    elif expr.on_duplicate_key_update:
         state.sql.append(" ON CONFLICT DO UPDATE SET ")
         first = True
-        for f, v in expr._on_duplicate_key_update:
+        for f, v in expr.on_duplicate_key_update:
             if first:
                 first = False
             else:
@@ -1997,24 +1997,24 @@ def compile_insert(compile, expr, state):
 class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
-        self._table = table
-        self._fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
-        self._values = tuple(map.values()) if map else values
-        self._ignore = ignore
-        self._where = where
-        self._order_by = order_by
-        self._limit = limit
+        self.table = table
+        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.values = tuple(map.values()) if map else values
+        self.ignore = ignore
+        self.where = where
+        self.order_by = order_by
+        self.limit = limit
 
 
 @compile.when(Update)
 def compile_update(compile, expr, state):
     state.sql.append("UPDATE ")
-    if expr._ignore:
+    if expr.ignore:
         state.sql.append("IGNORE ")
-    compile(expr._table, state)
+    compile(expr.table, state)
     state.sql.append(" SET ")
     first = True
-    for f, v in zip(expr._fields, expr._values):
+    for f, v in zip(expr.fields, expr.values):
         if first:
             first = False
         else:
@@ -2022,40 +2022,40 @@ def compile_update(compile, expr, state):
         compile(f, state)
         state.sql.append(" = ")
         compile(v, state)
-    if expr._where:
+    if expr.where:
         state.sql.append(" WHERE ")
-        compile(expr._where, state)
-    if expr._order_by:
+        compile(expr.where, state)
+    if expr.order_by:
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
-    if expr._limit is not None:
+        compile(expr.order_by, state)
+    if expr.limit is not None:
         state.sql.append(" LIMIT ")
-        compile(expr._limit, state)
+        compile(expr.limit, state)
 
 
 @factory.register
 class Delete(Modify):
 
     def __init__(self, table, where=None, order_by=None, limit=None):
-        self._table = table
-        self._where = where
-        self._order_by = order_by
-        self._limit = limit
+        self.table = table
+        self.where = where
+        self.order_by = order_by
+        self.limit = limit
 
 
 @compile.when(Delete)
 def compile_delete(compile, expr, state):
     state.sql.append("DELETE FROM ")
-    compile(expr._table, state)
-    if expr._where:
+    compile(expr.table, state)
+    if expr.where:
         state.sql.append(" WHERE ")
-        compile(expr._where, state)
-    if expr._order_by:
+        compile(expr.where, state)
+    if expr.order_by:
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
-    if expr._limit is not None:
+        compile(expr.order_by, state)
+    if expr.limit is not None:
         state.sql.append(" LIMIT ")
-        compile(expr._limit, state)
+        compile(expr.limit, state)
 
 
 @factory.register
