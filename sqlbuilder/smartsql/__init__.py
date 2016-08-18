@@ -506,7 +506,8 @@ class Expr(Comparable):
 
     def __init__(self, sql, *params):
         if params and is_list(params[0]):
-            return self.__init__(sql, *params[0])
+            self.__init__(sql, *params[0])
+            return
         self.sql, self.params = sql, params
 
 
@@ -579,8 +580,8 @@ class Binary(Expr):
 
     def __init__(self, left, op, right):
         self.left = left
-        self.sql = op.upper()
         self.right = right
+        Expr.__init__(self, op.upper())
 
 Condition = Binary
 
@@ -730,7 +731,7 @@ class Like(NamedBinary):
 
     def __init__(self, left, right, escape=Undef):
         """
-        :type escape: str
+        :type escape: str | Undef
         """
         self.left = left
         self.right = right
@@ -760,7 +761,8 @@ class ExprList(Expr):
     def __init__(self, *args):
         # if args and is_list(args[0]):
         #     return self.__init__(*args[0])
-        self.sql, self.data = " ", list(args)
+        self.data = list(args)
+        Expr.__init__(self, ' ')
 
     def join(self, sep):
         self.sql = sep
@@ -843,8 +845,8 @@ class Concat(ExprList):
         self.sql = ' || '
         self._ws = None
 
-    def ws(self, sep=Undef):
-        if sep is Undef:
+    def ws(self, sep=None):
+        if sep is None:
             return self._ws
         self._ws = sep
         self.sql = ', '
@@ -922,8 +924,8 @@ class Prefix(Expr):
     __slots__ = ('expr', )
 
     def __init__(self, prefix, expr):
-        self.sql = prefix
         self.expr = expr
+        Expr.__init__(self, prefix)
 
 
 @compile.when(Prefix)
@@ -991,8 +993,8 @@ class Postfix(Expr):
     __slots__ = ('expr', )
 
     def __init__(self, expr, postfix):
-        self.sql = postfix
         self.expr = expr
+        Expr.__init__(self, postfix)
 
 
 @compile.when(Postfix)
@@ -1132,7 +1134,7 @@ class Constant(Expr):
     __slots__ = ()
 
     def __init__(self, const):
-        self.sql = const.upper()
+        Expr.__init__(self, const.upper())
 
     def __call__(self, *args):
         return Callable(self, *args)
@@ -1653,8 +1655,8 @@ class Select(Expr):
             if not isinstance(tables, TableJoin):
                 tables = Factory.get(self).TableJoin(tables)
         self._tables = tables
-        self._wheres = None
-        self._havings = None
+        self._where = None
+        self._having = None
         self._group_by = ExprList().join(", ")
         self._order_by = ExprList().join(", ")
         self._limit = None
@@ -1714,9 +1716,14 @@ class Select(Expr):
         c._tables = c._tables.on(cond)
         return c
 
-    def where(self, cond, op=operator.and_):
+    def where(self, cond=None, op=operator.and_):
+        if cond is None:
+            return self._where
         c = self.clone()
-        c._wheres = cond if c._wheres is None or op is None else op(c._wheres, cond)
+        if c._where is None or op is None:
+            c._where = cond
+        else:
+            c._where = op(c._where, cond)
         return c
 
     def or_where(self, cond):
@@ -1738,9 +1745,14 @@ class Select(Expr):
             c._group_by.extend(args)
         return c
 
-    def having(self, cond, op=operator.and_):
+    def having(self, cond=None, op=operator.and_):
+        if cond is None:
+            return self._having
         c = self.clone()
-        c._havings = cond if c._havings is None or op is None else op(self._havings, cond)
+        if c._having is None or op is None:
+            c._having = cond
+        else:
+            c._having = op(self._having, cond)
         return c
 
     def or_having(self, cond):
@@ -1764,6 +1776,8 @@ class Select(Expr):
         return c
 
     def limit(self, *args, **kwargs):
+        if not args and not kwargs:
+            return (self._offset, self._limit)
         c = self.clone()
         if args:
             if len(args) < 2:
@@ -1793,29 +1807,29 @@ class Select(Expr):
 def compile_query(compile, expr, state):
     state.push("auto_tables", [])  # this expr can be a subquery
     state.sql.append("SELECT ")
-    if expr._distinct:
+    if expr.distinct():
         state.sql.append("DISTINCT ")
-        if expr._distinct[0] is not True:
+        if expr.distinct()[0] is not True:
             state.sql.append("ON ")
             compile(Parentheses(expr._distinct), state)
             state.sql.append(SPACE)
-    compile(expr._fields, state)
+    compile(expr.fields(), state)
 
     tables_sql_pos = len(state.sql)
     tables_params_pos = len(state.params)
 
-    if expr._wheres:
+    if expr.where():
         state.sql.append(" WHERE ")
-        compile(expr._wheres, state)
-    if expr._group_by:
+        compile(expr.where(), state)
+    if expr.group_by():
         state.sql.append(" GROUP BY ")
-        compile(expr._group_by, state)
-    if expr._havings:
+        compile(expr.group_by(), state)
+    if expr.having():
         state.sql.append(" HAVING ")
-        compile(expr._havings, state)
-    if expr._order_by:
+        compile(expr.having(), state)
+    if expr.order_by():
         state.sql.append(" ORDER BY ")
-        compile(expr._order_by, state)
+        compile(expr.order_by(), state)
     if expr._limit is not None:
         state.sql.append(" LIMIT ")
         compile(expr._limit, state)
@@ -1829,7 +1843,7 @@ def compile_query(compile, expr, state):
     state.push('sql', [])
     state.push('params', [])
     state.sql.append(" FROM ")
-    compile(expr._tables, state)
+    compile(expr.tables(), state)
     tables_sql = state.sql
     tables_params = state.params
     state.pop()
@@ -1885,14 +1899,14 @@ class Query(Executable, Select):
     def update(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        kw.setdefault('where', self._wheres)
+        kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
         return self.result(Factory.get(self).Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
-        kw.setdefault('where', self._wheres)
+        kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
         return self.result(Factory.get(self).Delete(**kw)).delete()
@@ -2271,7 +2285,7 @@ class Infix(object):
             left_precedence = self._compiler.get_inner_precedence(left)
             result_precedence = self._compiler.get_inner_precedence(result)
             if result_precedence > left_precedence:
-                left._right, result._left = result, left._right
+                left.right, result.left = result, left.right
                 return left
         return result
 
