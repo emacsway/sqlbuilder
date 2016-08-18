@@ -530,21 +530,6 @@ class BaseType(AbstractType):
     __hash__ = object.__hash__
 
 
-def operable_p3(delegate_attr):
-    def _deco(decorator_cls):
-        def make_wrap_method(name):
-            def wrap_method(self, *a, **kw):
-                return getattr(getattr(self, delegate_attr)(self), name)(*a, **kw)
-            return wrap_method
-
-        attrs = ['__{0}__'.format(i) for i in ("add radd sub rsub mul rmul div rdiv truediv rtruediv floordiv rfloordiv and rand or ror gt lt ge le eq ne rshift lshift pos neg invert pow rpow mod rmod abs getitem".split())]
-        for attr in attrs:
-            setattr(decorator_cls, attr, make_wrap_method(attr))
-        return decorator_cls
-    return _deco
-
-
-@operable_p3('_datatype')
 class Operable(object):
     __slots__ = ('_datatype', '__weakref__')
 
@@ -571,6 +556,111 @@ class Operable(object):
         return BaseType
 
     __hash__ = object.__hash__
+
+    def __add__(self, other):
+        return self._datatype(self).__add__(other)
+
+    def __radd__(self, other):
+        return self._datatype(self).__radd__(other)
+
+    def __sub__(self, other):
+        return self._datatype(self).__sub__(other)
+
+    def __rsub__(self, other):
+        return self._datatype(self).__rsub__(other)
+
+    def __mul__(self, other):
+        return self._datatype(self).__mul__(other)
+
+    def __rmul__(self, other):
+        return self._datatype(self).__rmul__(other)
+
+    def __div__(self, other):
+        return self._datatype(self).__div__(other)
+
+    def __rdiv__(self, other):
+        return self._datatype(self).__rdiv__(other)
+
+    def __truediv__(self, other):
+        return self._datatype(self).__truediv__(other)
+
+    def __rtruediv__(self, other):
+        return self._datatype(self).__rtruediv__(other)
+
+    def __floordiv__(self, other):
+        return self._datatype(self).__floordiv__(other)
+
+    def __rfloordiv__(self, other):
+        return self._datatype(self).__rfloordiv__(other)
+
+    def __and__(self, other):
+        return self._datatype(self).__and__(other)
+
+    def __rand__(self, other):
+        return self._datatype(self).__rand__(other)
+
+    def __or__(self, other):
+        return self._datatype(self).__or__(other)
+
+    def __ror__(self, other):
+        return self._datatype(self).__ror__(other)
+
+    def __gt__(self, other):
+        return self._datatype(self).__gt__(other)
+
+    def __lt__(self, other):
+        return self._datatype(self).__lt__(other)
+
+    def __ge__(self, other):
+        return self._datatype(self).__ge__(other)
+
+    def __le__(self, other):
+        return self._datatype(self).__le__(other)
+
+    def __eq__(self, other):
+        return self._datatype(self).__eq__(other)
+
+    def __ne__(self, other):
+        return self._datatype(self).__ne__(other)
+
+    def __rshift__(self, other):
+        return self._datatype(self).__rshift__(other)
+
+    def __rrshift__(self, other):
+        return self._datatype(self).__rshift__(other)
+
+    def __lshift__(self, other):
+        return self._datatype(self).__lshift__(other)
+
+    def __rlshift__(self, other):
+        return self._datatype(self).__lshift__(other)
+
+    def __pos__(self):
+        return self._datatype(self).__pos__()
+
+    def __neg__(self):
+        return self._datatype(self).__neg__()
+
+    def __invert__(self):
+        return self._datatype(self).__invert__()
+
+    def __pow__(self, other):
+        return self._datatype(self).__pow__(other)
+
+    def __rpow__(self, other):
+        return self._datatype(self).__rpow__(other)
+
+    def __mod__(self, other):
+        return self._datatype(self).__mod__(other)
+
+    def __rmod__(self, other):
+        return self._datatype(self).__rmod__(other)
+
+    def __abs__(self):
+        return self._datatype(self).__abs__()
+
+    def __getitem__(self, key):
+        return self._datatype(self).__getitem__(key)
 
 
 class Expr(Operable):
