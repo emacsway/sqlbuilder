@@ -6,8 +6,8 @@ from django.db import connections
 from django.db.models import Model
 
 from .. import smartsql
-from ..smartsql.compilers import mysql
-from .compilers import sqlite
+from ..smartsql.dialects import mysql
+from .dialects import sqlite
 from .signals import field_conversion
 
 try:
