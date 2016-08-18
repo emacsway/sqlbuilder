@@ -502,18 +502,18 @@ class Comparable(object):
 
 class Expr(Comparable):
 
-    __slots__ = ('sql', '_params')
+    __slots__ = ('sql', 'params')
 
     def __init__(self, sql, *params):
         if params and is_list(params[0]):
             return self.__init__(sql, *params[0])
-        self.sql, self._params = sql, params
+        self.sql, self.params = sql, params
 
 
 @compile.when(Expr)
 def compile_expr(compile, expr, state):
     state.sql.append(expr.sql)
-    state.params += expr._params
+    state.params += expr.params
 
 
 class MetaCompositeExpr(type):
@@ -877,12 +877,12 @@ class Param(Expr):
     __slots__ = ()
 
     def __init__(self, params):
-        self._params = params
+        self.params = params
 
 
 @compile.when(Param)
 def compile_param(compile, expr, state):
-    compile(expr._params, state)
+    compile(expr.params, state)
 
 
 Placeholder = Param
