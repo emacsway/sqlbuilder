@@ -30,7 +30,7 @@ compile.when(Value)(compile_value)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
-    state.sql.append(TRANSLATION_MAP.get(expr._sql, expr._sql))
+    state.sql.append(TRANSLATION_MAP.get(expr.sql, expr.sql))
     state.sql.append(SPACE)
     compile(expr._right, state)
 
@@ -51,7 +51,7 @@ def compile_concat(compile, expr, state):
         state.sql.append('CONCAT_WS(')
         compile(expr._ws, state)
         for a in expr:
-            state.sql.append(expr._sql)
+            state.sql.append(expr.sql)
             compile(a, state)
         state.sql.append(')')
 

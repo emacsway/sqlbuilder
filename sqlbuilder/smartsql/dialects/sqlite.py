@@ -22,6 +22,6 @@ compile.when(Name)(compile_name)
 def compile_condition(compile, expr, state):
     compile(expr._left, state)
     state.sql.append(SPACE)
-    state.sql.append(TRANSLATION_MAP.get(expr._sql, expr._sql))
+    state.sql.append(TRANSLATION_MAP.get(expr.sql, expr.sql))
     state.sql.append(SPACE)
     compile(expr._right, state)
