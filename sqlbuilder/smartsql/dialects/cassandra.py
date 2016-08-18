@@ -14,7 +14,7 @@ compile = parent_compile.create_child()
 
 @compile.when(Field)
 def compile_field(compile, expr, state):
-    compile(expr._name, state)
+    compile(expr.name, state)
 
 
 compile_value = ValueCompiler(escape_delimiter="\\")

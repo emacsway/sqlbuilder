@@ -20,8 +20,8 @@ compile.when(Name)(compile_name)
 
 @compile.when(Binary)
 def compile_condition(compile, expr, state):
-    compile(expr._left, state)
+    compile(expr.left, state)
     state.sql.append(SPACE)
     state.sql.append(TRANSLATION_MAP.get(expr.sql, expr.sql))
     state.sql.append(SPACE)
-    compile(expr._right, state)
+    compile(expr.right, state)

@@ -28,16 +28,16 @@ compile.when(Value)(compile_value)
 
 @compile.when(Binary)
 def compile_condition(compile, expr, state):
-    compile(expr._left, state)
+    compile(expr.left, state)
     state.sql.append(SPACE)
     state.sql.append(TRANSLATION_MAP.get(expr.sql, expr.sql))
     state.sql.append(SPACE)
-    compile(expr._right, state)
+    compile(expr.right, state)
 
 
 @compile.when(Concat)
 def compile_concat(compile, expr, state):
-    if not expr._ws:
+    if not expr.ws():
         state.sql.append('CONCAT(')
         first = True
         for a in expr:
@@ -49,7 +49,7 @@ def compile_concat(compile, expr, state):
         state.sql.append(')')
     else:
         state.sql.append('CONCAT_WS(')
-        compile(expr._ws, state)
+        compile(expr.ws(), state)
         for a in expr:
             state.sql.append(expr.sql)
             compile(a, state)
