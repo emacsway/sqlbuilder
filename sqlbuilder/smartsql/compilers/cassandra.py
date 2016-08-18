@@ -17,5 +17,5 @@ def compile_field(compile, expr, state):
     compile(expr._name, state)
 
 
-compile_value = ValueCompiler(escape_delimeter="\\")
+compile_value = ValueCompiler(escape_delimiter="\\")
 compile.when(Value)(compile_value)

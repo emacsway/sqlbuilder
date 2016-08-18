@@ -46,12 +46,12 @@ class Factory(object):
 
         def deco(callable_obj):
 
-            def wraped_obj(*a, **kw):
+            def wrapped_obj(*a, **kw):
                 instance = callable_obj(*a, **kw)
                 instance.__factory__ = self
                 return instance
 
-            setattr(self, name, wraped_obj)
+            setattr(self, name, wrapped_obj)
             return callable_obj
 
         return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
@@ -300,7 +300,7 @@ class BaseType(AbstractType):
         def f(self, other):
 
             if ci:
-                cls = Ilike
+                cls = ILike
             else:
                 cls = Like
 
@@ -312,9 +312,9 @@ class BaseType(AbstractType):
             right = EscapeForLike(right)
 
             args = [right]
-            if 4 & mask:
+            if 0b100 & mask:
                 args.insert(0, Value('%'))
-            if 1 & mask:
+            if 0b001 & mask:
                 args.append(Value('%'))
             return cls(left, Concat(*args), escape=right._escape)  # other can be expression, so, using Concat()
         return f
@@ -425,26 +425,26 @@ class BaseType(AbstractType):
         return Like(self._expr, other, escape)
 
     def ilike(self, other, escape=Undef):
-        return Ilike(self._expr, other, escape)
+        return ILike(self._expr, other, escape)
 
     def rlike(self, other, escape=Undef):
         return Like(other, self._expr, escape)
 
     def rilike(self, other, escape=Undef):
-        return Ilike(other, self._expr, escape)
+        return ILike(other, self._expr, escape)
 
-    startswith = _l(1)
-    istartswith = _l(1, 1)
-    contains = _l(5)  # TODO: ambiguous with "@>" operator of postgresql.
-    icontains = _l(5, 1)
-    endswith = _l(4)
-    iendswith = _l(4, 1)
-    rstartswith = _l(1, 0, 1)
-    ristartswith = _l(1, 1, 1)
-    rcontains = _l(5, 0, 1)
-    ricontains = _l(5, 1, 1)
-    rendswith = _l(4, 0, 1)
-    riendswith = _l(4, 1, 1)
+    startswith = _l(0b001)
+    istartswith = _l(1, True)
+    contains = _l(0b101)  # TODO: ambiguous with "@>" operator of postgresql.
+    icontains = _l(0b101, True)
+    endswith = _l(0b100)
+    iendswith = _l(0b100, True)
+    rstartswith = _l(0b001, False, True)
+    ristartswith = _l(0b001, True, True)
+    rcontains = _l(0b101, False, True)
+    ricontains = _l(0b101, True, True)
+    rendswith = _l(0b100, False, True)
+    riendswith = _l(0b100, True, True)
 
     def __pos__(self):
         return Pos(self._expr)
@@ -462,9 +462,9 @@ class BaseType(AbstractType):
         return Distinct(self._expr)
 
     __pow__ = _ca("POW")
-    __rpow__ = _ca("POW", 1)
+    __rpow__ = _ca("POW", True)
     __mod__ = _ca("MOD")
-    __rmod__ = _ca("MOD", 1)
+    __rmod__ = _ca("MOD", True)
     __abs__ = _ca("ABS")
     count = _ca("COUNT")
 
@@ -761,7 +761,7 @@ class LShift(NamedBinary):
 
 class EscapeForLike(Expr):
 
-    __slots__ = ('_expr')
+    __slots__ = ('_expr',)
 
     _escape = "!"
     _escape_map = tuple(  # Ordering is important!
@@ -795,7 +795,7 @@ class Like(NamedBinary):
             self._escape = escape
 
 
-class Ilike(Like):
+class ILike(Like):
     __slots__ = ()
     _sql = 'ILIKE'
 
@@ -844,8 +844,8 @@ class ExprList(Expr):
     def insert(self, i, x):
         return self.data.insert(i, x)
 
-    def extend(self, L):
-        return self.data.extend(L)
+    def extend(self, l):
+        return self.data.extend(l)
 
     def pop(self, i):
         return self.data.pop(i)
@@ -1110,14 +1110,6 @@ def compile_between(compile, expr, state):
 
 
 class Case(Expr):
-    """A CASE statement.
-
-    @params cases: a list of tuples of (condition, result) or (value, result),
-        if an expression is passed too.
-    @param expression: the expression to compare (if the simple form is used).
-    @param default: an optional default condition if no other case matches.
-    """
-
     __slots__ = ('_cases', '_expr', '_default')
 
     def __init__(self, cases, expr=Undef, default=Undef):
@@ -1133,9 +1125,9 @@ def compile_case(compile, expr, state):
     if expr._expr is not Undef:
         state.sql.append(SPACE)
         compile(expr._expr, state)
-    for clouse, value in expr._cases:
+    for clause, value in expr._cases:
         state.sql.append(' WHEN ')
-        compile(clouse, state)
+        compile(clause, state)
         state.sql.append(' THEN ')
         compile(value, state)
     if expr._default is not Undef:
@@ -1542,11 +1534,13 @@ class TableJoin(object):
         self._join_type = join_type
         return self
 
-    def on(self, c):
+    def on(self, cond):
         if self._on is not None:
-            self = self.__class__(self)  # TODO: Test me.
-        self._on = c
-        return self
+            c = self.__class__(self)  # TODO: Test me.
+        else:
+            c = self
+        c._on = cond
+        return c
 
     def natural(self):
         self._natural = True
@@ -1558,8 +1552,8 @@ class TableJoin(object):
 
     def __call__(self):
         self._nested = True
-        self = self.__class__(self)
-        return self
+        c = self.__class__(self)
+        return c
 
     def hint(self, expr):
         if isinstance(expr, string_types):
@@ -1621,6 +1615,7 @@ class Result(object):
     def __init__(self, compile=None):
         if compile is not None:
             self.compile = compile
+        self._query = None
 
     def execute(self):
         return self.compile(self._query)
@@ -1718,9 +1713,9 @@ class Select(Expr):
     def tables(self, tables=None):
         if tables is None:
             return self._tables
-        self = self.clone('_tables')
-        self._tables = tables if isinstance(tables, TableJoin) else Factory.get(self).TableJoin(tables)
-        return self
+        c = self.clone('_tables')
+        c._tables = tables if isinstance(tables, TableJoin) else Factory.get(c).TableJoin(tables)
+        return c
 
     @opt_checker(["reset", ])
     def distinct(self, *args, **opts):
@@ -1762,16 +1757,16 @@ class Select(Expr):
 
     def on(self, cond):
         # TODO: Remove?
-        self = self.clone()
-        if not isinstance(self._tables, TableJoin):
+        c = self.clone()
+        if not isinstance(c._tables, TableJoin):
             raise Error("Can't set on without join table")
-        self._tables = self._tables.on(cond)
-        return self
+        c._tables = c._tables.on(cond)
+        return c
 
     def where(self, cond, op=operator.and_):
-        self = self.clone()
-        self._wheres = cond if self._wheres is None or op is None else op(self._wheres, cond)
-        return self
+        c = self.clone()
+        c._wheres = cond if c._wheres is None or op is None else op(c._wheres, cond)
+        return c
 
     def or_where(self, cond):
         warn('or_where(cond)', 'where(cond, op=operator.or_)')
@@ -2171,9 +2166,9 @@ class Set(Query):
         return self
 
     def clone(self, *attrs):
-        self = Query.clone(self, *attrs)
-        self._exprs = copy.copy(self._exprs)
-        return self
+        c = Query.clone(self, *attrs)
+        c._exprs = copy.copy(c._exprs)
+        return c
 
 
 @factory.register
@@ -2236,8 +2231,8 @@ class NameCompiler(object):
         ('\t', '\\t'),
         ("%", "%%")
     )
-    _delimeter = '"'
-    _escape_delimeter = '"'
+    _delimiter = '"'
+    _escape_delimiter = '"'
     _max_length = 63
 
     class MaxLengthError(Error):
@@ -2248,15 +2243,15 @@ class NameCompiler(object):
             setattr(self, '_{}'.format(k), v)
 
     def __call__(self, compile, expr, state):
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
         name = expr._name
-        name = name.replace(self._delimeter, self._escape_delimeter + self._delimeter)
+        name = name.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             name = name.replace(k, v)
         if len(name) > self._get_max_length(state):
             raise self.MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
         state.sql.append(name)
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
 
     def _get_max_length(self, state):
         # Max length can depend on context.
@@ -2285,21 +2280,21 @@ class ValueCompiler(object):
         ('\t', '\\t'),
         ("%", "%%")
     )
-    _delimeter = "'"
-    _escape_delimeter = "'"
+    _delimiter = "'"
+    _escape_delimiter = "'"
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, '_{}'.format(k), v)
 
     def __call__(self, compile, expr, state):
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
         value = str(expr._value)
-        value = value.replace(self._delimeter, self._escape_delimeter + self._delimeter)
+        value = value.replace(self._delimiter, self._escape_delimiter + self._delimiter)
         for k, v in self._translation_map:
             value = value.replace(k, v)
         state.sql.append(value)
-        state.sql.append(self._delimeter)
+        state.sql.append(self._delimiter)
 
 
 compile_value = ValueCompiler()
@@ -2379,7 +2374,7 @@ compile.set_precedence(140, '(any other)')  # all other native and user-defined 
 compile.set_precedence(130, In, NotIn, 'IN')
 compile.set_precedence(120, Between, 'BETWEEN')
 compile.set_precedence(110, 'OVERLAPS')
-compile.set_precedence(100, Like, Ilike, 'LIKE', 'ILIKE', 'SIMILAR')
+compile.set_precedence(100, Like, ILike, 'LIKE', 'ILIKE', 'SIMILAR')
 compile.set_precedence(90, Lt, Gt, '<', '>')
 compile.set_precedence(80, Le, Ge, Ne, '<=', '>=', '<>', '!=')
 compile.set_precedence(70, Eq, '=')
@@ -2393,7 +2388,7 @@ compile.set_precedence(None, All, Distinct)
 
 operator_registry.register(
     (Add, Sub, Mul, Div, Gt, Lt, Ge, Le, And, Or, Eq, Ne, Is, IsNot, In, NotIn,
-     RShift, LShift, Like, Ilike),
+     RShift, LShift, Like, ILike),
     BaseType, BaseType, BaseType
 )
 operator_registry.register(

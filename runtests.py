@@ -42,7 +42,11 @@ def main():
     TestRunner = get_runner(settings)
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
-    failures = test_runner.run_tests(['sqlbuilder.django_sqlbuilder'])
+    failures = test_runner.run_tests([
+        'sqlbuilder.django_sqlbuilder',
+        'sqlbuilder.smartsql',
+        'sqlbuilder.mini',
+    ])
     sys.exit(failures)
 
 
