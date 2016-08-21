@@ -1154,6 +1154,32 @@ class ConstantSpace(object):
         return Constant(attr)
 
 
+class MetaFieldSpace(type):
+
+    def __instancecheck__(cls, instance):
+        return isinstance(instance, Field)
+
+    def __subclasscheck__(cls, subclass):
+        return issubclass(subclass, Field)
+
+    def __getattr__(cls, key):
+        if key[:2] == '__':
+            raise AttributeError
+        parts = key.split(LOOKUP_SEP, 2)
+        prefix, name, alias = parts + [None] * (3 - len(parts))
+        if name is None:
+            prefix, name = name, prefix
+        f = cls(name, prefix)
+        return f.as_(alias) if alias else f
+
+    def __call__(cls, *a, **kw):
+        return Field(*a, **kw)
+
+
+class F(MetaFieldSpace("NewBase", (object, ), {})):
+    pass
+
+
 class MetaField(type):
 
     def __getattr__(cls, key):
@@ -2352,7 +2378,7 @@ compile.set_precedence(20, Select, Query, SelectCount, Raw, Insert, Update, Dele
 compile.set_precedence(10, Expr)
 compile.set_precedence(None, All, Distinct)
 
-A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
+A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
