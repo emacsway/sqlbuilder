@@ -1,9 +1,11 @@
 # Based on idea of http://pyparsing.wikispaces.com/file/detail/simpleBool.py
+# This module is analog to sqlbuilder.smartsql.contrib.infixes,
+# but allows use operators in native SQL form, like @>, &>, -|- etc.
 # Example of usage:
 # >>> e("""T.user.is_staff and T.user.is_admin""")
 # ... <And: "user"."is_staff" AND "user"."is_admin", []>
-# Created especially for postgresql operators like @>, &>, -|- etc.
-# This file only draft, under construction. Don't use it in production. It is not ready yet.
+# This file is only draft, and still under construction!!!
+# Don't use it in the production!!! It isn't ready yet!!!
 
 from pyparsing import infixNotation, opAssoc, Keyword, Word, alphanums
 
@@ -15,12 +17,12 @@ boolOperand = TRUE | FALSE | Word(alphanums + '._')
 boolOperand.setParseAction(lambda tokens: eval(tokens[0]))
 
 
-def make_binary(op, op_str=None):
+def make_binary(op_factory, op_str=None):
     def _inner(tokens):
         args = tokens[0][0::2]
         if op_str:
             args.insert(1, op_str)
-        return op(*args)
+        return op_factory(*args)
     return _inner
 
 
