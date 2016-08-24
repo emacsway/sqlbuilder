@@ -455,7 +455,7 @@ class Comparable(object):
         return Constant("ABS")(self)
 
     def count(self):
-        return Constant("COUNT")(self)
+        return Count(self)
 
     def as_(self, alias):
         return Alias(alias, self)
@@ -1105,9 +1105,74 @@ def compile_namedcallable(compile, expr, state):
     state.sql.append(')')
 
 
+class Count(NamedCallable):
+    __slots__ = ()
+    sql = 'COUNT'
+
+
+class Pow(NamedCallable):
+    __slots__ = ()
+    sql = 'POW'
+
+
+class Mod(NamedCallable):
+    __slots__ = ()
+    sql = 'MOD'
+
+
+class Abs(NamedCallable):
+    __slots__ = ()
+    sql = 'ABS'
+
+
+class Max(NamedCallable):
+    __slots__ = ()
+    sql = 'MAX'
+
+
+class Max(NamedCallable):
+    __slots__ = ()
+    sql = 'MAX'
+
+
+class Min(NamedCallable):
+    __slots__ = ()
+    sql = 'MIN'
+
+
+class Avg(NamedCallable):
+    __slots__ = ()
+    sql = 'AVG'
+
+
+class Sum(NamedCallable):
+    __slots__ = ()
+    sql = 'SUM'
+
+
+class Lower(NamedCallable):
+    __slots__ = ()
+    sql = "LOWER"
+
+
+class Upper(NamedCallable):
+    __slots__ = ()
+    sql = "UPPER"
+
+
 class Replace(NamedCallable):
     __slots__ = ()
     sql = 'REPLACE'
+
+
+class Coalesce(NamedCallable):
+    __slots__ = ()
+    sql = "COALESCE"
+
+
+class Row(NamedCallable):
+    __slots__ = ()
+    sql = "ROW"
 
 
 class Cast(NamedCallable):
@@ -1965,7 +2030,7 @@ class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
         Query.__init__(self, q.order_by(reset=True).as_table(table_alias))
-        self._fields.append(Constant('COUNT')(Constant('1')).as_(field_alias))
+        self._fields.append(Count(Constant('1')).as_(field_alias))
 
 
 @factory.register

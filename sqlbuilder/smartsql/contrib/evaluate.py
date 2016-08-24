@@ -7,14 +7,20 @@
 # This file is only draft, and still under construction!!!
 # Don't use it in the production!!! It isn't ready yet!!!
 
-from pyparsing import infixNotation, opAssoc, Keyword, Word, alphanums
+from pyparsing import alphanums, delimitedList, infixNotation, opAssoc, Group, Keyword, Word, Suppress
 
 import sqlbuilder.smartsql as s
 
 TRUE = Keyword("True")
 FALSE = Keyword("False")
-boolOperand = TRUE | FALSE | Word(alphanums + '._')
-boolOperand.setParseAction(lambda tokens: eval(tokens[0]))
+variable = Word(alphanums + '._')
+variable.setParseAction(lambda tokens: eval(tokens[0]))
+
+parameters = Group(delimitedList(variable))
+func_call = variable + Suppress("(") + parameters + Suppress(")")
+func_call.setParseAction(lambda tokens: tokens[0](*tokens[1]))
+
+operand = TRUE | FALSE | func_call | variable
 
 
 def make_binary(op_factory, op_str=None):
@@ -26,14 +32,43 @@ def make_binary(op_factory, op_str=None):
     return _inner
 
 
-def make_unary(op):
+def make_unary(op, op_str=None):
     def _inner(tokens):
-        return op(tokens[0][1])
+        args = [tokens[0][1]]
+        if op_str:
+            args.insert(0, op_str)
+        return op(*args)
+    return _inner
+
+
+def make_postfix(op, op_str=None):
+    def _inner(tokens):
+        args = [tokens[0][1]]
+        if op_str:
+            args.append(op_str)
+        return op(*args)
     return _inner
 
 # define expression, based on expression operand and
 # list of operations in precedence order
-boolExpr = infixNotation(boolOperand, [
+boolExpr = infixNotation(operand, [
+    # ("+", 1, opAssoc.RIGHT, make_unary(s.Pos)),
+    # ("-", 1, opAssoc.RIGHT, make_unary(s.Neg)),
+    # ("~", 1, opAssoc.RIGHT, make_unary(s.Unary, '~')),
+    # ("*", 2, opAssoc.LEFT, make_binary(s.Mul)),
+    # ("/", 2, opAssoc.LEFT, make_binary(s.Div)),
+    # ("%", 2, opAssoc.LEFT, make_binary(s.Binary, '%')),
+    # ("+", 2, opAssoc.LEFT, make_binary(s.Add)),
+    # ("-", 2, opAssoc.LEFT, make_binary(s.Sub)),
+    # ("<<", 2, opAssoc.LEFT, make_binary(s.LShift)),
+    # (">>", 2, opAssoc.LEFT, make_binary(s.RShift)),
+    # ("&", 2, opAssoc.LEFT, make_binary(s.Binary, '&')),
+    # ("#", 2, opAssoc.LEFT, make_binary(s.Binary, '#')),
+    ("|", 2, opAssoc.LEFT, make_binary(s.Binary, '|')),
+    ("IS", 2, opAssoc.LEFT, make_binary(s.Is)),
+    ("ISNULL", 1, opAssoc.LEFT, make_postfix(s.Postfix, 'ISNULL')),
+    ("NOTNULL", 1, opAssoc.LEFT, make_postfix(s.Postfix, 'NOTNULL')),
+
     ("not", 1, opAssoc.RIGHT, make_unary(s.Not)),
     ("and", 2, opAssoc.LEFT,  make_binary(s.And)),
     ("or",  2, opAssoc.LEFT,  make_binary(s.Or)),
@@ -63,7 +98,9 @@ if __name__ == "__main__":
         ("p or q or r", ("", [])),
         ("p or q or r and False", ("", [])),
         ("(p or q or r) and False", ("", [])),
-        ("T.user.is_staff and T.user.is_admin", ("", []))
+        ("T.user.is_staff and T.user.is_admin", ("", [])),
+        ("s.Lower(T.user.first_name) and T.user.is_admin", ("", [])),
+        ("s.Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ("", [])),
     ]
 
     print("p =", p)
