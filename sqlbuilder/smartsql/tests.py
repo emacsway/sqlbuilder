@@ -415,11 +415,11 @@ class TestExpr(TestCase):
         )
         self.assertEqual(
             compile(tb.counter ** 2),
-            ('POW("author"."counter", %s)', [2])
+            ('POWER("author"."counter", %s)', [2])
         )
         self.assertEqual(
             compile(2 ** tb.counter),
-            ('POW(%s, "author"."counter")', [2])
+            ('POWER(%s, "author"."counter")', [2])
         )
         self.assertEqual(
             compile(tb.counter % 2),

@@ -470,22 +470,22 @@ class BaseType(AbstractType):
         return Distinct(self._expr)
 
     def __pow__(self, other):
-        return Constant("POW")(self._expr, other)
+        return Power(self._expr, other)
 
     def __rpow__(self, other):
-        return Constant("POW")(other, self._expr)
+        return Power(other, self._expr)
 
     def __mod__(self, other):
-        return Constant("MOD")(self._expr, other)
+        return Mod(self._expr, other)
 
     def __rmod__(self, other):
-        return Constant("MOD")(other, self._expr)
+        return Mod(other, self._expr)
 
     def __abs__(self):
-        return Constant("ABS")(self._expr)
+        return Abs(self._expr)
 
     def count(self):
-        return Constant("COUNT")(self._expr)
+        return Count(self._expr)
 
     def as_(self, alias):
         return Alias(alias, self._expr)
@@ -1286,9 +1286,74 @@ def compile_namedcallable(compile, expr, state):
     state.sql.append(')')
 
 
+class Count(NamedCallable):
+    __slots__ = ()
+    sql = 'COUNT'
+
+
+class Power(NamedCallable):
+    __slots__ = ()
+    sql = 'POWER'
+
+
+class Mod(NamedCallable):
+    __slots__ = ()
+    sql = 'MOD'
+
+
+class Abs(NamedCallable):
+    __slots__ = ()
+    sql = 'ABS'
+
+
+class Max(NamedCallable):
+    __slots__ = ()
+    sql = 'MAX'
+
+
+class Max(NamedCallable):
+    __slots__ = ()
+    sql = 'MAX'
+
+
+class Min(NamedCallable):
+    __slots__ = ()
+    sql = 'MIN'
+
+
+class Avg(NamedCallable):
+    __slots__ = ()
+    sql = 'AVG'
+
+
+class Sum(NamedCallable):
+    __slots__ = ()
+    sql = 'SUM'
+
+
+class Lower(NamedCallable):
+    __slots__ = ()
+    sql = "LOWER"
+
+
+class Upper(NamedCallable):
+    __slots__ = ()
+    sql = "UPPER"
+
+
 class Replace(NamedCallable):
     __slots__ = ()
     sql = 'REPLACE'
+
+
+class Coalesce(NamedCallable):
+    __slots__ = ()
+    sql = "COALESCE"
+
+
+class Row(NamedCallable):
+    __slots__ = ()
+    sql = "ROW"
 
 
 class Cast(NamedCallable):
@@ -2154,7 +2219,7 @@ class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
         Query.__init__(self, q.order_by(reset=True).as_table(table_alias))
-        self._fields.append(Constant('COUNT')(Constant('1')).as_(field_alias))
+        self._fields.append(Count(Constant('1')).as_(field_alias))
 
 
 @factory.register
