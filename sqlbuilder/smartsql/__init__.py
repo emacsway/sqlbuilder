@@ -180,8 +180,7 @@ class Compiler(object):
                 elif expr.sql in self._precedence:
                     return self._precedence[expr.sql]
             except TypeError:
-                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql in future.
-                # I'm not sure, whether Field() should be unhashable.
+                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
                 pass
 
         if cls in self._precedence:
@@ -1334,6 +1333,32 @@ class ConstantSpace(object):
 
     def __getattr__(self, attr):
         return Constant(attr)
+
+
+class MetaFieldSpace(type):
+
+    def __instancecheck__(cls, instance):
+        return isinstance(instance, Field)
+
+    def __subclasscheck__(cls, subclass):
+        return issubclass(subclass, Field)
+
+    def __getattr__(cls, key):
+        if key[:2] == '__':
+            raise AttributeError
+        parts = key.split(LOOKUP_SEP, 2)
+        prefix, name, alias = parts + [None] * (3 - len(parts))
+        if name is None:
+            prefix, name = name, prefix
+        f = cls(name, prefix)
+        return f.as_(alias) if alias else f
+
+    def __call__(cls, *a, **kw):
+        return Field(*a, **kw)
+
+
+class F(MetaFieldSpace("NewBase", (object, ), {})):
+    pass
 
 
 class MetaField(type):
@@ -2555,7 +2580,7 @@ operator_registry.register(
     BaseType, BaseType, BaseType
 )
 
-A, C, E, F, P, TA, Q, QS = Alias, Condition, Expr, Field, Placeholder, TableAlias, Query, Query
+A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
 qn = lambda name, compile: compile(Name(name))[0]
 
