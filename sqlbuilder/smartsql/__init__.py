@@ -440,19 +440,19 @@ class Comparable(object):
         return Distinct(self)
 
     def __pow__(self, other):
-        return Constant("POW")(self, other)
+        return Power(self, other)
 
     def __rpow__(self, other):
-        return Constant("POW")(other, self)
+        return Power(other, self)
 
     def __mod__(self, other):
-        return Constant("MOD")(self, other)
+        return Mod(self, other)
 
     def __rmod__(self, other):
-        return Constant("MOD")(other, self)
+        return Mod(other, self)
 
     def __abs__(self):
-        return Constant("ABS")(self)
+        return Abs(self)
 
     def count(self):
         return Count(self)
@@ -1110,9 +1110,9 @@ class Count(NamedCallable):
     sql = 'COUNT'
 
 
-class Pow(NamedCallable):
+class Power(NamedCallable):
     __slots__ = ()
-    sql = 'POW'
+    sql = 'POWER'
 
 
 class Mod(NamedCallable):
