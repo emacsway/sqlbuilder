@@ -180,8 +180,7 @@ class Compiler(object):
                 elif expr.sql in self._precedence:
                     return self._precedence[expr.sql]
             except TypeError:
-                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql in future.
-                # I'm not sure, whether Field() should be unhashable.
+                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
                 pass
 
         if cls in self._precedence:
