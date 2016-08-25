@@ -281,16 +281,13 @@ operator_registry = OperatorRegistry()
 
 
 class AbstractType(object):
-    def __init__(self, expr):
-        self._expr = expr
-
-
-class BaseType(AbstractType):
-
     __slots__ = ('_expr',)
 
     def __init__(self, expr):
         self._expr = expr  # weakref.ref(expr)
+
+
+class BaseType(AbstractType):
 
     def __add__(self, other):
         return Add(self._expr, other)
