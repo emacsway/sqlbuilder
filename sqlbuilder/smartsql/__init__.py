@@ -529,8 +529,8 @@ class BaseType(AbstractType):
 class Operable(object):
     __slots__ = ('_datatype', '__weakref__')
 
-    def __init__(self, datatype=BaseType):
-        self._datatype = datatype
+    def __init__(self, datatype=None):
+        self._datatype = datatype or BaseType
 
     def __getattr__(self, name):
         """Use in derived classes:
@@ -663,7 +663,7 @@ class Expr(Operable):
     __slots__ = ('sql', 'params')
 
     def __init__(self, sql, *params, **kwargs):
-        Operable.__init__(self, kwargs.get('datatype', BaseType))
+        Operable.__init__(self, kwargs.get('datatype'))
         if params and is_list(params[0]):
             self.__init__(sql, *params[0])
             return
@@ -1441,8 +1441,8 @@ class Field(MetaField("NewBase", (Expr,), {})):
     # It also can be a field of composite column.
     __slots__ = ('_name', '_prefix', '__cached__')
 
-    def __init__(self, name, prefix=None):
-        Operable.__init__(self)
+    def __init__(self, name, prefix=None, datatype=None):
+        Operable.__init__(self, datatype)
         if isinstance(name, string_types):
             if name == '*':
                 name = Constant(name)
