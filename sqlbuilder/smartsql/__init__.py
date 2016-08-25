@@ -547,7 +547,7 @@ class Operable(object):
 
     @staticmethod
     def _typeof(obj):
-        if isinstance(obj, AbstractType):
+        if isinstance(obj, Operable):
             return getattr(obj, '_datatype', BaseType)
         return BaseType
 
