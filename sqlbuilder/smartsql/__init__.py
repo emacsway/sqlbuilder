@@ -440,22 +440,22 @@ class Comparable(object):
         return Distinct(self)
 
     def __pow__(self, other):
-        return Power(self, other)
+        return func.Power(self, other)
 
     def __rpow__(self, other):
-        return Power(other, self)
+        return func.Power(other, self)
 
     def __mod__(self, other):
-        return Mod(self, other)
+        return func.Mod(self, other)
 
     def __rmod__(self, other):
-        return Mod(other, self)
+        return func.Mod(other, self)
 
     def __abs__(self):
-        return Abs(self)
+        return func.Abs(self)
 
     def count(self):
-        return Count(self)
+        return func.Count(self)
 
     def as_(self, alias):
         return Alias(alias, self)
@@ -720,7 +720,7 @@ class EscapeForLike(Expr):
 def compile_escapeforlike(compile, expr, state):
     escaped = expr.expr
     for k, v in expr.escape_map:
-        escaped = Replace(escaped, Value(k), Value(v))
+        escaped = func.Replace(escaped, Value(k), Value(v))
     compile(escaped, state)
 
 
@@ -1103,76 +1103,6 @@ def compile_namedcallable(compile, expr, state):
     state.sql.append('(')
     compile(expr.args, state)
     state.sql.append(')')
-
-
-class Count(NamedCallable):
-    __slots__ = ()
-    sql = 'COUNT'
-
-
-class Power(NamedCallable):
-    __slots__ = ()
-    sql = 'POWER'
-
-
-class Mod(NamedCallable):
-    __slots__ = ()
-    sql = 'MOD'
-
-
-class Abs(NamedCallable):
-    __slots__ = ()
-    sql = 'ABS'
-
-
-class Max(NamedCallable):
-    __slots__ = ()
-    sql = 'MAX'
-
-
-class Max(NamedCallable):
-    __slots__ = ()
-    sql = 'MAX'
-
-
-class Min(NamedCallable):
-    __slots__ = ()
-    sql = 'MIN'
-
-
-class Avg(NamedCallable):
-    __slots__ = ()
-    sql = 'AVG'
-
-
-class Sum(NamedCallable):
-    __slots__ = ()
-    sql = 'SUM'
-
-
-class Lower(NamedCallable):
-    __slots__ = ()
-    sql = "LOWER"
-
-
-class Upper(NamedCallable):
-    __slots__ = ()
-    sql = "UPPER"
-
-
-class Replace(NamedCallable):
-    __slots__ = ()
-    sql = 'REPLACE'
-
-
-class Coalesce(NamedCallable):
-    __slots__ = ()
-    sql = "COALESCE"
-
-
-class Row(NamedCallable):
-    __slots__ = ()
-    sql = "ROW"
 
 
 class Cast(NamedCallable):
@@ -2030,7 +1960,7 @@ class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
         Query.__init__(self, q.order_by(reset=True).as_table(table_alias))
-        self._fields.append(Count(Constant('1')).as_(field_alias))
+        self._fields.append(func.Count(Constant('1')).as_(field_alias))
 
 
 @factory.register
