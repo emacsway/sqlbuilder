@@ -10,7 +10,7 @@ import weakref
 import operator
 import warnings
 import collections
-from functools import wraps, reduce, partial
+from functools import wraps, reduce
 
 try:
     str = unicode  # Python 2.* compatible
@@ -509,6 +509,9 @@ class Expr(Comparable):
             return
         self.sql, self.params = sql, params
 
+    def __repr__(self):
+        return _repr(self)
+
 
 @compile.when(Expr)
 def compile_expr(compile, expr, state):
@@ -564,6 +567,9 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
 
     def __iter__(self):
         return iter(self.data)
+
+    def __repr__(self):
+        return _repr(self)
 
 
 @compile.when(CompositeExpr)
@@ -1421,6 +1427,9 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getitem__(self, key):
         return self.get_field(key)
 
+    def __repr__(self):
+        return _repr(self)
+
     __and__ = same('inner_join')
     __add__ = same('left_join')
     __sub__ = same('right_join')
@@ -1544,6 +1553,9 @@ class TableJoin(object):
         for a in ['_hint', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
+
+    def __repr__(self):
+        return _repr(self)
 
     as_nested = same('__call__')
     group = same('__call__')
@@ -1983,7 +1995,9 @@ def compile_raw(compile, expr, state):
 
 
 class Modify(object):
-    pass
+
+    def __repr__(self):
+        return _repr(self)
 
 
 @factory.register
@@ -2205,6 +2219,9 @@ class Name(object):
     def __init__(self, name=None):
         self.name = name
 
+    def __repr__(self):
+        return _repr(self)
+
 
 class NameCompiler(object):
 
@@ -2254,6 +2271,9 @@ class Value(object):
     def __init__(self, value):
         self.value = value
 
+    def __repr__(self):
+        return _repr(self)
+
 
 class ValueCompiler(object):
 
@@ -2298,7 +2318,7 @@ class Infix(object):
     """
     def __init__(self, operator):
         self._operator = operator
-        self._compiler = compile  # Use PostgreSQL operator precedences in code, to abstract from DB dialect
+        self._compiler = compile  # Use PostgreSQL operator precedences in python code, to abstract from DB dialect
 
     def _call_operator(self, left, right):
         result = self._operator(left, right)
@@ -2339,8 +2359,17 @@ def is_allowed_attr(instance, key):
     return True
 
 
+def qn(name, compile):
+    return compile(Name(name))[0]
+
+
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
+
+
+def _repr(expr):
+    return "<{0}: {1}, {2!r}>".format(type(expr).__name__, *compile(expr))
+
 
 compile.set_precedence(270, '.')
 compile.set_precedence(260, '::')
@@ -2374,7 +2403,3 @@ compile.set_precedence(None, All, Distinct)
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
-qn = lambda name, compile: compile(Name(name))[0]
-
-for cls in (Expr, Table, TableJoin, Modify, CompositeExpr, EscapeForLike, Name, Value):
-    cls.__repr__ = lambda self: "<{0}: {1}, {2!r}>".format(type(self).__name__, *compile(self))
