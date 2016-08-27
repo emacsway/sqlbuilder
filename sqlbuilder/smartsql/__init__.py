@@ -171,20 +171,25 @@ class Compiler(object):
         state.callers.pop(0)
         state.precedence = outer_precedence
 
-    def get_inner_precedence(self, expr):
-        cls = expr.__class__
-        if issubclass(cls, Expr) and hasattr(expr, 'sql'):
-            try:
-                if (cls, expr.sql) in self._precedence:
-                    return self._precedence[(cls, expr.sql)]
-                elif expr.sql in self._precedence:
-                    return self._precedence[expr.sql]
-            except TypeError:
-                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
-                pass
+    def get_inner_precedence(self, cls_or_expr):
+        if isinstance(cls_or_expr, type):
+            cls = cls_or_expr
+            if cls in self._precedence:
+                return self._precedence[cls]
+        else:
+            expr = cls_or_expr
+            cls = expr.__class__
+            if issubclass(cls, Expr) and hasattr(expr, 'sql'):
+                try:
+                    if (cls, expr.sql) in self._precedence:
+                        return self._precedence[(cls, expr.sql)]
+                    elif expr.sql in self._precedence:
+                        return self._precedence[expr.sql]
+                except TypeError:
+                    # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
+                    pass
+            return self.get_inner_precedence(cls)
 
-        if cls in self._precedence:
-            return self._precedence[cls]
         return MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
 
 compile = Compiler()
