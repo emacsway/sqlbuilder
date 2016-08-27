@@ -519,24 +519,7 @@ def compile_expr(compile, expr, state):
     state.params += expr.params
 
 
-class MetaCompositeExpr(type):
-
-    def __new__(cls, name, bases, attrs):
-        if bases[0] is object:
-            def _c(name):
-                def f(self, other):
-                    if hasattr(operator, name):
-                        return reduce(operator.and_, (getattr(operator, name)(expr, val) for (expr, val) in zip(self.data, other)))
-                    else:
-                        return reduce(operator.and_, (getattr(expr, name)(val) for (expr, val) in zip(self.data, other)))
-                return f
-
-            for a in ('__eq__', '__neg__'):
-                attrs[a] = _c(a)
-        return type.__new__(cls, name, bases, attrs)
-
-
-class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
+class CompositeExpr(object):
 
     __slots__ = ('data', 'sql')
 
@@ -547,23 +530,23 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
     def as_(self, aliases):
         return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
 
-    def in_(self, others):
-        if len(self.data) == 1:
-            return self.data[0].in_(others)
-        return reduce(operator.or_,
-                      (reduce(operator.and_,
-                              ((expr == other)
-                               for expr, other in zip(self.data, composite_other)))
-                       for composite_other in others))
+    def in_(self, composite_others):
+        return self._op_list(Eq, composite_others)
 
-    def not_in(self, others):
-        if len(self.data) == 1:
-            return self.data[0].not_in(others)
-        return ~reduce(operator.or_,
-                       (reduce(operator.and_,
-                               ((expr == other)
-                                for expr, other in zip(self.data, composite_other)))
-                        for composite_other in others))
+    def not_in(self, composite_others):
+        return ~self._op_list(Eq, composite_others)
+
+    def _op_list(self, op, composite_others):
+        return reduce(operator.or_, (self._op(op, composite_other) for composite_other in composite_others))
+
+    def _op(self, op, composite_other):
+        return reduce(operator.and_, (op(expr, val) for (expr, val) in zip(self.data, composite_other)))
+
+    def __eq__(self, composite_other):
+        return self._op(Eq, composite_other)
+
+    def __ne__(self, composite_other):
+        return self._op(Ne, composite_other)
 
     def __iter__(self):
         return iter(self.data)
@@ -2316,8 +2299,8 @@ class Infix(object):
     x <<op>> y
     Source and more info: http://code.activestate.com/recipes/384122/
     """
-    def __init__(self, operator):
-        self._operator = operator
+    def __init__(self, op):
+        self._operator = op
         self._compiler = compile  # Use PostgreSQL operator precedences in python code, to abstract from DB dialect
 
     def _call_operator(self, left, right):
