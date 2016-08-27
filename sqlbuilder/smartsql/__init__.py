@@ -310,8 +310,6 @@ class Comparable(object):
         return And(other, self)
 
     def __or__(self, other):
-        if isinstance(other, Infix):
-            return other.__ror__(self)
         return Or(self, other)
 
     def __ror__(self, other):
@@ -350,8 +348,6 @@ class Comparable(object):
         return RShift(other, self)
 
     def __lshift__(self, other):
-        if isinstance(other, Infix):
-            return other.__rlshift__(self)
         return LShift(self, other)
 
     def __rlshift__(self, other):
@@ -2293,45 +2289,6 @@ class ValueCompiler(object):
 
 compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
-
-
-class Infix(object):
-    """ Infix operator class.
-
-    Calling sequence for the infix is either:
-    x |op| y
-    or:
-    x <<op>> y
-    Source and more info: http://code.activestate.com/recipes/384122/
-    """
-    def __init__(self, op):
-        self._operator = op
-        self._compiler = compile  # Use PostgreSQL operator precedences in python code, to abstract from DB dialect
-
-    def _call_operator(self, left, right):
-        result = self._operator(left, right)
-        if isinstance(left, Binary) and isinstance(result, Binary):
-            left_precedence = self._compiler.get_inner_precedence(left)
-            result_precedence = self._compiler.get_inner_precedence(result)
-            if result_precedence > left_precedence:
-                left.right, result.left = result, left.right
-                return left
-        return result
-
-    def __ror__(self, other):
-        return Infix(lambda x, self=self, other=other: self._call_operator(other, x))
-
-    def __or__(self, other):
-        return self._operator(other)
-
-    def __rlshift__(self, other):
-        return Infix(lambda x, self=self, other=other: self._call_operator(other, x))
-
-    def __rshift__(self, other):
-        return self._operator(other)
-
-    def __call__(self, value1, value2):
-        return self._operator(value1, value2)
 
 
 def is_list(v):
