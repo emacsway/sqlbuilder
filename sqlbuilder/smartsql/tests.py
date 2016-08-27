@@ -557,18 +557,38 @@ class TestCompositeExpr(unittest.TestCase):
             Q(T.tb).fields(pk, T.tb.title).where(pk == (1, 'en', today)).select(),
             ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE "tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s', [1, 'en', today])
         )
-        pk2 = pk.as_(('al1', 'al2', 'al3'))
         self.assertEqual(
-            Q(T.tb).fields(pk2, T.tb.title).where(pk2 == (1, 'en', today)).select(),
+            Q(T.tb).fields(pk, T.tb.title).where(pk != (1, 'en', today)).select(),
+            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE "tb"."obj_id" <> %s AND "tb"."land_id" <> %s AND "tb"."date" <> %s', [1, 'en', today])
+        )
+        self.assertEqual(
+            Q(T.tb).fields(pk, T.tb.title).where(pk.in_(((1, 'en', today), (2, 'en', today)))).select(),
+            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE "tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s OR "tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s', [1, 'en', today, 2, 'en', today])
+        )
+
+        self.assertEqual(
+            Q(T.tb).fields(pk, T.tb.title).where(pk.not_in(((1, 'en', today), (2, 'en', today)))).select(),
+            ('SELECT "tb"."obj_id", "tb"."land_id", "tb"."date", "tb"."title" FROM "tb" WHERE NOT ("tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s OR "tb"."obj_id" = %s AND "tb"."land_id" = %s AND "tb"."date" = %s)', [1, 'en', today, 2, 'en', today])
+        )
+
+    def test_compositeexpr_as_alias(self):
+        pk = CompositeExpr(T.tb.obj_id, T.tb.land_id, T.tb.date).as_(('al1', 'al2', 'al3'))
+        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.assertEqual(
+            Q(T.tb).fields(pk, T.tb.title).where(pk == (1, 'en', today)).select(),
             ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE "al1" = %s AND "al2" = %s AND "al3" = %s', [1, 'en', today])
         )
         self.assertEqual(
-            Q(T.tb).fields(pk2, T.tb.title).where(pk2.in_(((1, 'en', today), (2, 'en', today)))).select(),
+            Q(T.tb).fields(pk, T.tb.title).where(pk != (1, 'en', today)).select(),
+            ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE "al1" <> %s AND "al2" <> %s AND "al3" <> %s', [1, 'en', today])
+        )
+        self.assertEqual(
+            Q(T.tb).fields(pk, T.tb.title).where(pk.in_(((1, 'en', today), (2, 'en', today)))).select(),
             ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE "al1" = %s AND "al2" = %s AND "al3" = %s OR "al1" = %s AND "al2" = %s AND "al3" = %s', [1, 'en', today, 2, 'en', today])
         )
 
         self.assertEqual(
-            Q(T.tb).fields(pk2, T.tb.title).where(pk2.not_in(((1, 'en', today), (2, 'en', today)))).select(),
+            Q(T.tb).fields(pk, T.tb.title).where(pk.not_in(((1, 'en', today), (2, 'en', today)))).select(),
             ('SELECT "tb"."obj_id" AS "al1", "tb"."land_id" AS "al2", "tb"."date" AS "al3", "tb"."title" FROM "tb" WHERE NOT ("al1" = %s AND "al2" = %s AND "al3" = %s OR "al1" = %s AND "al2" = %s AND "al3" = %s)', [1, 'en', today, 2, 'en', today])
         )
 

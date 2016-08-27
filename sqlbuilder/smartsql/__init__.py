@@ -10,7 +10,7 @@ import weakref
 import operator
 import warnings
 import collections
-from functools import wraps, reduce, partial
+from functools import wraps, reduce
 
 try:
     str = unicode  # Python 2.* compatible
@@ -467,22 +467,22 @@ class BaseType(AbstractType):
         return Distinct(self._expr)
 
     def __pow__(self, other):
-        return Power(self._expr, other)
+        return func.Power(self._expr, other)
 
     def __rpow__(self, other):
-        return Power(other, self._expr)
+        return func.Power(other, self._expr)
 
     def __mod__(self, other):
-        return Mod(self._expr, other)
+        return func.Mod(self._expr, other)
 
     def __rmod__(self, other):
-        return Mod(other, self._expr)
+        return func.Mod(other, self._expr)
 
     def __abs__(self):
-        return Abs(self._expr)
+        return func.Abs(self._expr)
 
     def count(self):
-        return Count(self._expr)
+        return func.Count(self._expr)
 
     def as_(self, alias):
         return Alias(alias, self._expr)
@@ -669,6 +669,9 @@ class Expr(Operable):
             return
         self.sql, self.params = sql, params
 
+    def __repr__(self):
+        return _repr(self)
+
 
 @compile.when(Expr)
 def compile_expr(compile, expr, state):
@@ -676,24 +679,7 @@ def compile_expr(compile, expr, state):
     state.params += expr.params
 
 
-class MetaCompositeExpr(type):
-
-    def __new__(cls, name, bases, attrs):
-        if bases[0] is object:
-            def _c(name):
-                def f(self, other):
-                    if hasattr(operator, name):
-                        return reduce(operator.and_, (getattr(operator, name)(expr, val) for (expr, val) in zip(self.data, other)))
-                    else:
-                        return reduce(operator.and_, (getattr(expr, name)(val) for (expr, val) in zip(self.data, other)))
-                return f
-
-            for a in ('__eq__', '__neg__'):
-                attrs[a] = _c(a)
-        return type.__new__(cls, name, bases, attrs)
-
-
-class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
+class CompositeExpr(object):
 
     __slots__ = ('data', 'sql')
 
@@ -704,26 +690,29 @@ class CompositeExpr(MetaCompositeExpr("NewBase", (object, ), {})):
     def as_(self, aliases):
         return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
 
-    def in_(self, others):
-        if len(self.data) == 1:
-            return self.data[0].in_(others)
-        return reduce(operator.or_,
-                      (reduce(operator.and_,
-                              ((expr == other)
-                               for expr, other in zip(self.data, composite_other)))
-                       for composite_other in others))
+    def in_(self, composite_others):
+        return self._op_list(Eq, composite_others)
 
-    def not_in(self, others):
-        if len(self.data) == 1:
-            return self.data[0].not_in(others)
-        return ~reduce(operator.or_,
-                       (reduce(operator.and_,
-                               ((expr == other)
-                                for expr, other in zip(self.data, composite_other)))
-                        for composite_other in others))
+    def not_in(self, composite_others):
+        return ~self._op_list(Eq, composite_others)
+
+    def _op_list(self, op, composite_others):
+        return reduce(operator.or_, (self._op(op, composite_other) for composite_other in composite_others))
+
+    def _op(self, op, composite_other):
+        return reduce(operator.and_, (op(expr, val) for (expr, val) in zip(self.data, composite_other)))
+
+    def __eq__(self, composite_other):
+        return self._op(Eq, composite_other)
+
+    def __ne__(self, composite_other):
+        return self._op(Ne, composite_other)
 
     def __iter__(self):
         return iter(self.data)
+
+    def __repr__(self):
+        return _repr(self)
 
 
 @compile.when(CompositeExpr)
@@ -886,7 +875,7 @@ class EscapeForLike(Expr):
 def compile_escapeforlike(compile, expr, state):
     escaped = expr.expr
     for k, v in expr.escape_map:
-        escaped = Replace(escaped, Value(k), Value(v))
+        escaped = func.Replace(escaped, Value(k), Value(v))
     compile(escaped, state)
 
 
@@ -1283,76 +1272,6 @@ def compile_namedcallable(compile, expr, state):
     state.sql.append(')')
 
 
-class Count(NamedCallable):
-    __slots__ = ()
-    sql = 'COUNT'
-
-
-class Power(NamedCallable):
-    __slots__ = ()
-    sql = 'POWER'
-
-
-class Mod(NamedCallable):
-    __slots__ = ()
-    sql = 'MOD'
-
-
-class Abs(NamedCallable):
-    __slots__ = ()
-    sql = 'ABS'
-
-
-class Max(NamedCallable):
-    __slots__ = ()
-    sql = 'MAX'
-
-
-class Max(NamedCallable):
-    __slots__ = ()
-    sql = 'MAX'
-
-
-class Min(NamedCallable):
-    __slots__ = ()
-    sql = 'MIN'
-
-
-class Avg(NamedCallable):
-    __slots__ = ()
-    sql = 'AVG'
-
-
-class Sum(NamedCallable):
-    __slots__ = ()
-    sql = 'SUM'
-
-
-class Lower(NamedCallable):
-    __slots__ = ()
-    sql = "LOWER"
-
-
-class Upper(NamedCallable):
-    __slots__ = ()
-    sql = "UPPER"
-
-
-class Replace(NamedCallable):
-    __slots__ = ()
-    sql = 'REPLACE'
-
-
-class Coalesce(NamedCallable):
-    __slots__ = ()
-    sql = "COALESCE"
-
-
-class Row(NamedCallable):
-    __slots__ = ()
-    sql = "ROW"
-
-
 class Cast(NamedCallable):
     __slots__ = ("expr", "type",)
     sql = "CAST"
@@ -1673,6 +1592,9 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def __getitem__(self, key):
         return self.get_field(key)
 
+    def __repr__(self):
+        return _repr(self)
+
     __and__ = same('inner_join')
     __add__ = same('left_join')
     __sub__ = same('right_join')
@@ -1796,6 +1718,9 @@ class TableJoin(object):
         for a in ['_hint', ]:
             setattr(dup, a, copy.copy(getattr(dup, a, None)))
         return dup
+
+    def __repr__(self):
+        return _repr(self)
 
     as_nested = same('__call__')
     group = same('__call__')
@@ -2216,7 +2141,7 @@ class SelectCount(Query):
 
     def __init__(self, q, table_alias='count_list', field_alias='count_value'):
         Query.__init__(self, q.order_by(reset=True).as_table(table_alias))
-        self._fields.append(Count(Constant('1')).as_(field_alias))
+        self._fields.append(func.Count(Constant('1')).as_(field_alias))
 
 
 @factory.register
@@ -2239,7 +2164,9 @@ def compile_raw(compile, expr, state):
 
 
 class Modify(object):
-    pass
+
+    def __repr__(self):
+        return _repr(self)
 
 
 @factory.register
@@ -2461,6 +2388,9 @@ class Name(object):
     def __init__(self, name=None):
         self.name = name
 
+    def __repr__(self):
+        return _repr(self)
+
 
 class NameCompiler(object):
 
@@ -2510,6 +2440,9 @@ class Value(object):
     def __init__(self, value):
         self.value = value
 
+    def __repr__(self):
+        return _repr(self)
+
 
 class ValueCompiler(object):
 
@@ -2552,9 +2485,9 @@ class Infix(object):
     x <<op>> y
     Source and more info: http://code.activestate.com/recipes/384122/
     """
-    def __init__(self, operator):
-        self._operator = operator
-        self._compiler = compile  # Use PostgreSQL operator precedences in code, to abstract from DB dialect
+    def __init__(self, op):
+        self._operator = op
+        self._compiler = compile  # Use PostgreSQL operator precedences in python code, to abstract from DB dialect
 
     def _call_operator(self, left, right):
         result = self._operator(left, right)
@@ -2595,8 +2528,17 @@ def is_allowed_attr(instance, key):
     return True
 
 
+def qn(name, compile):
+    return compile(Name(name))[0]
+
+
 def warn(old, new, stacklevel=3):
     warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
+
+
+def _repr(expr):
+    return "<{0}: {1}, {2!r}>".format(type(expr).__name__, *compile(expr))
+
 
 compile.set_precedence(270, '.')
 compile.set_precedence(260, '::')
@@ -2644,7 +2586,3 @@ operator_registry.register(
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
-qn = lambda name, compile: compile(Name(name))[0]
-
-for cls in (Expr, Table, TableJoin, Modify, CompositeExpr, EscapeForLike, Name, Value):
-    cls.__repr__ = lambda self: "<{0}: {1}, {2!r}>".format(type(self).__name__, *compile(self))
