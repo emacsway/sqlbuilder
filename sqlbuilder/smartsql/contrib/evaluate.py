@@ -4,14 +4,14 @@
 #
 # Example of usage:
 # >>> from sqlbuilder.smartsql.contrib.evaluate import compile
-# >>> compile("""T.user.age <@ func.int4range(25, 30)""").evaluate(context={})
-# <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+# >>> compile("""T.user.age <@ func.int8range(25, 30)""").evaluate(context={})
+# <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
 # >>>
 #
 # or simple:
 # >>> from sqlbuilder.smartsql.contrib.evaluate import e
-# >>> e("""T.user.age <@ func.int4range(25, 30)""")
-# <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+# >>> e("T.user.age <@ func.int8range(25, 30)")
+# <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
 # >>>
 
 import re
@@ -32,9 +32,10 @@ def compile(program):
     return ast
 
 
-def e(program, context=None):
+def e(program, *a, **kw):
+    context = a and a[0] or kw
     ast = compile(program)
-    return ast.evaluate(context or {})
+    return ast.evaluate(context)
 
 
 class SymbolBase(object):
@@ -213,7 +214,12 @@ class Lexer(object):
                   | \b(?:NOT)(?=\s)
               )  # operator
             | ([a-zA-Z]\w*)  # name
-            | (\d+(?:\.\d*)?)  # literal
+            | (
+                    \d+(?:\.\d*)?  # number
+                  | %s  # placeholder
+                  | %\([a-zA-Z]\w*\)s  # named placeholder
+                  | '(?:''|[^'])*'  # string
+              )  # literal
         )
         """, re.U | re.I | re.S | re.X)
 
@@ -227,19 +233,18 @@ class Lexer(object):
                 s = symbol()
                 s.value = value
             else:  # name or operator
-                if name == '(NAME)':
-                    symbol = self.symbol_table[name]
+                symbol = symbol_table.get(value.upper())
+                if symbol:  # operator or constant
+                    s = symbol()
+                elif name == "(NAME)":
+                    symbol = symbol_table[name]
                     s = symbol()
                     s.value = value
                 else:
-                    try:
-                        symbol = self.symbol_table[value.upper()]
-                    except KeyError:
-                        raise SyntaxError("Unknown operator ({}). Possible operators are {!r}".format(
-                            value, list(self.symbol_table)
-                        ))
-                    else:
-                        s = symbol()
+                    raise SyntaxError("Unknown operator ({}). Possible operators are {!r}".format(
+                        value, list(self.symbol_table)
+                    ))
+
             yield s
 
     def _tokenize_expr(self, program):
@@ -322,7 +327,8 @@ infix('IS', 160)
 postfix('ISNULL NOTNULL', 150)
 
 # 140 - (any other operator)  # all other native and user-defined operators
-infix('<@ @> &< &> -|- &&', 140)
+infix('<@ @> &< &> -|- && ## <-> <<| |>> &<| |&> <^ >^ ?# ?- ?| ?-| ?|| ~=', 140)
+prefix('@-@ @@', 140)
 postfix('ASC DESC', 140)
 
 infix('IN', 130)
@@ -515,6 +521,9 @@ if __name__ == '__main__':
 
         ("T.user.age <@ func.int4range(25, 30)",
          ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
+
+        ("T.user.is_staff IS TRUE AND T.user.is_admin IS FALSE",
+         ('"user"."is_staff" IS TRUE AND "user"."is_admin" IS FALSE', [])),
 
         ("T.user.age DESC AND T.user.first_name ASC",
          ('"user"."age" DESC AND "user"."first_name" ASC', [])),

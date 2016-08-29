@@ -389,13 +389,68 @@ Condition operators
     <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
 
+.. module:: sqlbuilder.smartsql.contrib.evaluate
+   :synopsis: Module sqlbuilder.smartsql.contrib.evaluate
+
+Module sqlbuilder.smartsql.contrib.evaluate
+-------------------------------------------
+
+Unfortunately, Python supports limited list of operators compared to PostgreSQL.
+Many operators like ``@>``, ``&>``, ``-|-``, ``@-@`` and so on are not supported by Python.
+
+You can use :meth:`Expr.op` to solve this problem, for example::
+
+    >>> tb.user.age('<@')(func.int8range(25, 30))
+    <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
+
+But this solution has a lack of readability.
+So, sqlbuilder provides module :mod:`sqlbuilder.smartsql.contrib.evaluate`,
+that allows you to mix SQL operators (like ``@>``, ``&>``, ``-|-``, ``@-@`` etc.) and python expressions.
+In other words, you can use SQL operators with Python expressions.
+
+For example::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> e("T.user.age <@ func.int4range(25, 30)")
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+or with kwargs::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range", required_range=required_range)
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+or with context object::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range", locals())
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+You can pre-compile expression to avoid parsing it each time::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import compile
+    >>> required_range = func.int8range(25, 30)
+    >>> expr = compile("""T.user.age <@ required_range""")
+    >>> expr.evaluate(context={'required_range': required_range})
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+More complex example::
+
+    >>> from sqlbuilder.smartsql import *
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range AND NOT(T.user.is_staff or T.user.is_admin)", locals())
+    <Binary: "user"."age" <@ INT8RANGE(%s, %s) AND NOT ("user"."is_staff" OR "user"."is_admin"), [25, 30]>
+
+
 .. module:: sqlbuilder.smartsql
    :synopsis: Module sqlbuilder.smartsql
 
 
 Module sqlbuilder.smartsql
 --------------------------
-
 
 Query object
 ------------
@@ -1043,7 +1098,7 @@ There are three compilers for three dialects:
 Short manual for sqlbuilder.mini
 ================================
 
-There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
+The package contains yet another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
 Such form of presentation allows modify query without syntax analysis.
 
