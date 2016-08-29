@@ -1,7 +1,7 @@
 # Based on Simple Top-Down Parser from http://effbot.org/zone/simple-top-down-parsing.htm
 # Allows use operators in native SQL form, like @>, &>, -|- etc.
 # Example of usage:
-# >>> e("""T.user.is_staff and T.user.is_admin""")
+# >>> compile("""T.user.is_staff and T.user.is_admin""").evaluate({})
 # ... <And: "user"."is_staff" AND "user"."is_admin", []>
 # This module still under construction!!!
 # Don't use it in the production!!!
@@ -10,11 +10,9 @@ import re
 from sqlbuilder import smartsql
 
 
-def eval_expr(program):
+def compile(program):
     ast = Parser(Lexer(symbol_table)).parse(program)
     return ast
-
-e = eval_expr
 
 
 class SymbolBase(object):
@@ -451,11 +449,13 @@ symbol('}')
 
 if __name__ == '__main__':
     tests = [
-        ("T.user.is_staff and T.user.is_admin", ("", [])),
-        ("func.Lower(T.user.first_name) and T.user.is_admin", ("", [])),
-        ("Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ("", [])),
+        ("T.user.is_staff and T.user.is_admin", ('"user"."is_staff" AND "user"."is_admin"', [])),
+        ("func.Lower(T.user.first_name) and T.user.is_admin", ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
+        ("Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ('"user"."first_name" || "user"."last_name" AND "user"."is_admin"', [])),
     ]
 
     for t, expected in tests:
-        res = eval_expr(t)
-        print(t, '\n', res, '\n', res.evaluate({}), '\n\n')
+        expr = compile(t).evaluate({})
+        sql = smartsql.compile(expr)
+        assert expected == sql
+        print(t, '\n', sql, '\n\n')
