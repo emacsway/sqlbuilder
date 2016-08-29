@@ -436,7 +436,7 @@ You can pre-compile expression to avoid parsing of it each time::
     >>> expr.evaluate(context={'required_range': required_range})
     <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 
-Btw, you can even pre-compile expression into sql-string for achieving the fastest result::
+Btw, you can even pre-compile expression into sql-string to achieve the fastest result::
 
     >>> from sqlbuilder.smartsql import *
     >>> from sqlbuilder.smartsql.contrib.evaluate import e
@@ -450,7 +450,7 @@ More complex example::
     >>> from sqlbuilder.smartsql import *
     >>> from sqlbuilder.smartsql.contrib.evaluate import e
     >>> required_range = func.int8range(25, 30)
-    >>> e("T.user.age <@ required_range AND NOT(T.user.is_staff or T.user.is_admin)", locals())
+    >>> e("T.user.age <@ required_range AND NOT(T.user.is_staff OR T.user.is_admin)", locals())
     <Binary: "user"."age" <@ INT8RANGE(%s, %s) AND NOT ("user"."is_staff" OR "user"."is_admin"), [25, 30]>
 
 
