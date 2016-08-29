@@ -2,7 +2,7 @@
 # Allows use operators in native SQL form, like @>, &>, -|- etc.
 # Example of usage:
 # >>> from sqlbuilder.smartsql.contrib.evaluate import compile
-# >>> compile("""T.user.age <@ func.int4range(25, 30)""").evaluate({})
+# >>> compile("""T.user.age <@ func.int4range(25, 30)""").evaluate(context={})
 # <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 # >>>
 # This module still under construction!!!
