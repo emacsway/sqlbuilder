@@ -389,6 +389,97 @@ Condition operators
     <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
 
+.. module:: sqlbuilder.smartsql.contrib.evaluate
+   :synopsis: Module sqlbuilder.smartsql.contrib.evaluate
+
+Module sqlbuilder.smartsql.contrib.evaluate
+-------------------------------------------
+
+Unfortunately, Python supports limited list of operators compared to PostgreSQL.
+Many operators like ``@>``, ``&>``, ``-|-``, ``@-@`` and so on are not supported by Python.
+
+You can use :meth:`Expr.op` to solve this problem, for example::
+
+    >>> tb.user.age('<@')(func.int8range(25, 30))
+    <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
+
+But this solution has a lack of readability.
+So, sqlbuilder provides module :mod:`sqlbuilder.smartsql.contrib.evaluate`,
+that allows you to mix SQL operators (like ``@>``, ``&>``, ``-|-``, ``@-@`` etc.) and python expressions.
+In other words, you can use SQL operators with Python expressions.
+
+For example::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> e("T.user.age <@ func.int4range(25, 30)")
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+or with kwargs::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range", required_range=required_range)
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+or with context object::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range", locals())
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+You can pre-compile expression, similar `re.compile() <https://docs.python.org/3/library/re.html#re.compile>`_, to avoid parsing of it each time::
+
+    >>> from sqlbuilder.smartsql.contrib.evaluate import compile
+    >>> required_range = func.int8range(25, 30)
+    >>> expr = compile("""T.user.age <@ required_range""")
+    >>> expr.evaluate(context={'required_range': required_range})
+    <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+
+Btw, you can even pre-compile expression into sql-string to achieve the fastest result::
+
+    >>> from sqlbuilder.smartsql import *
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> sql, params = compile(e("T.user.age <@ func.int4range('%(min)s', '%(max)s')"))
+    >>> sql = sql.replace('%%', '%%%%') % tuple(params)
+    >>> sql
+    u'"user"."age" <@ INT4RANGE(%(min)s, %(max)s)'
+
+More complex example::
+
+    >>> from sqlbuilder.smartsql import *
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> required_range = func.int8range(25, 30)
+    >>> e("T.user.age <@ required_range AND NOT(T.user.is_staff OR T.user.is_admin)", locals())
+    <Binary: "user"."age" <@ INT8RANGE(%s, %s) AND NOT ("user"."is_staff" OR "user"."is_admin"), [25, 30]>
+
+.. note::
+
+    Module :mod:`sqlbuilder.smartsql.contrib.evaluate` uses operator precedence similar
+    `PostgreSQL precedence <https://www.postgresql.org/docs/9.5/static/sql-syntax-lexical.html#SQL-PRECEDENCE>`_,
+    not `Python precedence <https://docs.python.org/3/reference/expressions.html#operator-precedence>`__.
+
+    Also note, that ``Power`` has
+    `left association similar PostgreSQL <https://www.postgresql.org/docs/9.5/static/functions-math.html#FUNCTIONS-MATH-OP-TABLE>`__,
+    in contrast Python has right association::
+
+        $ python
+        >>> 2 ** 3 ** 5
+        14134776518227074636666380005943348126619871175004951664972849610340958208L
+
+    ::
+
+        $ psql
+        postgres=# SELECT 2 ^ 3 ^ 5;
+         ?column?
+        ----------
+            32768
+        (1 row)
+
+    Real operator precedence and association directions you can see in
+    `source code of the module <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/smartsql/contrib/evaluate.py>`__.
+
+
 .. module:: sqlbuilder.smartsql
    :synopsis: Module sqlbuilder.smartsql
 
@@ -963,7 +1054,7 @@ for demonstration purposes, that does only one thing - returns a tuple with SQL 
 You can develop your own implementation, or, at least, specify what same compiler to use, for example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
-    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
     >>> Q(result=Result(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author).select()
     ('SELECT `author`.`id`, `author`.`name` FROM `author`', [])
 
@@ -972,7 +1063,7 @@ See also examples of implementation in `Django integration <https://bitbucket.or
 Instance of :class:`Query` also delegates all unknown methods and properties to :attr:`Query.result`. Example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
-    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
     >>> class CustomResult(Result):
     ...         custom_attr = 5                                                                                  
     ...         def custom_method(self, arg1, arg2):
@@ -1016,7 +1107,7 @@ There are three compilers for three dialects:
 
     It's a default compiler for PostgreSQL dialect,
     instance of :class:`Compiler`.
-    It also used for `representation <https://docs.python.org/2/library/functions.html#repr>`__ of expressions.
+    It also used for `representation <https://docs.python.org/3/library/functions.html#repr>`__ of expressions.
 
     :param expr: Expression to be compiled
     :type expr: Expr
@@ -1026,15 +1117,13 @@ There are three compilers for three dialects:
     :rtype: tuple or None
 
 
-.. function:: sqlbuilder.smartsql.compilers.mysql.compile(expr, [state=None])
+.. function:: sqlbuilder.smartsql.dialects.mysql.compile(expr, [state=None])
 
     Compiler for MySQL dialect.
 
-.. function:: sqlbuilder.smartsql.compilers.sqlite.compile(expr, [state=None])
+.. function:: sqlbuilder.smartsql.dialects.sqlite.compile(expr, [state=None])
 
     Compiler for SQLite dialect.
-
-..
 
 
 .. module:: sqlbuilder.mini
@@ -1043,7 +1132,7 @@ There are three compilers for three dialects:
 Short manual for sqlbuilder.mini
 ================================
 
-There is also another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
+The package contains yet another, extremely lightweight sql builder - :mod:`sqlbuilder.mini`, especially for Raw-SQL fans.
 It's just a hierarchical list of SQL strings, no more.
 Such form of presentation allows modify query without syntax analysis.
 

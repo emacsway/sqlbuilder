@@ -1,20 +1,41 @@
 # Based on Simple Top-Down Parser from http://effbot.org/zone/simple-top-down-parsing.htm
-# Allows use operators in native SQL form, like @>, &>, -|- etc.
+# This module allows mix SQL operators (like @>, &>, -|-) and python expressions.
+# In other words, you can use SQL operators with Python expressions.
+#
 # Example of usage:
-# >>> e("""T.user.is_staff and T.user.is_admin""")
-# ... <And: "user"."is_staff" AND "user"."is_admin", []>
-# This module still under construction!!!
-# Don't use it in the production!!!
+# >>> from sqlbuilder.smartsql.contrib.evaluate import compile
+# >>> compile("""T.user.age <@ func.int8range(25, 30)""").evaluate(context={})
+# <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
+# >>>
+#
+# or simple:
+# >>> from sqlbuilder.smartsql.contrib.evaluate import e
+# >>> e("T.user.age <@ func.int8range(25, 30)")
+# <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
+# >>>
 
 import re
 from sqlbuilder import smartsql
 
+try:
+    str = unicode  # Python 2.* compatible
+    string_types = (basestring,)
+    integer_types = (int, long)
 
-def eval_expr(program):
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
+
+
+def compile(program):
     ast = Parser(Lexer(symbol_table)).parse(program)
     return ast
 
-e = eval_expr
+
+def e(program, *a, **kw):
+    context = a and a[0] or kw
+    ast = compile(program)
+    return ast.evaluate(context)
 
 
 class SymbolBase(object):
@@ -27,12 +48,12 @@ class SymbolBase(object):
         self.second = None
         self.third = None  # used by tree nodes
 
-    def nud(self):
+    def nud(self, parser):
         raise SyntaxError(
             "Syntax error (%r)." % self.name
         )
 
-    def led(self, left):
+    def led(self, left, parser):
         raise SyntaxError(
             "Unknown operator (%r)." % self.name
         )
@@ -50,6 +71,12 @@ class SymbolBase(object):
 
 class SymbolTable(object):
 
+    def multi(func):
+        def _inner(self, names, *a, **kw):
+            for name in names.split():
+                func(self, name, *a, **kw)
+        return _inner
+
     def __init__(self):
         self.symbol_table = {}
 
@@ -58,6 +85,9 @@ class SymbolTable(object):
 
     def __getitem__(self, name):
         return self.symbol_table[name]
+
+    def __iter__(self):
+        return iter(self.symbol_table)
 
     def symbol(self, name, bp=0):
         name = name.upper()
@@ -77,6 +107,7 @@ class SymbolTable(object):
             s.lbp = max(bp, s.lbp)
         return s
 
+    @multi
     def infix(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -90,6 +121,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Binary(self.first.evaluate(context), self.name, self.second.evaluate(context))
 
+    @multi
     def infix_r(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -115,6 +147,7 @@ class SymbolTable(object):
             self.third = parser.expression()
             return self
 
+    @multi
     def prefix(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -127,6 +160,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Prefix(self.name, self.first.evaluate(context))
 
+    @multi
     def unary(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -139,23 +173,25 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Unary(self.name, self.first.evaluate(context))
 
+    @multi
     def postfix(self, name, bp):
         symbol = self.symbol(name, bp)
 
         @method(symbol)
-        def led(self, parser):
-            self.first = parser.expression(bp)
+        def led(self, left, parser):
+            self.first = left
             return self
 
         @method(symbol)
         def evaluate(self, context):
-            return smartsql.Postfix(self.name, self.first.evaluate(context))
+            return smartsql.Postfix(self.first.evaluate(context), self.name)
 
+    @multi
     def constant(self, name):
         symbol = self.symbol(name)
 
         @method(symbol)
-        def nud(self):
+        def nud(self, parser):
             self.name = '(LITERAL)'
             self.value = name
             return self
@@ -169,10 +205,22 @@ symbol_table = SymbolTable()
 
 class Lexer(object):
 
-    _token_pattern = re.compile(
-        r"""\s*(?:(<=|>=|not|and|or|\W)|([a-zA-Z]\w*)|(\d+(?:\.\d*)?))""",
-        re.U | re.I | re.S | re.X
-    )
+    _token_pattern = re.compile(r"""
+        \s*
+        (?:
+              (
+                    [.,:;()\[\]{}]
+                  | [<>=+\-~^*/%&#|@]{1,3}
+                  | (?<=\s)(?:IS|ISNULL|NOT|NOTNULL|IN|BETWEEN|AND|OR|OVERLAPS|LIKE|ILIKE|SIMILAR|ASC|DESC)\b
+                  | \b(?:NOT)(?=\s)
+              )  # operator
+            | ([a-zA-Z]\w*)  # name
+            | (
+                    \d+(?:\.\d*)?  # number
+                  | '(?:''|[^'])*'  # string
+              )  # literal
+        )
+        """, re.U | re.I | re.S | re.X)
 
     def __init__(self, symbol_table):
         self.symbol_table = symbol_table
@@ -183,20 +231,25 @@ class Lexer(object):
                 symbol = self.symbol_table[name]
                 s = symbol()
                 s.value = value
-            else:
-                # name or operator
-                symbol = self.symbol_table.get(value.upper())
-                if symbol:
+            else:  # name or operator
+                symbol = symbol_table.get(value.upper())
+                if symbol:  # operator or constant
                     s = symbol()
-                elif name == '(NAME)':
-                    symbol = self.symbol_table[name]
+                elif name == "(NAME)":
+                    symbol = symbol_table[name]
                     s = symbol()
                     s.value = value
                 else:
-                    raise SyntaxError("Unknown operator (%r)" % value)
+                    raise SyntaxError("Unknown operator ({}). Possible operators are {!r}".format(
+                        value, list(self.symbol_table)
+                    ))
+
             yield s
 
     def _tokenize_expr(self, program):
+        if isinstance(program, bytes):
+            program = program.decode('utf-8')
+        # import pprint; pprint.pprint(self._token_pattern.findall(program))
         for operator, name, literal in self._token_pattern.findall(program):
             if operator:
                 yield '(operator)', operator
@@ -255,34 +308,37 @@ symbol, infix, infix_r, prefix, unary, postfix, ternary, constant = (
     symbol_table.postfix, symbol_table.ternary, symbol_table.constant
 )
 
-symbol('.', 280)
-symbol('::', 270)
-symbol('(', 260)
+symbol('(', 270)
 symbol(')')
+symbol('.', 270)
+symbol('::', 260)
 symbol('[', 250)  # array element selection
 symbol(']')
-unary('+', 240); unary('-', 240); unary('~', 240)
+unary('+ - ~', 240)
 infix('^', 230)
-infix('*', 220); infix('/', 220); infix('%', 220)
-infix('+', 210); infix('-', 210)
-infix('<<', 200); infix('>>', 200)
+infix('* / %', 220)
+infix('+ -', 210)
+infix('<< >>', 200)
 infix('&', 190)
 infix('#', 180)
 infix('|', 170)
 infix('IS', 160)
-postfix('ISNULL', 150); postfix('NOTNULL', 150)
+postfix('ISNULL NOTNULL', 150)
 
 # 140 - (any other operator)  # all other native and user-defined operators
+infix('<@ @> &< &> -|- && ## <-> <<| |>> &<| |&> <^ >^ ?# ?- ?| ?-| ?|| ~=', 140)
+prefix('@-@ @@', 140)
+postfix('ASC DESC', 140)
 
 infix('IN', 130)
 ternary('BETWEEN', 'AND', 120)
 infix('OVERLAPS', 110)
 
-infix('LIKE', 100); infix('ILIKE', 100); infix('SIMILAR', 100)
-infix('<', 90); infix('>', 90)
-infix('<=', 80); infix('>=', 80); infix('<>', 80); infix('!=', 80)
+infix('LIKE ILIKE SIMILAR', 100)
+infix('< >', 90)
+infix('<= >= <> !=', 80)
 infix('=', 70)
-infix('NOT', 60)
+prefix('NOT', 60)
 infix('AND', 50)
 infix('OR', 40)
 
@@ -291,9 +347,7 @@ symbol('(NAME)')
 symbol('(LITERAL)')
 symbol('(END)')
 
-constant('NULL')
-constant('TRUE')
-constant('FALSE')
+constant('NULL TRUE FALSE')
 
 
 @method(symbol('(NAME)'))
@@ -308,7 +362,7 @@ def evaluate(self, context):
     elif hasattr(smartsql, self.value):
         return getattr(smartsql, self.value)
     else:
-        raise SyntaxError("Can't find name {!r} in context. Possible names are {!r}".format(
+        raise SyntaxError("Unknown name {!r}. Possible names are {!r}".format(
             self.value, list(context.keys()) + list(dir(smartsql))
         ))
 
@@ -320,7 +374,11 @@ def nud(self, parser):
 
 @method(symbol('(LITERAL)'))
 def evaluate(self, context):
-    return context[self.eval]
+    if self.value.isnumeric():
+        return int(self.value)
+    else:
+        return self.value.strip("'").replace("''", "'")  # string literal enclosed by single quotes
+
 
 @method(symbol('BETWEEN'))
 def evaluate(self, context):
@@ -386,7 +444,7 @@ def nud(self, parser):
             parser.advance(',')
     parser.advance(')')
     if not self.first or comma:
-        return self # tuple
+        return self  # tuple
     else:
         return self.first[0]
 
@@ -451,11 +509,29 @@ symbol('}')
 
 if __name__ == '__main__':
     tests = [
-        ("T.user.is_staff and T.user.is_admin", ("", [])),
-        ("func.Lower(T.user.first_name) and T.user.is_admin", ("", [])),
-        ("Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ("", [])),
+        ("T.user.is_staff and T.user.is_admin",
+         ('"user"."is_staff" AND "user"."is_admin"', [])),
+
+        ("func.Lower(T.user.first_name) and T.user.is_admin",
+         ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
+
+        ("Concat(T.user.first_name, T.user.last_name) and NOT (T.user.is_active AND (T.user.is_admin OR T.user.is_staff))",
+         ('"user"."first_name" || "user"."last_name" AND NOT ("user"."is_active" AND ("user"."is_admin" OR "user"."is_staff"))', [])),
+
+        ("T.user.age <@ func.int4range(25, 30)",
+         ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
+
+        ("T.user.is_staff IS TRUE AND T.user.is_admin IS FALSE",
+         ('"user"."is_staff" IS TRUE AND "user"."is_admin" IS FALSE', [])),
+
+        ("T.user.age DESC AND T.user.first_name ASC",
+         ('"user"."age" DESC AND "user"."first_name" ASC', [])),
+
+        ("T.user.age <@ func.int4range('%(min)s', '%(max)s')",
+         ('"user"."age" <@ INT4RANGE(%s, %s)', ['%(min)s', '%(max)s']))
     ]
 
     for t, expected in tests:
-        res = eval_expr(t)
-        print(t, '\n', res, '\n', res.evaluate({}), '\n\n')
+        sql = smartsql.compile(e(t))
+        print(t, '\n', sql, '\n\n')
+        assert expected == sql
