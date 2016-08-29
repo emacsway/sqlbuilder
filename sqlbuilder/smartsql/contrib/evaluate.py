@@ -308,10 +308,10 @@ symbol, infix, infix_r, prefix, unary, postfix, ternary, constant = (
     symbol_table.postfix, symbol_table.ternary, symbol_table.constant
 )
 
-symbol('.', 280)
-symbol('::', 270)
-symbol('(', 260)
+symbol('(', 270)
 symbol(')')
+symbol('.', 270)
+symbol('::', 260)
 symbol('[', 250)  # array element selection
 symbol(']')
 unary('+ - ~', 240)
