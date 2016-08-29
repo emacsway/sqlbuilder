@@ -171,20 +171,25 @@ class Compiler(object):
         state.callers.pop(0)
         state.precedence = outer_precedence
 
-    def get_inner_precedence(self, expr):
-        cls = expr.__class__
-        if issubclass(cls, Expr) and hasattr(expr, 'sql'):
-            try:
-                if (cls, expr.sql) in self._precedence:
-                    return self._precedence[(cls, expr.sql)]
-                elif expr.sql in self._precedence:
-                    return self._precedence[expr.sql]
-            except TypeError:
-                # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
-                pass
+    def get_inner_precedence(self, cls_or_expr):
+        if isinstance(cls_or_expr, type):
+            cls = cls_or_expr
+            if cls in self._precedence:
+                return self._precedence[cls]
+        else:
+            expr = cls_or_expr
+            cls = expr.__class__
+            if issubclass(cls, Expr) and hasattr(expr, 'sql'):
+                try:
+                    if (cls, expr.sql) in self._precedence:
+                        return self._precedence[(cls, expr.sql)]
+                    elif expr.sql in self._precedence:
+                        return self._precedence[expr.sql]
+                except TypeError:
+                    # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
+                    pass
+            return self.get_inner_precedence(cls)
 
-        if cls in self._precedence:
-            return self._precedence[cls]
         return MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
 
 compile = Compiler()
@@ -332,8 +337,6 @@ class BaseType(AbstractType):
         return And(other, self._expr)
 
     def __or__(self, other):
-        if isinstance(other, Infix):
-            return other.__ror__(self._expr)
         return Or(self._expr, other)
 
     def __ror__(self, other):
@@ -372,8 +375,6 @@ class BaseType(AbstractType):
         return RShift(other, self._expr)
 
     def __lshift__(self, other):
-        if isinstance(other, Infix):
-            return other.__rlshift__(self._expr)
         return LShift(self._expr, other)
 
     def __rlshift__(self, other):
@@ -2476,45 +2477,6 @@ compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
 
 
-class Infix(object):
-    """ Infix operator class.
-
-    Calling sequence for the infix is either:
-    x |op| y
-    or:
-    x <<op>> y
-    Source and more info: http://code.activestate.com/recipes/384122/
-    """
-    def __init__(self, op):
-        self._operator = op
-        self._compiler = compile  # Use PostgreSQL operator precedences in python code, to abstract from DB dialect
-
-    def _call_operator(self, left, right):
-        result = self._operator(left, right)
-        if isinstance(left, Binary) and isinstance(result, Binary):
-            left_precedence = self._compiler.get_inner_precedence(left)
-            result_precedence = self._compiler.get_inner_precedence(result)
-            if result_precedence > left_precedence:
-                left.right, result.left = result, left.right
-                return left
-        return result
-
-    def __ror__(self, other):
-        return Infix(lambda x, self=self, other=other: self._call_operator(other, x))
-
-    def __or__(self, other):
-        return self._operator(other)
-
-    def __rlshift__(self, other):
-        return Infix(lambda x, self=self, other=other: self._call_operator(other, x))
-
-    def __rshift__(self, other):
-        return self._operator(other)
-
-    def __call__(self, value1, value2):
-        return self._operator(value1, value2)
-
-
 def is_list(v):
     return isinstance(v, (list, tuple))
 
@@ -2549,11 +2511,10 @@ compile.set_precedence(220, Mul, Div, (Binary, '*'), (Binary, '/'), (Binary, '%'
 compile.set_precedence(210, Add, Sub, (Binary, '+'), (Binary, '-'))
 compile.set_precedence(200, LShift, RShift, '<<', '>>')
 compile.set_precedence(190, '&')
-compile.set_precedence(185, '#')
-compile.set_precedence(180, '|')
-compile.set_precedence(170, Is, 'IS')
-compile.set_precedence(160, (Postfix, 'ISNULL'))
-compile.set_precedence(150, (Postfix, 'NOTNULL'))
+compile.set_precedence(180, '#')
+compile.set_precedence(170, '|')
+compile.set_precedence(160, Is, 'IS')
+compile.set_precedence(150, (Postfix, 'ISNULL'), (Postfix, 'NOTNULL'))
 compile.set_precedence(140, '(any other)')  # all other native and user-defined operators
 compile.set_precedence(130, In, NotIn, 'IN')
 compile.set_precedence(120, Between, 'BETWEEN')
