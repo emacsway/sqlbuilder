@@ -1,13 +1,23 @@
 # Based on Simple Top-Down Parser from http://effbot.org/zone/simple-top-down-parsing.htm
 # Allows use operators in native SQL form, like @>, &>, -|- etc.
 # Example of usage:
-# >>> compile("""T.user.is_staff and T.user.is_admin""").evaluate({})
-# ... <And: "user"."is_staff" AND "user"."is_admin", []>
+# >>> from sqlbuilder.smartsql.contrib.evaluate import compile
+# >>> compile("""T.user.age <@ func.int4range(25, 30)""").evaluate({})
+# <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+# >>>
 # This module still under construction!!!
-# Don't use it in the production!!!
 
 import re
 from sqlbuilder import smartsql
+
+try:
+    str = unicode  # Python 2.* compatible
+    string_types = (basestring,)
+    integer_types = (int, long)
+
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
 
 
 def compile(program):
@@ -56,6 +66,9 @@ class SymbolTable(object):
 
     def __getitem__(self, name):
         return self.symbol_table[name]
+
+    def __iter__(self):
+        return iter(self.symbol_table)
 
     def symbol(self, name, bp=0):
         name = name.upper()
@@ -167,9 +180,18 @@ symbol_table = SymbolTable()
 
 class Lexer(object):
 
-    _token_pattern = re.compile(
-        r"""\s*(?:(<=|>=|not|and|or|\W)|([a-zA-Z]\w*)|(\d+(?:\.\d*)?))""",
-        re.U | re.I | re.S | re.X
+    _token_pattern = re.compile(r"""
+        \s*
+        (?:
+              (
+                    [<>=+\-~^*/%&#|@.,:;()\[\]{}]{1,3}
+                  | (?<=\s)(?:IS|ISNULL|NOT|NOTNULL|IN|BETWEEN|AND|OR|OVERLAPS|LIKE|ILIKE|SIMILAR|ASC|DESC)\b
+                  | \b(?:NOT)(?=\s)
+              )  # operator
+            | ([a-zA-Z]\w*)  # name
+            | (\d+(?:\.\d*)?)  # literal
+        )
+        """, re.U | re.I | re.S | re.X
     )
 
     def __init__(self, symbol_table):
@@ -181,20 +203,26 @@ class Lexer(object):
                 symbol = self.symbol_table[name]
                 s = symbol()
                 s.value = value
-            else:
-                # name or operator
-                symbol = self.symbol_table.get(value.upper())
-                if symbol:
-                    s = symbol()
-                elif name == '(NAME)':
+            else:  # name or operator
+                if name == '(NAME)':
                     symbol = self.symbol_table[name]
                     s = symbol()
                     s.value = value
                 else:
-                    raise SyntaxError("Unknown operator (%r)" % value)
+                    try:
+                        symbol = self.symbol_table[value.upper()]
+                    except KeyError:
+                        raise SyntaxError("Unknown operator ({}). Possible operators are {!r}".format(
+                            value, list(self.symbol_table)
+                        ))
+                    else:
+                        s = symbol()
             yield s
 
     def _tokenize_expr(self, program):
+        if isinstance(program, bytes):
+            program = program.decode('utf-8')
+        # import pprint; pprint.pprint(self._token_pattern.findall(program))
         for operator, name, literal in self._token_pattern.findall(program):
             if operator:
                 yield '(operator)', operator
@@ -271,6 +299,11 @@ infix('IS', 160)
 postfix('ISNULL', 150); postfix('NOTNULL', 150)
 
 # 140 - (any other operator)  # all other native and user-defined operators
+infix('@>', 140)
+infix('<@', 140)
+infix('&<', 140)
+infix('&>', 140)
+infix('-|-', 140)
 
 infix('IN', 130)
 ternary('BETWEEN', 'AND', 120)
@@ -306,7 +339,7 @@ def evaluate(self, context):
     elif hasattr(smartsql, self.value):
         return getattr(smartsql, self.value)
     else:
-        raise SyntaxError("Can't find name {!r} in context. Possible names are {!r}".format(
+        raise SyntaxError("Unknown name {!r}. Possible names are {!r}".format(
             self.value, list(context.keys()) + list(dir(smartsql))
         ))
 
@@ -318,7 +351,11 @@ def nud(self, parser):
 
 @method(symbol('(LITERAL)'))
 def evaluate(self, context):
-    return context[self.eval]
+    if self.value.isnumeric():
+        return int(self.value)
+    else:
+        return self.value
+
 
 @method(symbol('BETWEEN'))
 def evaluate(self, context):
@@ -452,10 +489,11 @@ if __name__ == '__main__':
         ("T.user.is_staff and T.user.is_admin", ('"user"."is_staff" AND "user"."is_admin"', [])),
         ("func.Lower(T.user.first_name) and T.user.is_admin", ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
         ("Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ('"user"."first_name" || "user"."last_name" AND "user"."is_admin"', [])),
+        ("T.user.age <@ func.int4range(25, 30)", ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
     ]
 
     for t, expected in tests:
         expr = compile(t).evaluate({})
         sql = smartsql.compile(expr)
-        assert expected == sql
         print(t, '\n', sql, '\n\n')
+        assert expected == sql
