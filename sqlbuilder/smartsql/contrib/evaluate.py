@@ -1,11 +1,18 @@
 # Based on Simple Top-Down Parser from http://effbot.org/zone/simple-top-down-parsing.htm
-# Allows use operators in native SQL form, like @>, &>, -|- etc.
+# This module allows mix SQL operators (like @>, &>, -|-) and python expressions.
+# In other words, you can use SQL operators with Python expressions.
+#
 # Example of usage:
 # >>> from sqlbuilder.smartsql.contrib.evaluate import compile
 # >>> compile("""T.user.age <@ func.int4range(25, 30)""").evaluate(context={})
 # <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 # >>>
-# This module still under construction!!!
+#
+# or simple:
+# >>> from sqlbuilder.smartsql.contrib.evaluate import e
+# >>> e("""T.user.age <@ func.int4range(25, 30)""")
+# <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
+# >>>
 
 import re
 from sqlbuilder import smartsql
@@ -23,6 +30,10 @@ except NameError:
 def compile(program):
     ast = Parser(Lexer(symbol_table)).parse(program)
     return ast
+
+
+def e(program, context=None):
+    return compile(program).evaluate(context or {})
 
 
 class SymbolBase(object):
@@ -58,6 +69,12 @@ class SymbolBase(object):
 
 class SymbolTable(object):
 
+    def multi(func):
+        def _inner(self, names, *a, **kw):
+            for name in names.split():
+                func(self, name, *a, **kw)
+        return _inner
+
     def __init__(self):
         self.symbol_table = {}
 
@@ -88,6 +105,7 @@ class SymbolTable(object):
             s.lbp = max(bp, s.lbp)
         return s
 
+    @multi
     def infix(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -101,6 +119,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Binary(self.first.evaluate(context), self.name, self.second.evaluate(context))
 
+    @multi
     def infix_r(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -126,6 +145,7 @@ class SymbolTable(object):
             self.third = parser.expression()
             return self
 
+    @multi
     def prefix(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -138,6 +158,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Prefix(self.name, self.first.evaluate(context))
 
+    @multi
     def unary(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -150,6 +171,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Unary(self.name, self.first.evaluate(context))
 
+    @multi
     def postfix(self, name, bp):
         symbol = self.symbol(name, bp)
 
@@ -162,6 +184,7 @@ class SymbolTable(object):
         def evaluate(self, context):
             return smartsql.Postfix(self.name, self.first.evaluate(context))
 
+    @multi
     def constant(self, name):
         symbol = self.symbol(name)
 
@@ -191,8 +214,7 @@ class Lexer(object):
             | ([a-zA-Z]\w*)  # name
             | (\d+(?:\.\d*)?)  # literal
         )
-        """, re.U | re.I | re.S | re.X
-    )
+        """, re.U | re.I | re.S | re.X)
 
     def __init__(self, symbol_table):
         self.symbol_table = symbol_table
@@ -287,31 +309,27 @@ symbol('(', 260)
 symbol(')')
 symbol('[', 250)  # array element selection
 symbol(']')
-unary('+', 240); unary('-', 240); unary('~', 240)
+unary('+ - ~', 240)
 infix('^', 230)
-infix('*', 220); infix('/', 220); infix('%', 220)
-infix('+', 210); infix('-', 210)
-infix('<<', 200); infix('>>', 200)
+infix('* / %', 220)
+infix('+ -', 210)
+infix('<< >>', 200)
 infix('&', 190)
 infix('#', 180)
 infix('|', 170)
 infix('IS', 160)
-postfix('ISNULL', 150); postfix('NOTNULL', 150)
+postfix('ISNULL NOTNULL', 150)
 
 # 140 - (any other operator)  # all other native and user-defined operators
-infix('@>', 140)
-infix('<@', 140)
-infix('&<', 140)
-infix('&>', 140)
-infix('-|-', 140)
+infix('<@ @> &< &> -|- &&', 140)
 
 infix('IN', 130)
 ternary('BETWEEN', 'AND', 120)
 infix('OVERLAPS', 110)
 
-infix('LIKE', 100); infix('ILIKE', 100); infix('SIMILAR', 100)
-infix('<', 90); infix('>', 90)
-infix('<=', 80); infix('>=', 80); infix('<>', 80); infix('!=', 80)
+infix('LIKE ILIKE SIMILAR', 100)
+infix('< >', 90)
+infix('<= >= <> !=', 80)
 infix('=', 70)
 infix('NOT', 60)
 infix('AND', 50)
@@ -322,9 +340,7 @@ symbol('(NAME)')
 symbol('(LITERAL)')
 symbol('(END)')
 
-constant('NULL')
-constant('TRUE')
-constant('FALSE')
+constant('NULL TRUE FALSE')
 
 
 @method(symbol('(NAME)'))
@@ -421,7 +437,7 @@ def nud(self, parser):
             parser.advance(',')
     parser.advance(')')
     if not self.first or comma:
-        return self # tuple
+        return self  # tuple
     else:
         return self.first[0]
 
@@ -493,7 +509,6 @@ if __name__ == '__main__':
     ]
 
     for t, expected in tests:
-        expr = compile(t).evaluate({})
-        sql = smartsql.compile(expr)
+        sql = e(t)
         print(t, '\n', sql, '\n\n')
         assert expected == sql
