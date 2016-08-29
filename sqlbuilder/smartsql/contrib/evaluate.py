@@ -33,7 +33,8 @@ def compile(program):
 
 
 def e(program, context=None):
-    return compile(program).evaluate(context or {})
+    ast = compile(program)
+    return ast.evaluate(context or {})
 
 
 class SymbolBase(object):
@@ -46,12 +47,12 @@ class SymbolBase(object):
         self.second = None
         self.third = None  # used by tree nodes
 
-    def nud(self):
+    def nud(self, parser):
         raise SyntaxError(
             "Syntax error (%r)." % self.name
         )
 
-    def led(self, left):
+    def led(self, left, parser):
         raise SyntaxError(
             "Unknown operator (%r)." % self.name
         )
@@ -176,20 +177,20 @@ class SymbolTable(object):
         symbol = self.symbol(name, bp)
 
         @method(symbol)
-        def led(self, parser):
-            self.first = parser.expression(bp)
+        def led(self, left, parser):
+            self.first = left
             return self
 
         @method(symbol)
         def evaluate(self, context):
-            return smartsql.Postfix(self.name, self.first.evaluate(context))
+            return smartsql.Postfix(self.first.evaluate(context), self.name)
 
     @multi
     def constant(self, name):
         symbol = self.symbol(name)
 
         @method(symbol)
-        def nud(self):
+        def nud(self, parser):
             self.name = '(LITERAL)'
             self.value = name
             return self
@@ -322,6 +323,7 @@ postfix('ISNULL NOTNULL', 150)
 
 # 140 - (any other operator)  # all other native and user-defined operators
 infix('<@ @> &< &> -|- &&', 140)
+postfix('ASC DESC', 140)
 
 infix('IN', 130)
 ternary('BETWEEN', 'AND', 120)
@@ -331,7 +333,7 @@ infix('LIKE ILIKE SIMILAR', 100)
 infix('< >', 90)
 infix('<= >= <> !=', 80)
 infix('=', 70)
-infix('NOT', 60)
+prefix('NOT', 60)
 infix('AND', 50)
 infix('OR', 40)
 
@@ -502,13 +504,23 @@ symbol('}')
 
 if __name__ == '__main__':
     tests = [
-        ("T.user.is_staff and T.user.is_admin", ('"user"."is_staff" AND "user"."is_admin"', [])),
-        ("func.Lower(T.user.first_name) and T.user.is_admin", ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
-        ("Concat(T.user.first_name, T.user.last_name) and T.user.is_admin", ('"user"."first_name" || "user"."last_name" AND "user"."is_admin"', [])),
-        ("T.user.age <@ func.int4range(25, 30)", ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
+        ("T.user.is_staff and T.user.is_admin",
+         ('"user"."is_staff" AND "user"."is_admin"', [])),
+
+        ("func.Lower(T.user.first_name) and T.user.is_admin",
+         ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
+
+        ("Concat(T.user.first_name, T.user.last_name) and NOT (T.user.is_admin OR T.user.is_staff)",
+         ('"user"."first_name" || "user"."last_name" AND NOT ("user"."is_admin" OR "user"."is_staff")', [])),
+
+        ("T.user.age <@ func.int4range(25, 30)",
+         ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
+
+        ("T.user.age DESC AND T.user.first_name ASC",
+         ('"user"."age" DESC AND "user"."first_name" ASC', [])),
     ]
 
     for t, expected in tests:
-        sql = e(t)
+        sql = smartsql.compile(e(t))
         print(t, '\n', sql, '\n\n')
         assert expected == sql
