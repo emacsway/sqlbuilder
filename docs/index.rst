@@ -436,6 +436,15 @@ You can pre-compile expression to avoid parsing it each time::
     >>> expr.evaluate(context={'required_range': required_range})
     <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 
+Btw, you can even pre-compile expression to sql-string for achieving the fastest::
+
+    >>> from sqlbuilder.smartsql import *
+    >>> from sqlbuilder.smartsql.contrib.evaluate import e
+    >>> sql, params = compile(e("T.user.age <@ func.int4range('%(min)s', '%(max)s')"))
+    >>> sql = sql.replace('%%', '%%%%') % tuple(params)
+    >>> sql
+    u'"user"."age" <@ INT4RANGE(%(min)s, %(max)s)'
+
 More complex example::
 
     >>> from sqlbuilder.smartsql import *

@@ -209,15 +209,14 @@ class Lexer(object):
         \s*
         (?:
               (
-                    [<>=+\-~^*/%&#|@.,:;()\[\]{}]{1,3}
+                    [.,:;()\[\]{}]
+                  | [<>=+\-~^*/%&#|@]{1,3}
                   | (?<=\s)(?:IS|ISNULL|NOT|NOTNULL|IN|BETWEEN|AND|OR|OVERLAPS|LIKE|ILIKE|SIMILAR|ASC|DESC)\b
                   | \b(?:NOT)(?=\s)
               )  # operator
             | ([a-zA-Z]\w*)  # name
             | (
                     \d+(?:\.\d*)?  # number
-                  | %s  # placeholder
-                  | %\([a-zA-Z]\w*\)s  # named placeholder
                   | '(?:''|[^'])*'  # string
               )  # literal
         )
@@ -378,7 +377,7 @@ def evaluate(self, context):
     if self.value.isnumeric():
         return int(self.value)
     else:
-        return self.value
+        return self.value.strip("'").replace("''", "'")  # string literal enclosed by single quotes
 
 
 @method(symbol('BETWEEN'))
@@ -516,8 +515,8 @@ if __name__ == '__main__':
         ("func.Lower(T.user.first_name) and T.user.is_admin",
          ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
 
-        ("Concat(T.user.first_name, T.user.last_name) and NOT (T.user.is_admin OR T.user.is_staff)",
-         ('"user"."first_name" || "user"."last_name" AND NOT ("user"."is_admin" OR "user"."is_staff")', [])),
+        ("Concat(T.user.first_name, T.user.last_name) and NOT (T.user.is_active AND (T.user.is_admin OR T.user.is_staff))",
+         ('"user"."first_name" || "user"."last_name" AND NOT ("user"."is_active" AND ("user"."is_admin" OR "user"."is_staff"))', [])),
 
         ("T.user.age <@ func.int4range(25, 30)",
          ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
@@ -527,6 +526,9 @@ if __name__ == '__main__':
 
         ("T.user.age DESC AND T.user.first_name ASC",
          ('"user"."age" DESC AND "user"."first_name" ASC', [])),
+
+        ("T.user.age <@ func.int4range('%(min)s', '%(max)s')",
+         ('"user"."age" <@ INT4RANGE(%s, %s)', ['%(min)s', '%(max)s']))
     ]
 
     for t, expected in tests:
