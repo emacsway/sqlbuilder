@@ -428,7 +428,7 @@ or with context object::
     >>> e("T.user.age <@ required_range", locals())
     <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 
-You can pre-compile expression to avoid parsing of it each time::
+You can pre-compile expression, similar `re.compile() <https://docs.python.org/3/library/re.html#re.compile>`_, to avoid parsing of it each time::
 
     >>> from sqlbuilder.smartsql.contrib.evaluate import compile
     >>> required_range = func.int8range(25, 30)
@@ -453,6 +453,32 @@ More complex example::
     >>> e("T.user.age <@ required_range AND NOT(T.user.is_staff OR T.user.is_admin)", locals())
     <Binary: "user"."age" <@ INT8RANGE(%s, %s) AND NOT ("user"."is_staff" OR "user"."is_admin"), [25, 30]>
 
+.. note::
+
+    Module :mod:`sqlbuilder.smartsql.contrib.evaluate` uses operator precedence similar
+    `PostgreSQL precedence <https://www.postgresql.org/docs/9.5/static/sql-syntax-lexical.html#SQL-PRECEDENCE>`_,
+    not `Python precedence <https://docs.python.org/3/reference/expressions.html#operator-precedence>`__.
+
+    Also note, that ``Power`` has
+    `left association similar PostgreSQL <https://www.postgresql.org/docs/9.5/static/functions-math.html#FUNCTIONS-MATH-OP-TABLE>`__,
+    in contrast Python has right association::
+
+        $ python
+        >>> 2 ** 3 ** 5
+        14134776518227074636666380005943348126619871175004951664972849610340958208L
+
+    ::
+
+        $ psql
+        postgres=# SELECT 2 ^ 3 ^ 5;
+         ?column?
+        ----------
+            32768
+        (1 row)
+
+    Real operator precedence and association directions you can see in
+    `source code of the module <https://bitbucket.org/emacsway/sqlbuilder/src/default/sqlbuilder/smartsql/contrib/evaluate.py>`__.
+
 
 .. module:: sqlbuilder.smartsql
    :synopsis: Module sqlbuilder.smartsql
@@ -460,6 +486,7 @@ More complex example::
 
 Module sqlbuilder.smartsql
 --------------------------
+
 
 Query object
 ------------
@@ -1027,7 +1054,7 @@ for demonstration purposes, that does only one thing - returns a tuple with SQL 
 You can develop your own implementation, or, at least, specify what same compiler to use, for example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
-    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
     >>> Q(result=Result(compile=mysql_compile)).fields(T.author.id, T.author.name).tables(T.author).select()
     ('SELECT `author`.`id`, `author`.`name` FROM `author`', [])
 
@@ -1036,7 +1063,7 @@ See also examples of implementation in `Django integration <https://bitbucket.or
 Instance of :class:`Query` also delegates all unknown methods and properties to :attr:`Query.result`. Example::
 
     >>> from sqlbuilder.smartsql import T, Q, Result
-    >>> from sqlbuilder.smartsql.compilers.mysql import compile as mysql_compile
+    >>> from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
     >>> class CustomResult(Result):
     ...         custom_attr = 5                                                                                  
     ...         def custom_method(self, arg1, arg2):
@@ -1080,7 +1107,7 @@ There are three compilers for three dialects:
 
     It's a default compiler for PostgreSQL dialect,
     instance of :class:`Compiler`.
-    It also used for `representation <https://docs.python.org/2/library/functions.html#repr>`__ of expressions.
+    It also used for `representation <https://docs.python.org/3/library/functions.html#repr>`__ of expressions.
 
     :param expr: Expression to be compiled
     :type expr: Expr
@@ -1090,15 +1117,13 @@ There are three compilers for three dialects:
     :rtype: tuple or None
 
 
-.. function:: sqlbuilder.smartsql.compilers.mysql.compile(expr, [state=None])
+.. function:: sqlbuilder.smartsql.dialects.mysql.compile(expr, [state=None])
 
     Compiler for MySQL dialect.
 
-.. function:: sqlbuilder.smartsql.compilers.sqlite.compile(expr, [state=None])
+.. function:: sqlbuilder.smartsql.dialects.sqlite.compile(expr, [state=None])
 
     Compiler for SQLite dialect.
-
-..
 
 
 .. module:: sqlbuilder.mini
