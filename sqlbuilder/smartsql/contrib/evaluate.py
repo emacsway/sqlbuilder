@@ -547,6 +547,9 @@ if __name__ == '__main__':
         ("T.user.is_staff AND T.user.age NOT BETWEEN 25 AND 30 + T.t1.delta AND T.t1.f1",
          ('"user"."is_staff" AND "user"."age" NOT BETWEEN %s AND (%s + "t1"."delta") AND "t1"."f1"', [25, 30])),
 
+        ("T.user.age IN F.l1 AND T.user.age NOT IN F.l2')",
+         ('"user"."age" IN "l1" AND "user"."age" NOT IN "l2"', [])),
+
         ("T.user.age DESC AND T.user.first_name ASC",
          ('"user"."age" DESC AND "user"."first_name" ASC', [])),
 
