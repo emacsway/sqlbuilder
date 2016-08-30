@@ -1020,21 +1020,48 @@ class Desc(OrderDirection):
     sql = 'DESC'
 
 
-class Between(Expr):
+class Ternary(Expr):
+    __slots__ = ('second_sql', 'first', 'second', 'third')
 
-    __slots__ = ('expr', 'start', 'end')
+    def __init__(self, first, sql, second, second_sql, third):
+        Expr.__init__(sql)
+        self.first = first
+        self.second = second
+        self.second_sql = second_sql
+        self.third = third
 
-    def __init__(self, expr, start, end):
-        self.expr, self.start, self.end = expr, start, end
 
-
-@compile.when(Between)
+@compile.when(Ternary)
 def compile_between(compile, expr, state):
-    compile(expr.expr, state)
-    state.sql.append(' BETWEEN ')
-    compile(expr.start, state)
-    state.sql.append(' AND ')
-    compile(expr.end, state)
+    compile(expr.first, state)
+    state.sql.append(SPACE)
+    state.sql.append(expr.sql)
+    state.sql.append(SPACE)
+    compile(expr.second, state)
+    state.sql.append(SPACE)
+    state.sql.append(expr.second_sql)
+    state.sql.append(SPACE)
+    compile(expr.third, state)
+
+
+class NamedTernary(Ternary):
+    __slots__ = ()
+
+    def __init__(self, first, second, third):
+        self.first = first
+        self.second = second
+        self.third = third
+
+
+class Between(NamedTernary):
+    __slots__ = ()
+    sql = 'BETWEEN'
+    second_sql = 'AND'
+
+
+class NotBetween(Between):
+    __slots__ = ()
+    sql = 'NOT BETWEEN'
 
 
 class Case(Expr):
