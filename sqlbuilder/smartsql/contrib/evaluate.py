@@ -463,6 +463,7 @@ def led(self, left, parser):
     name2 = parser.token.name
     parser.advance()
     self.name += ' ' + name2
+    self.__class__ = symbol(name2)  # PY2
     symbol(name2).led(self, left, parser)
     return self
 
@@ -470,6 +471,7 @@ def led(self, left, parser):
 @method(symbol('NOT'))
 def evaluate(self, context):
     if ' ' in self.name:
+        self.__class__ = symbol(self.name.split().pop())  # PY2
         return symbol(self.name.split().pop()).evaluate(self, context)
     else:
         return smartsql.Prefix(self.name, self.first.evaluate(context))
