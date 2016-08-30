@@ -136,16 +136,26 @@ class SymbolTable(object):
             return smartsql.Binary(self.first.evaluate(context), self.name, self.second.evaluate(context))
 
     def ternary(self, name, name2, bp):
-        self.symbol(name2)
         symbol = self.symbol(name, bp)
+        symbol2 = self.symbol(name2)
 
         @method(symbol)
         def led(self, left, parser):
             self.first = left
-            self.second = parser.expression()
-            parser.advance(name2)
-            self.third = parser.expression()
+            self.second = parser.expression(symbol2.lbp)
+            parser.advance(symbol2.name)
+            self.third = parser.expression(symbol2.lbp + 0.1)
             return self
+
+        @method(symbol)
+        def evaluate(self, context):
+            return smartsql.Ternary(
+                self.first.evaluate(context),
+                self.name,
+                self.second.evaluate(context),
+                name2,
+                self.third.evaluate(context)
+            )
 
     @multi
     def prefix(self, name, bp):
@@ -240,7 +250,7 @@ class Lexer(object):
                     s = symbol()
                     s.value = value
                 else:
-                    raise SyntaxError("Unknown operator ({}). Possible operators are {!r}".format(
+                    raise SyntaxError("Unknown operator ({0}). Possible operators are {1!r}".format(
                         value, list(self.symbol_table)
                     ))
 
@@ -291,7 +301,7 @@ class Parser(object):
 
     def advance(self, name=None):
         if name and self.token.name.upper() != name.upper():
-            raise SyntaxError("Expected %r" % name)
+            raise SyntaxError("Expected {0!r} but found {1!r}".format(name, self.token.name))
         self.token = self.next()
 
 
@@ -362,7 +372,7 @@ def evaluate(self, context):
     elif hasattr(smartsql, self.value):
         return getattr(smartsql, self.value)
     else:
-        raise SyntaxError("Unknown name {!r}. Possible names are {!r}".format(
+        raise SyntaxError("Unknown name {0!r}. Possible names are {1!r}".format(
             self.value, list(context.keys()) + list(dir(smartsql))
         ))
 
@@ -378,11 +388,6 @@ def evaluate(self, context):
         return int(self.value)
     else:
         return self.value.strip("'").replace("''", "'")  # string literal enclosed by single quotes
-
-
-@method(symbol('BETWEEN'))
-def evaluate(self, context):
-    return smartsql.Between(self.first.evaluate(context), self.second.evaluate(context), self.third.evaluate(context))
 
 
 @method(symbol('.'))
@@ -451,24 +456,33 @@ def nud(self, parser):
 
 # multitoken operators
 
-@method(symbol('not'))
+@method(symbol('NOT'))
 def led(self, left, parser):
-    if parser.token.name != 'in':
+    if parser.token.name not in ('IN', 'BETWEEN'):
         raise SyntaxError("Invalid syntax")
+    name2 = parser.token.name
     parser.advance()
-    self.name = 'not in'
-    self.first = left
-    self.second = parser.expression(60)
+    self.name += ' ' + name2
+    symbol(name2).led(self, left, parser)
     return self
 
 
-@method(symbol('is'))
+@method(symbol('NOT'))
+def evaluate(self, context):
+    if ' ' in self.name:
+        return symbol(self.name.split().pop()).evaluate(self, context)
+    else:
+        return smartsql.Prefix(self.name, self.first.evaluate(context))
+
+
+@method(symbol('IS'))
 def led(self, left, parser):
-    if parser.token.name == 'not':
+    if parser.token.name == 'NOT':
+        name2 = parser.token.name
         parser.advance()
-        self.name = 'is not'
+        self.name += ' ' + name2
     self.first = left
-    self.second = parser.expression(60)
+    self.second = parser.expression(self.lbp)
     return self
 
 
@@ -509,20 +523,29 @@ symbol('}')
 
 if __name__ == '__main__':
     tests = [
-        ("T.user.is_staff and T.user.is_admin",
+        ("T.user.is_staff AND T.user.is_admin",
          ('"user"."is_staff" AND "user"."is_admin"', [])),
 
-        ("func.Lower(T.user.first_name) and T.user.is_admin",
+        ("func.Lower(T.user.first_name) AND T.user.is_admin",
          ('LOWER("user"."first_name") AND "user"."is_admin"', [])),
 
-        ("Concat(T.user.first_name, T.user.last_name) and NOT (T.user.is_active AND (T.user.is_admin OR T.user.is_staff))",
+        ("Concat(T.user.first_name, T.user.last_name) AND NOT (T.user.is_active AND (T.user.is_admin OR T.user.is_staff))",
          ('"user"."first_name" || "user"."last_name" AND NOT ("user"."is_active" AND ("user"."is_admin" OR "user"."is_staff"))', [])),
 
         ("T.user.age <@ func.int4range(25, 30)",
          ('"user"."age" <@ INT4RANGE(%s, %s)', [25, 30])),
 
-        ("T.user.is_staff IS TRUE AND T.user.is_admin IS FALSE",
-         ('"user"."is_staff" IS TRUE AND "user"."is_admin" IS FALSE', [])),
+        ("T.user.is_staff IS NOT TRUE AND T.user.is_admin IS FALSE",
+         ('"user"."is_staff" IS NOT TRUE AND "user"."is_admin" IS FALSE', [])),
+
+        ("T.user.is_staff AND T.user.age BETWEEN 25 AND 30 AND T.user.is_admin",
+         ('"user"."is_staff" AND "user"."age" BETWEEN %s AND %s AND "user"."is_admin"', [25, 30])),
+
+        ("T.user.is_staff AND T.user.age BETWEEN 25 AND 30 OR T.user.is_admin",
+         ('"user"."is_staff" AND "user"."age" BETWEEN %s AND %s OR "user"."is_admin"', [25, 30])),
+
+        ("T.user.is_staff AND T.user.age NOT BETWEEN 25 AND 30 + T.t1.delta AND T.t1.f1",
+         ('"user"."is_staff" AND "user"."age" NOT BETWEEN %s AND (%s + "t1"."delta") AND "t1"."f1"', [25, 30])),
 
         ("T.user.age DESC AND T.user.first_name ASC",
          ('"user"."age" DESC AND "user"."first_name" ASC', [])),
