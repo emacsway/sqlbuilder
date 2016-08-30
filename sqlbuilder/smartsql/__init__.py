@@ -1024,7 +1024,7 @@ class Ternary(Expr):
     __slots__ = ('second_sql', 'first', 'second', 'third')
 
     def __init__(self, first, sql, second, second_sql, third):
-        Expr.__init__(sql)
+        Expr.__init__(self, sql)
         self.first = first
         self.second = second
         self.second_sql = second_sql
