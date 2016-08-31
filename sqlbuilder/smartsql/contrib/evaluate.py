@@ -33,9 +33,9 @@ def compile(program):
 
 
 def e(program, *a, **kw):
+    """Evaluates the program string or AST"""
     context = a and a[0] or kw
-    if isinstance(program, string_types):
-        ast = compile(program)
+    ast = compile(program) if isinstance(program, string_types) else program
     return ast.evaluate(context)
 
 
