@@ -433,10 +433,10 @@ or with context object::
 
 You can pre-compile expression, similar `re.compile() <https://docs.python.org/3/library/re.html#re.compile>`_, to avoid parsing of it each time::
 
-    >>> from sqlbuilder.smartsql.contrib.evaluate import compile
+    >>> from sqlbuilder.smartsql.contrib.evaluate import compile, e
     >>> required_range = func.int8range(25, 30)
-    >>> expr = compile("""T.user.age <@ required_range""")
-    >>> expr.evaluate(context={'required_range': required_range})
+    >>> compiled_expr = compile("""T.user.age <@ required_range""")
+    >>> e(compiled_expr, {'required_range': required_range})
     <Binary: "user"."age" <@ INT4RANGE(%s, %s), [25, 30]>
 
 Btw, you can even pre-compile expression into sql-string to achieve the fastest result::
