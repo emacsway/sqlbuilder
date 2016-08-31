@@ -368,10 +368,10 @@ Condition operators
     <Concat: concat_ws(%s, "author"."name", %s, %s), [' ', 'staff', 'admin']>
 
     >>> tb.name.op('MY_EXTRA_OPERATOR')(10)
-    <Condition: "author"."name" MY_EXTRA_OPERATOR %s, [10]>
+    <Binary: "author"."name" MY_EXTRA_OPERATOR %s, [10]>
 
     >>> tb.name.rop('MY_EXTRA_OPERATOR')(10)
-    <Condition: %s MY_EXTRA_OPERATOR "author"."name", [10]>
+    <Binary: %s MY_EXTRA_OPERATOR "author"."name", [10]>
 
     >>> tb.name.asc()
     <Asc: "author"."name" ASC, []>
@@ -383,10 +383,10 @@ Condition operators
     <And: ("author"."age" > %s OR "author"."answers" > %s) AND ("author"."is_staff" OR "author"."is_admin"), [25, 10]>
 
     >>> (T.author.first_name != 'Tom') & (T.author.last_name.in_(('Smith', 'Johnson')))
-    <Condition: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    <Binary: "author"."first_name" <> %s AND "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
     >>> (T.author.first_name != 'Tom') | (T.author.last_name.in_(('Smith', 'Johnson')))
-    <Condition: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
+    <Binary: "author"."first_name" <> %s OR "author"."last_name" IN (%s, %s), ['Tom', 'Smith', 'Johnson']>
 
 
 .. module:: sqlbuilder.smartsql.contrib.evaluate
@@ -398,9 +398,12 @@ Module sqlbuilder.smartsql.contrib.evaluate
 Unfortunately, Python supports limited list of operators compared to PostgreSQL.
 Many operators like ``@>``, ``&>``, ``-|-``, ``@-@`` and so on are not supported by Python.
 
-You can use :meth:`Expr.op` to solve this problem, for example::
+You can use method :meth:`Expr.op` or class :class:`Binary` to solve this problem, for example::
 
-    >>> tb.user.age('<@')(func.int8range(25, 30))
+    >>> T.user.age.op('<@')(func.int8range(25, 30))
+    <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
+
+    >>> Binary(T.user.age, '<@', func.int8range(25, 30))
     <Binary: "user"."age" <@ INT8RANGE(%s, %s), [25, 30]>
 
 But this solution has a lack of readability.
