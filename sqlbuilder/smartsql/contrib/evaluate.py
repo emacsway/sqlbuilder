@@ -34,7 +34,8 @@ def compile(program):
 
 def e(program, *a, **kw):
     context = a and a[0] or kw
-    ast = compile(program)
+    if isinstance(program, string_types):
+        ast = compile(program)
     return ast.evaluate(context)
 
 
