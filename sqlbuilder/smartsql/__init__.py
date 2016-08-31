@@ -1032,7 +1032,7 @@ class Ternary(Expr):
 
 
 @compile.when(Ternary)
-def compile_between(compile, expr, state):
+def compile_ternary(compile, expr, state):
     compile(expr.first, state)
     state.sql.append(SPACE)
     state.sql.append(expr.sql)
