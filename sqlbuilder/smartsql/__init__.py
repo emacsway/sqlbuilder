@@ -57,7 +57,7 @@ class Factory(object):
         return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
 
     @classmethod
-    def get(cls, instance):  # Hack to bypass the restriction of __slots__, the class attribute should be a descriptor.
+    def get(cls, instance):
         try:
             return instance.__factory__
         except AttributeError:
@@ -1299,6 +1299,7 @@ def compile_alias(compile, expr, state):
     compile(expr.sql, state)
 
 
+@factory.register
 class MetaTableSpace(type):
 
     def __instancecheck__(cls, instance):
@@ -1320,8 +1321,8 @@ class MetaTableSpace(type):
 
 
 @factory.register
-class T(MetaTableSpace("NewBase", (object, ), {})):
-    __factory__ = factory
+class T(factory.MetaTableSpace("NewBase", (object, ), {})):
+    pass
 
 
 class MetaTable(type):
