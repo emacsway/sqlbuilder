@@ -26,11 +26,9 @@ def main():
         ROOT_URLCONF = 'runtests',
     )
 
-    from django.conf.urls import patterns, include, url
+    from django.conf.urls import include, url
     global urlpatterns
-    urlpatterns = patterns(
-        ''
-    )
+    urlpatterns = []
 
     try:
         django.setup()

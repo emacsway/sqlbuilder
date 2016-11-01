@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 import copy
 import collections
+from itertools import chain
 from django.conf import settings
 from django.db import connections
 from django.db.models import Model
@@ -166,7 +167,7 @@ class Table(smartsql.Table):
         # model attributes support
         if parts[0] == 'pk':
             parts[0] = m._meta.pk.column
-        elif parts[0] in m._meta.get_all_field_names():
+        elif parts[0] in get_all_field_names(m._meta):
             parts[0] = m._meta.get_field(parts[0]).column
 
         return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
@@ -177,6 +178,19 @@ class TableAlias(smartsql.TableAlias, Table):
     @property
     def _model(self):
         return getattr(self._table, '_model', None)  # Can be subquery
+
+
+def get_all_field_names(opts):
+    try:
+        return list(set(chain.from_iterable(
+            (field.name, field.attname) if hasattr(field, 'attname') else (field.name,)
+            for field in opts.get_fields()
+            # For complete backwards compatibility, you may want to exclude
+            # GenericForeignKey from the results.
+            if not (field.many_to_one and field.related_model is None)
+        )))
+    except AttributeError:
+        return opts.get_all_field_names()
 
 
 @classproperty
