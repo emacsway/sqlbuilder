@@ -27,18 +27,6 @@ except NameError:
     integer_types = (int,)
 
 
-def compile(program):
-    ast = Parser(Lexer(symbol_table)).parse(program)
-    return ast
-
-
-def e(program, *a, **kw):
-    """Evaluates the program string or AST"""
-    context = a and a[0] or kw
-    ast = compile(program) if isinstance(program, string_types) else program
-    return ast.evaluate(context)
-
-
 class SymbolBase(object):
 
     name = None  # node/token type name
@@ -523,6 +511,36 @@ def nud(self, parser):
     return self
 
 symbol('}')
+
+
+class Compiler(object):
+
+    parser_factory = Parser
+    lexer_factory = Lexer
+    symbol_table = symbol_table
+
+    def _make_parser(self):
+        return self.parser_factory(self.lexer_factory(self.symbol_table))
+
+    def __call__(self, program):
+        ast = self._make_parser().parse(program)
+        return ast
+
+compile = Compiler()
+
+
+class Evaluator(object):
+
+    compile = compile
+
+    def __call__(self, program, *a, **kw):
+        """Evaluates the program string or AST"""
+        context = a and a[0] or kw
+        ast = self.compile(program) if isinstance(program, string_types) else program
+        return ast.evaluate(context)
+
+e = Evaluator()
+
 
 if __name__ == '__main__':
     tests = [
