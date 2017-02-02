@@ -286,7 +286,6 @@ class UndefType(object):
 Undef = UndefType()
 
 
-# TODO: support for child registry
 class OperatorRegistry(object):
 
     class OperatorNotFound(Error):
