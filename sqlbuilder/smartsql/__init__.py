@@ -295,9 +295,8 @@ class OperatorRegistry(object):
     def __init__(self):
         self._data = {}
 
-    def register(self, operators, operands, result_type, expression_factory):
-        for op in operators:
-            self._data[(op, operands)] = (result_type, expression_factory)
+    def register(self, operator, operands, result_type, expression_factory):
+        self._data[(operator, operands)] = (result_type, expression_factory)
 
     def get(self, operator, operands):
         try:
