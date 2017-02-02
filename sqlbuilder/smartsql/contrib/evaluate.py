@@ -299,6 +299,7 @@ def method(s):
 
     def bind(fn):
         setattr(s, fn.__name__, fn)
+        return fn
 
     return bind
 
