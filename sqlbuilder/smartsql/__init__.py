@@ -293,10 +293,15 @@ class AbstractType(object):
     def __init__(self, expr):
         self._expr = expr  # weakref.ref(expr)
 
+    def _op(self, operator, *args):
+        expression_factory = operator_registry.get(operator, tuple(map(datatypeof, args)))[1]
+        return expression_factory(*args)
+
 
 class BaseType(AbstractType):
 
     def __add__(self, other):
+        return self._op('+', self._expr, other)
         return Add(self._expr, other)
 
     def __radd__(self, other):
@@ -548,12 +553,6 @@ class Operable(object):
         delegate = self._datatype(self)
         return getattr(delegate, name)
 
-    @staticmethod
-    def _typeof(obj):
-        if isinstance(obj, Operable):
-            return getattr(obj, '_datatype', BaseType)
-        return BaseType
-
     __hash__ = object.__hash__
 
     def __add__(self, other):
@@ -662,6 +661,12 @@ class Operable(object):
         return self._datatype(self).__getitem__(key)
 
 
+def datatypeof(obj):
+    if isinstance(obj, Operable):
+        return getattr(obj, '_datatype', BaseType)
+    return BaseType
+
+
 class Expr(Operable):
     __slots__ = ('sql', 'params')
 
@@ -731,7 +736,7 @@ class Binary(Expr):
 
     def __init__(self, left, op, right):
         op = op.upper()
-        datatype = operator_registry.get(op, (self._typeof(left), self._typeof(right)))[0]
+        datatype = operator_registry.get(op, (datatypeof(left), datatypeof(right)))[0]
         Expr.__init__(self, op, datatype=datatype)
         self.left = left
         self.right = right
@@ -754,7 +759,7 @@ class NamedBinary(Binary):
     def __init__(self, left, right):
         # Don't use multi-arguments form like And(*args)
         # Use reduce(operator.and_, args) or reduce(And, args) instead. SRP.
-        datatype = operator_registry.get(self.sql, (self._typeof(left), self._typeof(right)))[0]
+        datatype = operator_registry.get(self.sql, (datatypeof(left), datatypeof(right)))[0]
         Operable.__init__(self, datatype)
         self.left = left
         self.right = right
@@ -768,7 +773,7 @@ class NamedCompound(NamedBinary):
     def __init__(self, *exprs):
         self.left = reduce(self.__class__, exprs[:-1])
         self.right = exprs[-1]
-        datatype = operator_registry.get(self.sql, (self._typeof(self.left), self._typeof(self.right)))[0]
+        datatype = operator_registry.get(self.sql, (datatypeof(self.left), datatypeof(self.right)))[0]
         Operable.__init__(self, datatype)
 
 
