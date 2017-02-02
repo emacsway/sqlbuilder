@@ -271,13 +271,13 @@ class OperatorRegistry(object):
     def __init__(self):
         self._data = {}
 
-    def register(self, operators, left_type, right_type, result_type):
+    def register(self, operators, operands, result_type):
         for op in operators:
-            self._data[(op, left_type, right_type)] = result_type
+            self._data[(op, operands)] = result_type
 
-    def get(self, operator, left_type, right_type):
+    def get(self, operator, operands):
         try:
-            return self._data[(operator, left_type, right_type)]
+            return self._data[(operator, operands)]
         except KeyError:
             # raise self.OperatorNotFound(operator, left_type, right_type)
             return BaseType
@@ -728,8 +728,9 @@ class Binary(Expr):
     __slots__ = ('left', 'right')
 
     def __init__(self, left, op, right):
-        datatype = operator_registry.get((self.__class__, op), self._typeof(left), self._typeof(right))
-        Expr.__init__(self, op.upper(), datatype=datatype)
+        op = op.upper()
+        datatype = operator_registry.get(op, (self._typeof(left), self._typeof(right)))
+        Expr.__init__(self, op, datatype=datatype)
         self.left = left
         self.right = right
 
@@ -751,7 +752,7 @@ class NamedBinary(Binary):
     def __init__(self, left, right):
         # Don't use multi-arguments form like And(*args)
         # Use reduce(operator.and_, args) or reduce(And, args) instead. SRP.
-        datatype = operator_registry.get(self.__class__, self._typeof(left), self._typeof(right))
+        datatype = operator_registry.get(self.sql, (self._typeof(left), self._typeof(right)))
         Operable.__init__(self, datatype)
         self.left = left
         self.right = right
@@ -765,7 +766,7 @@ class NamedCompound(NamedBinary):
     def __init__(self, *exprs):
         self.left = reduce(self.__class__, exprs[:-1])
         self.right = exprs[-1]
-        datatype = operator_registry.get(self.__class__, self._typeof(self.left), self._typeof(self.right))
+        datatype = operator_registry.get(self.sql, (self._typeof(self.left), self._typeof(self.right)))
         Operable.__init__(self, datatype)
 
 
@@ -2560,17 +2561,12 @@ compile.set_precedence(10, Expr)
 compile.set_precedence(None, All, Distinct)
 
 operator_registry.register(
-    (Add, Sub, Mul, Div, Gt, Lt, Ge, Le, And, Or, Eq, Ne, Is, IsNot, In, NotIn,
-     RShift, LShift, Like, ILike),
-    BaseType, BaseType, BaseType
-)
-operator_registry.register(
-    ((Binary, '+'), (Binary, '-'), (Binary, '*'), (Binary, '/'), (Binary, '>'),
-     (Binary, '<'), (Binary, '>='), (Binary, '<='), (Binary, 'AND'), (Binary, 'OR'),
-     (Binary, '=='), (Binary, '<>'), (Binary, 'IS'), (Binary, 'IS NOT'), (Binary, 'IN'),
-     (Binary, 'NOT IN'), (Binary, '>>'), (Binary, '<<'), (Binary, 'LIKE'),
-     (Binary, 'ILIKE')),
-    BaseType, BaseType, BaseType
+    ('+', '-', '*', '/', '>',
+     '<', '>=', '<=', 'AND', 'OR',
+     '=', '<>', 'IS', 'IS NOT', 'IN',
+     'NOT IN', '>>', '<<', 'LIKE',
+     'ILIKE'),
+    (BaseType, BaseType), BaseType
 )
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
