@@ -33,6 +33,29 @@ CONTEXT_COLUMN = 1
 CONTEXT_TABLE = 2
 
 
+class OPERATORS:
+    ADD = '+'
+    SUB = '-'
+    MUL = '*'
+    DIV = '/'
+    GT = '>'
+    LT = '<'
+    GE = '>='
+    LE = '<='
+    AND = 'AND'
+    OR = 'OR'
+    EQ = '='
+    NE = '<>'
+    IS = 'IS'
+    IS_NOT = 'IS NOT'
+    IN = 'IN'
+    NOT_IN = 'NOT IN'
+    RSHIFT = '>>'
+    LSHIFT = '<<'
+    LIKE = 'LIKE'
+    ILIKE = 'ILIKE'
+
+
 def same(name):
     def f(self, *a, **kw):
         return getattr(self, name)(*a, **kw)
@@ -301,8 +324,8 @@ class AbstractType(object):
 class BaseType(AbstractType):
 
     def __add__(self, other):
-        return self._op('+', self._expr, other)
-        return Add(self._expr, other)
+        return self._op(OPERATORS.ADD, self._expr, other)
+        # return Add(self._expr, other)
 
     def __radd__(self, other):
         return Add(other, self._expr)
@@ -2567,26 +2590,26 @@ compile.set_precedence(20, Select, Query, SelectCount, Raw, Insert, Update, Dele
 compile.set_precedence(10, Expr)
 compile.set_precedence(None, All, Distinct)
 
-operator_registry.register('+', (BaseType, BaseType), BaseType, Add)
-operator_registry.register('-', (BaseType, BaseType), BaseType, Sub)
-operator_registry.register('*', (BaseType, BaseType), BaseType, Mul)
-operator_registry.register('/', (BaseType, BaseType), BaseType, Div)
-operator_registry.register('>', (BaseType, BaseType), BaseType, Gt)
-operator_registry.register('<', (BaseType, BaseType), BaseType, Lt)
-operator_registry.register('>=', (BaseType, BaseType), BaseType, Ge)
-operator_registry.register('<=', (BaseType, BaseType), BaseType, Le)
-operator_registry.register('AND', (BaseType, BaseType), BaseType, And)
-operator_registry.register('OR', (BaseType, BaseType), BaseType, Or)
-operator_registry.register('=', (BaseType, BaseType), BaseType, Eq)
-operator_registry.register('<>', (BaseType, BaseType), BaseType, Ne)
-operator_registry.register('IS', (BaseType, BaseType), BaseType, Is)
-operator_registry.register('IS NOT', (BaseType, BaseType), BaseType, IsNot)
-operator_registry.register('IN', (BaseType, BaseType), BaseType, In)
-operator_registry.register('NOT IN', (BaseType, BaseType), BaseType, NotIn)
-operator_registry.register('>>', (BaseType, BaseType), BaseType, RShift)
-operator_registry.register('<<', (BaseType, BaseType), BaseType, LShift)
-operator_registry.register('LIKE', (BaseType, BaseType), BaseType, Like)
-operator_registry.register('ILIKE', (BaseType, BaseType), BaseType, ILike)
+operator_registry.register(OPERATORS.ADD, (BaseType, BaseType), BaseType, Add)
+operator_registry.register(OPERATORS.SUB, (BaseType, BaseType), BaseType, Sub)
+operator_registry.register(OPERATORS.MUL, (BaseType, BaseType), BaseType, Mul)
+operator_registry.register(OPERATORS.DIV, (BaseType, BaseType), BaseType, Div)
+operator_registry.register(OPERATORS.GT, (BaseType, BaseType), BaseType, Gt)
+operator_registry.register(OPERATORS.LT, (BaseType, BaseType), BaseType, Lt)
+operator_registry.register(OPERATORS.GE, (BaseType, BaseType), BaseType, Ge)
+operator_registry.register(OPERATORS.LE, (BaseType, BaseType), BaseType, Le)
+operator_registry.register(OPERATORS.AND, (BaseType, BaseType), BaseType, And)
+operator_registry.register(OPERATORS.OR, (BaseType, BaseType), BaseType, Or)
+operator_registry.register(OPERATORS.EQ, (BaseType, BaseType), BaseType, Eq)
+operator_registry.register(OPERATORS.NE, (BaseType, BaseType), BaseType, Ne)
+operator_registry.register(OPERATORS.IS, (BaseType, BaseType), BaseType, Is)
+operator_registry.register(OPERATORS.IS_NOT, (BaseType, BaseType), BaseType, IsNot)
+operator_registry.register(OPERATORS.IN, (BaseType, BaseType), BaseType, In)
+operator_registry.register(OPERATORS.NOT_IN, (BaseType, BaseType), BaseType, NotIn)
+operator_registry.register(OPERATORS.RSHIFT, (BaseType, BaseType), BaseType, RShift)
+operator_registry.register(OPERATORS.LSHIFT, (BaseType, BaseType), BaseType, LShift)
+operator_registry.register(OPERATORS.LIKE, (BaseType, BaseType), BaseType, Like)
+operator_registry.register(OPERATORS.ILIKE, (BaseType, BaseType), BaseType, ILike)
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
