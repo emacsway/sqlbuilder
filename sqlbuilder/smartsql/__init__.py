@@ -280,7 +280,7 @@ class OperatorRegistry(object):
         try:
             return self._data[(operator, operands)]
         except KeyError:
-            # raise self.OperatorNotFound(operator, left_type, right_type)
+            # raise self.OperatorNotFound(operator, operands)
             return (BaseType, lambda l, r: Binary(l, operator, r))
 
 operator_registry = OperatorRegistry()
