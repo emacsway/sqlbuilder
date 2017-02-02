@@ -263,6 +263,7 @@ class UndefType(object):
 Undef = UndefType()
 
 
+# TODO: support for child registry
 class OperatorRegistry(object):
 
     class OperatorNotFound(Error):
@@ -285,6 +286,7 @@ class OperatorRegistry(object):
 operator_registry = OperatorRegistry()
 
 
+# TODO: Datatype should be aware about its scheme/operator_registry. Pass operator_registry to constructor?
 class AbstractType(object):
     __slots__ = ('_expr',)
 
