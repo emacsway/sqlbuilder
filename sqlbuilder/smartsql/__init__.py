@@ -13,7 +13,7 @@ import warnings
 import weakref
 from functools import reduce
 
-from sqlbuilder.smartsql.compile import Compiler, State, cached_compile, compile
+from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, OperatorNotFound
 from sqlbuilder.smartsql.factory import factory, Factory
