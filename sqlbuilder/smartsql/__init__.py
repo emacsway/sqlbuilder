@@ -17,6 +17,7 @@ from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compil
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, OperatorNotFound
 from sqlbuilder.smartsql.factory import factory, Factory
+from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
 from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same
 
@@ -49,43 +50,6 @@ def compile_slice(compile, expr, state):
         state.sql.append(", ")
         state.sql.append("{0:d}".format(expr.stop))
     state.sql.append("]")
-
-
-class OperatorRegistry(object):
-
-    def __init__(self, parent=None):
-        self._children = weakref.WeakKeyDictionary()
-        self._parents = []
-        self._local_registry = {}
-        self._registry = {}
-        if parent:
-            self._parents.extend(parent._parents)
-            self._parents.append(parent)
-            parent._children[self] = True
-            self._update_cache()
-
-    def create_child(self):
-        return self.__class__(self)
-
-    def register(self, operator, operands, result_type, expression_factory):
-        self._registry[(operator, operands)] = (result_type, expression_factory)
-        self._update_cache()
-
-    def get(self, operator, operands):
-        try:
-            return self._registry[(operator, operands)]
-        except KeyError:
-            # raise OperatorNotFound(operator, operands)
-            return (BaseType, lambda l, r: Binary(l, operator, r))
-
-    def _update_cache(self):
-        for parent in self._parents:
-            self._registry.update(parent._local_registry)
-        self._registry.update(self._local_registry)
-        for child in self._children:
-            child._update_cache()
-
-operator_registry = OperatorRegistry()
 
 
 # TODO: Datatype should be aware about its scheme/operator_registry. Pass operator_registry to constructor?
