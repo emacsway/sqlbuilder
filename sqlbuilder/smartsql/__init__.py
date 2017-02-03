@@ -3,14 +3,17 @@
 # Pay attention also to excellent lightweight SQLBuilder
 # of Storm ORM http://bazaar.launchpad.net/~storm/storm/trunk/view/head:/storm/expr.py
 from __future__ import absolute_import
-import sys
-import copy
-import types
-import weakref
-import operator
-import warnings
+
 import collections
+import copy
+import operator
+import sys
+import types
+import warnings
+import weakref
 from functools import wraps, reduce
+
+from sqlbuilder.smartsql.factory import factory, Factory
 
 try:
     str = unicode  # Python 2.* compatible
@@ -60,40 +63,6 @@ def same(name):
     def f(self, *a, **kw):
         return getattr(self, name)(*a, **kw)
     return f
-
-
-class Factory(object):
-
-    def register(self, name_or_callable):
-        name = name_or_callable if isinstance(name_or_callable, string_types) else name_or_callable.__name__
-
-        def deco(callable_obj):
-
-            def wrapped_obj(*a, **kw):
-                instance = callable_obj(*a, **kw)
-                instance.__factory__ = self
-                return instance
-
-            setattr(self, name, wrapped_obj)
-            return callable_obj
-
-        return deco if isinstance(name_or_callable, string_types) else deco(name_or_callable)
-
-    @classmethod
-    def get(cls, instance):
-        try:
-            return instance.__factory__
-        except AttributeError:
-            return cls.default()
-
-    @staticmethod
-    def default():
-        cls = Factory
-        if not hasattr(cls, '_default'):
-            cls._default = cls()
-        return cls._default
-
-factory = Factory.default()
 
 
 class State(object):
@@ -1607,37 +1576,37 @@ class Table(MetaTable("NewBase", (object, ), {})):
             self._append_field(f)
 
     def as_(self, alias):
-        return Factory.get(self).TableAlias(alias, self)
+        return factory.get(self).TableAlias(alias, self)
 
     def inner_join(self, right):
-        return Factory.get(self).TableJoin(self).inner_join(right)
+        return factory.get(self).TableJoin(self).inner_join(right)
 
     def left_join(self, right):
-        return Factory.get(self).TableJoin(self).left_join(right)
+        return factory.get(self).TableJoin(self).left_join(right)
 
     def right_join(self, right):
-        return Factory.get(self).TableJoin(self).right_join(right)
+        return factory.get(self).TableJoin(self).right_join(right)
 
     def full_join(self, right):
-        return Factory.get(self).TableJoin(self).full_join(right)
+        return factory.get(self).TableJoin(self).full_join(right)
 
     def cross_join(self, right):
-        return Factory.get(self).TableJoin(self).cross_join(right)
+        return factory.get(self).TableJoin(self).cross_join(right)
 
     def join(self, join_type, obj):
-        return Factory.get(self).TableJoin(self).join(join_type, obj)
+        return factory.get(self).TableJoin(self).join(join_type, obj)
 
     def on(self, cond):
-        return Factory.get(self).TableJoin(self).on(cond)
+        return factory.get(self).TableJoin(self).on(cond)
 
     def hint(self, expr):
-        return Factory.get(self).TableJoin(self).hint(expr)
+        return factory.get(self).TableJoin(self).hint(expr)
 
     def natural(self):
-        return Factory.get(self).TableJoin(self).natural()
+        return factory.get(self).TableJoin(self).natural()
 
     def using(self, *fields):
-        return Factory.get(self).TableJoin(self).using(*fields)
+        return factory.get(self).TableJoin(self).using(*fields)
 
     def _append_field(self, field):
         self._fields[field._name] = field
@@ -1932,7 +1901,7 @@ class Select(Expr):
         self._fields = FieldList().join(", ")
         if tables is not None:
             if not isinstance(tables, TableJoin):
-                tables = Factory.get(self).TableJoin(tables)
+                tables = factory.get(self).TableJoin(tables)
         self._tables = tables
         self._where = None
         self._having = None
@@ -1946,7 +1915,7 @@ class Select(Expr):
         if tables is None:
             return self._tables
         c = self.clone('_tables')
-        c._tables = tables if isinstance(tables, TableJoin) else Factory.get(c).TableJoin(tables)
+        c._tables = tables if isinstance(tables, TableJoin) else factory.get(c).TableJoin(tables)
         return c
 
     @opt_checker(["reset", ])
@@ -2068,7 +2037,7 @@ class Select(Expr):
         return c
 
     def as_table(self, alias):
-        return Factory.get(self).TableAlias(alias, self)
+        return factory.get(self).TableAlias(alias, self)
 
     def clone(self, *attrs):
         c = copy.copy(super(Select, self))
@@ -2169,7 +2138,7 @@ class Query(Executable, Select):
     def insert(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(Factory.get(self).Insert(map=key_values, **kw)).insert()
+        return self.result(factory.get(self).Insert(map=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         # Deprecated
@@ -2181,24 +2150,24 @@ class Query(Executable, Select):
         kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(Factory.get(self).Update(map=key_values, **kw)).update()
+        return self.result(factory.get(self).Update(map=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(Factory.get(self).Delete(**kw)).delete()
+        return self.result(factory.get(self).Delete(**kw)).delete()
 
     def as_set(self, all=False):
-        return Factory.get(self).Set(self, all=all, result=self.result)
+        return factory.get(self).Set(self, all=all, result=self.result)
 
     def set(self, *args, **kwargs):
         warn('set([all=False])', 'as_set([all=False])')
         return self.as_set(*args, **kwargs)
 
     def raw(self, sql, params=()):
-        return Factory.get(self).Raw(sql, params, result=self.result)
+        return factory.get(self).Raw(sql, params, result=self.result)
 
     def __getitem__(self, key):
         return self.result(self).__getitem__(key)
@@ -2394,13 +2363,13 @@ class Set(Query):
         return c
 
     def union(self, *others):
-        return self._op(Factory.get(self).Union, *others)
+        return self._op(factory.get(self).Union, *others)
 
     def intersection(self, *others):
-        return self._op(Factory.get(self).Intersect, *others)
+        return self._op(factory.get(self).Intersect, *others)
 
     def difference(self, *others):
-        return self._op(Factory.get(self).Except, *others)
+        return self._op(factory.get(self).Except, *others)
 
     # FIXME: violates the interface contract, changing the semantic of its interface
     __or__ = same('union')

@@ -119,7 +119,7 @@ class Table(smartsql.Table):
         if isinstance(self._q, collections.Callable):
             self._q = self._q(self)
         elif self._q is None:
-            self._q = smartsql.Factory.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
+            self._q = smartsql.factory.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
         return self._q.clone()
 
     def _set_q(self, val):
