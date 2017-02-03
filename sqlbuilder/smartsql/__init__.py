@@ -11,205 +11,16 @@ import sys
 import types
 import warnings
 import weakref
-from functools import wraps, reduce
+from functools import reduce
 
+from sqlbuilder.smartsql.compile import Compiler, State, cached_compile, compile
+from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
+from sqlbuilder.smartsql.exceptions import Error, OperatorNotFound
 from sqlbuilder.smartsql.factory import factory, Factory
+from sqlbuilder.smartsql.pycompat import str, string_types
+from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same
 
-try:
-    str = unicode  # Python 2.* compatible
-    string_types = (basestring,)
-    integer_types = (int, long)
-
-except NameError:
-    string_types = (str,)
-    integer_types = (int,)
-
-
-DEFAULT_DIALECT = 'postgres'
-PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
-LOOKUP_SEP = '__'
-MAX_PRECEDENCE = 1000
 SPACE = " "
-
-CONTEXT_QUERY = 0
-CONTEXT_COLUMN = 1
-CONTEXT_TABLE = 2
-
-
-class OPERATORS:
-    ADD = '+'
-    SUB = '-'
-    MUL = '*'
-    DIV = '/'
-    GT = '>'
-    LT = '<'
-    GE = '>='
-    LE = '<='
-    AND = 'AND'
-    OR = 'OR'
-    EQ = '='
-    NE = '<>'
-    IS = 'IS'
-    IS_NOT = 'IS NOT'
-    IN = 'IN'
-    NOT_IN = 'NOT IN'
-    RSHIFT = '>>'
-    LSHIFT = '<<'
-    LIKE = 'LIKE'
-    ILIKE = 'ILIKE'
-
-
-def same(name):
-    def f(self, *a, **kw):
-        return getattr(self, name)(*a, **kw)
-    return f
-
-
-class State(object):
-
-    def __init__(self):
-        self.sql = []
-        self.params = []
-        self._stack = []
-        self.callers = []
-        self.auto_tables = []
-        self.join_tables = []
-        self.context = CONTEXT_QUERY
-        self.precedence = 0
-
-    def push(self, attr, new_value=None):
-        old_value = getattr(self, attr, None)
-        self._stack.append((attr, old_value))
-        if new_value is None:
-            new_value = copy.copy(old_value)
-        setattr(self, attr, new_value)
-        return old_value
-
-    def pop(self):
-        setattr(self, *self._stack.pop(-1))
-
-
-class Compiler(object):
-
-    def __init__(self, parent=None):
-        self._children = weakref.WeakKeyDictionary()
-        self._parents = []
-        self._local_registry = {}
-        self._local_precedence = {}
-        self._registry = {}
-        self._precedence = {}
-        if parent:
-            self._parents.extend(parent._parents)
-            self._parents.append(parent)
-            parent._children[self] = True
-            self._update_cache()
-
-    def create_child(self):
-        return self.__class__(self)
-
-    def when(self, cls):
-        def deco(func):
-            self._local_registry[cls] = func
-            self._update_cache()
-            return func
-        return deco
-
-    def set_precedence(self, precedence, *types):
-        for type in types:
-            self._local_precedence[type] = precedence
-        self._update_cache()
-
-    def _update_cache(self):
-        for parent in self._parents:
-            self._registry.update(parent._local_registry)
-            self._precedence.update(parent._local_precedence)
-        self._registry.update(self._local_registry)
-        self._precedence.update(self._local_precedence)
-        for child in self._children:
-            child._update_cache()
-
-    def __call__(self, expr, state=None):
-        if state is None:
-            state = State()
-            self(expr, state)
-            return ''.join(state.sql), state.params
-
-        cls = expr.__class__
-        parentheses = None
-        outer_precedence = state.precedence
-        inner_precedence = self.get_inner_precedence(expr)
-        if inner_precedence is None:
-            # pass current precedence
-            # FieldList, ExprList, All, Distinct...?
-            inner_precedence = outer_precedence
-        state.precedence = inner_precedence
-        if inner_precedence < outer_precedence:
-            parentheses = True
-
-        state.callers.insert(0, expr.__class__)
-
-        if parentheses:
-            state.sql.append('(')
-
-        for c in cls.mro():
-            if c in self._registry:
-                self._registry[c](self, expr, state)
-                break
-        else:
-            raise Error("Unknown compiler for {0}".format(cls))
-
-        if parentheses:
-            state.sql.append(')')
-        state.callers.pop(0)
-        state.precedence = outer_precedence
-
-    def get_inner_precedence(self, cls_or_expr):
-        if isinstance(cls_or_expr, type):
-            cls = cls_or_expr
-            if cls in self._precedence:
-                return self._precedence[cls]
-        else:
-            expr = cls_or_expr
-            cls = expr.__class__
-            if issubclass(cls, Expr) and hasattr(expr, 'sql'):
-                try:
-                    if (cls, expr.sql) in self._precedence:
-                        return self._precedence[(cls, expr.sql)]
-                    elif expr.sql in self._precedence:
-                        return self._precedence[expr.sql]
-                except TypeError:
-                    # For case when expr.sql is unhashable, for example we can allow T('tablename').sql (in future).
-                    pass
-            return self.get_inner_precedence(cls)
-
-        return MAX_PRECEDENCE  # self._precedence.get('(any other)', MAX_PRECEDENCE)
-
-compile = Compiler()
-
-
-def opt_checker(k_list):
-    def new_deco(f):
-        @wraps(f)
-        def new_func(self, *args, **opt):
-            for k, v in list(opt.items()):
-                if k not in k_list:
-                    raise TypeError("Not implemented option: {0}".format(k))
-            return f(self, *args, **opt)
-        return new_func
-    return new_deco
-
-
-def cached_compile(f):
-    @wraps(f)
-    def deco(compile, expr, state):
-        if compile not in expr.__cached__:
-            state.push('sql', [])
-            f(compile, expr, state)
-            # TODO: also cache state.tables?
-            expr.__cached__[compile] = ''.join(state.sql)
-            state.pop()
-        state.sql.append(expr.__cached__[compile])
-    return deco
 
 
 @compile.when(object)
@@ -240,25 +51,7 @@ def compile_slice(compile, expr, state):
     state.sql.append("]")
 
 
-class Error(Exception):
-    pass
-
-
-class UndefType(object):
-
-    def __repr__(self):
-        return "Undef"
-
-    def __reduce__(self):
-        return "Undef"
-
-Undef = UndefType()
-
-
 class OperatorRegistry(object):
-
-    class OperatorNotFound(Error):
-        pass
 
     def __init__(self, parent=None):
         self._children = weakref.WeakKeyDictionary()
@@ -282,7 +75,7 @@ class OperatorRegistry(object):
         try:
             return self._registry[(operator, operands)]
         except KeyError:
-            # raise self.OperatorNotFound(operator, operands)
+            # raise OperatorNotFound(operator, operands)
             return (BaseType, lambda l, r: Binary(l, operator, r))
 
     def _update_cache(self):
@@ -1006,7 +799,7 @@ class FieldList(ExprList):
 
 @compile.when(FieldList)
 def compile_fieldlist(compile, expr, state):
-    # state.push('context', CONTEXT_COLUMN)
+    # state.push('context', CONTEXT.COLUMN)
     compile_exprlist(compile, expr, state)
     # state.pop()
 
@@ -1488,7 +1281,7 @@ class Alias(Expr):
 def compile_alias(compile, expr, state):
     try:
         render_column = issubclass(state.callers[1], FieldList)
-        # render_column = state.context == CONTEXT_COLUMN
+        # render_column = state.context == CONTEXT.COLUMN
     except IndexError:
         pass
     else:
@@ -1671,10 +1464,10 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
-    # if expr._table is not None and state.context == CONTEXT_TABLE:
+    # if expr._table is not None and state.context == CONTEXT.TABLE:
     try:
         render_table = expr._table is not None and issubclass(state.callers[1], TableJoin)
-        # render_table = expr._table is not None and state.context == CONTEXT_TABLE
+        # render_table = expr._table is not None and state.context == CONTEXT.TABLE
     except IndexError:
         pass
     else:
@@ -1789,7 +1582,7 @@ def compile_tablejoin(compile, expr, state):
             state.sql.append('NATURAL ')
         state.sql.append(expr._join_type)
         state.sql.append(SPACE)
-    state.push('context', CONTEXT_TABLE)
+    state.push('context', CONTEXT.TABLE)
     compile(expr._table, state)
     state.pop()
     if expr._on is not None:
@@ -2520,10 +2313,6 @@ class ValueCompiler(object):
 
 compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
-
-
-def is_list(v):
-    return isinstance(v, (list, tuple))
 
 
 def is_allowed_attr(instance, key):

@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from sqlbuilder.smartsql.pycompat import string_types
 
-__all__ = ('Factory', 'factory')
+__all__ = ('Factory', 'factory',)
 
 
 class Factory(object):
