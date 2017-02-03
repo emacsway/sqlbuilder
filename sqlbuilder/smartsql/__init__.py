@@ -59,123 +59,122 @@ class AbstractType(object):
     def __init__(self, expr):
         self._expr = expr  # weakref.ref(expr)
 
-    def _op(self, operator, *args):
-        expression_factory = operator_registry.get(operator, tuple(map(datatypeof, args)))[1]
-        return expression_factory(*args)
+    def _op(self, operator, operands, *args, **kwargs):
+        expression_factory = operator_registry.get(operator, tuple(map(datatypeof, operands)))[1]
+        return expression_factory(*(operands + args), **kwargs)
 
 
 class BaseType(AbstractType):
 
     def __add__(self, other):
-        return self._op(OPERATORS.ADD, self._expr, other)
-        # return Add(self._expr, other)
+        return self._op(OPERATORS.ADD, (self._expr, other))
 
     def __radd__(self, other):
-        return Add(other, self._expr)
+        return self._op(OPERATORS.ADD, (other, self._expr))
 
     def __sub__(self, other):
-        return Sub(self._expr, other)
+        return self._op(OPERATORS.SUB, (self._expr, other))
 
     def __rsub__(self, other):
-        return Sub(other, self._expr)
+        return self._op(OPERATORS.SUB, (other, self._expr))
 
     def __mul__(self, other):
-        return Mul(self._expr, other)
+        return self._op(OPERATORS.MUL, (self._expr, other))
 
     def __rmul__(self, other):
-        return Mul(other, self._expr)
+        return self._op(OPERATORS.MUL, (other, self._expr))
 
     def __div__(self, other):
-        return Div(self._expr, other)
+        return self._op(OPERATORS.DIV, (self._expr, other))
 
     def __rdiv__(self, other):
-        return Div(other, self._expr)
+        return self._op(OPERATORS.DIV, (other, self._expr))
 
     def __truediv__(self, other):
-        return Div(self._expr, other)
+        return self._op(OPERATORS.DIV, (self._expr, other))
 
     def __rtruediv__(self, other):
-        return Div(other, self._expr)
+        return self._op(OPERATORS.DIV, (other, self._expr))
 
     def __floordiv__(self, other):
-        return Div(self._expr, other)
+        return self._op(OPERATORS.DIV, (self._expr, other))
 
     def __rfloordiv__(self, other):
-        return Div(other, self._expr)
+        return self._op(OPERATORS.DIV, (other, self._expr))
 
     def __and__(self, other):
-        return And(self._expr, other)
+        return self._op(OPERATORS.AND, (self._expr, other))
 
     def __rand__(self, other):
-        return And(other, self._expr)
+        return self._op(OPERATORS.AND, (other, self._expr))
 
     def __or__(self, other):
-        return Or(self._expr, other)
+        return self._op(OPERATORS.OR, (self._expr, other))
 
     def __ror__(self, other):
-        return Or(other, self._expr)
+        return self._op(OPERATORS.OR, (other, self._expr))
 
     def __gt__(self, other):
-        return Gt(self._expr, other)
+        return self._op(OPERATORS.GT, (self._expr, other))
 
     def __lt__(self, other):
-        return Lt(self._expr, other)
+        return self._op(OPERATORS.LT, (self._expr, other))
 
     def __ge__(self, other):
-        return Ge(self._expr, other)
+        return self._op(OPERATORS.GE, (self._expr, other))
 
     def __le__(self, other):
-        return Le(self._expr, other)
+        return self._op(OPERATORS.LE, (self._expr, other))
 
     def __eq__(self, other):
         if other is None:
             return self.is_(None)
         if is_list(other):
             return self.in_(other)
-        return Eq(self._expr, other)
+        return self._op(OPERATORS.EQ, (self._expr, other))
 
     def __ne__(self, other):
         if other is None:
             return self.is_not(None)
         if is_list(other):
             return self.not_in(other)
-        return Ne(self._expr, other)
+        return self._op(OPERATORS.NE, (self._expr, other))
 
     def __rshift__(self, other):
-        return RShift(self._expr, other)
+        return self._op(OPERATORS.RSHIFT, (self._expr, other))
 
     def __rrshift__(self, other):
-        return RShift(other, self._expr)
+        return self._op(OPERATORS.RSHIFT, (other, self._expr))
 
     def __lshift__(self, other):
-        return LShift(self._expr, other)
+        return self._op(OPERATORS.LSHIFT, (self._expr, other))
 
     def __rlshift__(self, other):
-        return LShift(other, self._expr)
+        return self._op(OPERATORS.LSHIFT, (other, self._expr))
 
     def is_(self, other):
-        return Is(self._expr, other)
+        return self._op(OPERATORS.IS, (self._expr, other))
 
     def is_not(self, other):
-        return IsNot(self._expr, other)
+        return self._op(OPERATORS.IS_NOT, (self._expr, other))
 
     def in_(self, other):
-        return In(self._expr, other)
+        return self._op(OPERATORS.IN, (self._expr, other))
 
     def not_in(self, other):
-        return NotIn(self._expr, other)
+        return self._op(OPERATORS.NOT_IN, (self._expr, other))
 
     def like(self, other, escape=Undef):
-        return Like(self._expr, other, escape)
+        return self._op(OPERATORS.LIKE, (self._expr, other), escape=escape)
 
     def ilike(self, other, escape=Undef):
-        return ILike(self._expr, other, escape)
+        return ILike(self._expr, other, escape=escape)
 
     def rlike(self, other, escape=Undef):
-        return Like(other, self._expr, escape)
+        return Like(other, self._expr, escape=escape)
 
     def rilike(self, other, escape=Undef):
-        return ILike(other, self._expr, escape)
+        return ILike(other, self._expr, escape=escape)
 
     def startswith(self, other):
         pattern = EscapeForLike(other)
