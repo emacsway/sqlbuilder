@@ -15,7 +15,7 @@ from functools import reduce
 
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
-from sqlbuilder.smartsql.exceptions import Error, OperatorNotFound
+from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
@@ -2210,9 +2210,6 @@ class NameCompiler(object):
     _escape_delimiter = '"'
     _max_length = 63
 
-    class MaxLengthError(Error):
-        pass
-
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, '_{}'.format(k), v)
@@ -2224,7 +2221,7 @@ class NameCompiler(object):
         for k, v in self._translation_map:
             name = name.replace(k, v)
         if len(name) > self._get_max_length(state):
-            raise self.MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
+            raise MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
         state.sql.append(name)
         state.sql.append(self._delimiter)
 
