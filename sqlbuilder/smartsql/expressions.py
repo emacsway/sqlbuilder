@@ -4,7 +4,7 @@ import copy
 import operator
 from functools import reduce
 from sqlbuilder.smartsql.compiler import compile
-from sqlbuilder.smartsql.constants import PLACEHOLDER, MAX_PRECEDENCE
+from sqlbuilder.smartsql.constants import CONTEXT, PLACEHOLDER, MAX_PRECEDENCE
 from sqlbuilder.smartsql.exceptions import MaxLengthError
 from sqlbuilder.smartsql.pycompat import string_types
 from sqlbuilder.smartsql.utils import Undef, is_list
@@ -494,16 +494,9 @@ class Alias(Expr):
 
 @compile.when(Alias)
 def compile_alias(compile, expr, state):
-    from sqlbuilder.smartsql.fields import FieldList
-    try:
-        render_column = issubclass(state.callers[1], FieldList)
-        # render_column = state.context == CONTEXT.FIELD
-    except IndexError:
-        pass
-    else:
-        if render_column:
-            compile(expr.expr, state)
-            state.sql.append(' AS ')
+    if state.context == CONTEXT.FIELD:
+        compile(expr.expr, state)
+        state.sql.append(' AS ')
     compile(expr.sql, state)
 
 

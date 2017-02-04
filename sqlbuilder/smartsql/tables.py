@@ -187,16 +187,9 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
-    # if expr._table is not None and state.context == CONTEXT.TABLE:
-    try:
-        render_table = expr._table is not None and issubclass(state.callers[1], TableJoin)
-        # render_table = expr._table is not None and state.context == CONTEXT.TABLE
-    except IndexError:
-        pass
-    else:
-        if render_table:
-            compile(expr._table, state)
-            state.sql.append(' AS ')
+    if expr._table is not None and state.context == CONTEXT.TABLE:
+        compile(expr._table, state)
+        state.sql.append(' AS ')
     compile(expr._name, state)
 
 
