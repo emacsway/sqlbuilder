@@ -7,14 +7,16 @@ from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.constants import PLACEHOLDER, MAX_PRECEDENCE
 from sqlbuilder.smartsql.exceptions import MaxLengthError
 from sqlbuilder.smartsql.pycompat import string_types
-from sqlbuilder.smartsql.utils import is_list
+from sqlbuilder.smartsql.utils import Undef, is_list
 
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
-    'Callable', 'NamedCallable', 'Constant', 'ConstantSpace',
+    'Callable', 'NamedCallable', 'Constant', 'ConstantSpace', 'Case', 'Cast',
     'Alias', 'Name', 'NameCompiler', 'Value', 'ValueCompiler',
     'expr_repr', 'datatypeof', 'const', 'func'
 )
+
+SPACE = " "
 
 
 @compile.when(object)
@@ -401,6 +403,53 @@ class ConstantSpace(object):
 
     def __getattr__(self, attr):
         return Constant(attr)
+
+
+class Case(Expr):
+    __slots__ = ('cases', 'expr', 'default')
+
+    def __init__(self, cases, expr=Undef, default=Undef):
+        Operable.__init__(self)
+        self.cases = cases
+        self.expr = expr
+        self.default = default
+
+
+@compile.when(Case)
+def compile_case(compile, expr, state):
+    state.sql.append('CASE')
+    if expr.expr is not Undef:
+        state.sql.append(SPACE)
+        compile(expr.expr, state)
+    for clause, value in expr.cases:
+        state.sql.append(' WHEN ')
+        compile(clause, state)
+        state.sql.append(' THEN ')
+        compile(value, state)
+    if expr.default is not Undef:
+        state.sql.append(' ELSE ')
+        compile(expr.default, state)
+    state.sql.append(' END ')
+
+
+class Cast(NamedCallable):
+    __slots__ = ("expr", "type",)
+    sql = "CAST"
+
+    def __init__(self, expr, type):
+        Operable.__init__(self)
+        self.expr = expr
+        self.type = type
+
+
+@compile.when(Cast)
+def compile_cast(compile, expr, state):
+    state.sql.append(expr.sql)
+    state.sql.append('(')
+    compile(expr.expr, state)
+    state.sql.append(' AS ')
+    state.sql.append(expr.type)
+    state.sql.append(')')
 
 
 class Alias(Expr):

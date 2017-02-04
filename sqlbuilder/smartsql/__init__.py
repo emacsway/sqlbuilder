@@ -9,7 +9,7 @@ from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, 
 from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
 from sqlbuilder.smartsql.expressions import (
     Operable, Expr, ExprList, CompositeExpr, Param, Parentheses, OmitParentheses,
-    Callable, NamedCallable, Constant, ConstantSpace,
+    Callable, NamedCallable, Constant, ConstantSpace, Case, Cast,
     Alias, Name, NameCompiler, Value, ValueCompiler,
     expr_repr, datatypeof, const, func, compile_exprlist
 )
@@ -49,6 +49,18 @@ class Concat(ExprList):
         return self
 
 
+@compile.when(Concat)
+def compile_concat(compile, expr, state):
+    if not expr.ws():
+        return compile_exprlist(compile, expr, state)
+    state.sql.append('concat_ws(')
+    compile(expr.ws(), state)
+    for a in expr:
+        state.sql.append(expr.sql)
+        compile(a, state)
+    state.sql.append(')')
+
+
 class Array(ExprList):  # TODO: use composition instead of inheritance, to solve ambiguous of __getitem__()???
     __slots__ = ()
 
@@ -64,16 +76,26 @@ def compile_array(compile, expr, state):
     state.sql.append("ARRAY[{0}]".format(compile_exprlist(compile, expr, state)))
 
 
-@compile.when(Concat)
-def compile_concat(compile, expr, state):
-    if not expr.ws():
-        return compile_exprlist(compile, expr, state)
-    state.sql.append('concat_ws(')
-    compile(expr.ws(), state)
-    for a in expr:
-        state.sql.append(expr.sql)
-        compile(a, state)
-    state.sql.append(')')
+class ArrayItem(Expr):
+
+    __slots__ = ('array', 'key')
+
+    def __init__(self, array, key):
+        Operable.__init__(self)
+        self.array = array
+        assert isinstance(key, slice)
+        self.key = key
+
+
+@compile.when(ArrayItem)
+def compile_arrayitem(compile, expr, state):
+    compile(expr.array)
+    state.sql.append("[")
+    state.sql.append("{0:d}".format(expr.key.start))
+    if expr.key.stop is not None:
+        state.sql.append(", ")
+        state.sql.append("{0:d}".format(expr.key.stop))
+    state.sql.append("]")
 
 
 class Prefix(Expr):
@@ -188,75 +210,6 @@ class Asc(OrderDirection):
 class Desc(OrderDirection):
     __slots__ = ()
     sql = 'DESC'
-
-
-class Case(Expr):
-    __slots__ = ('cases', 'expr', 'default')
-
-    def __init__(self, cases, expr=Undef, default=Undef):
-        Operable.__init__(self)
-        self.cases = cases
-        self.expr = expr
-        self.default = default
-
-
-@compile.when(Case)
-def compile_case(compile, expr, state):
-    state.sql.append('CASE')
-    if expr.expr is not Undef:
-        state.sql.append(SPACE)
-        compile(expr.expr, state)
-    for clause, value in expr.cases:
-        state.sql.append(' WHEN ')
-        compile(clause, state)
-        state.sql.append(' THEN ')
-        compile(value, state)
-    if expr.default is not Undef:
-        state.sql.append(' ELSE ')
-        compile(expr.default, state)
-    state.sql.append(' END ')
-
-
-class Cast(NamedCallable):
-    __slots__ = ("expr", "type",)
-    sql = "CAST"
-
-    def __init__(self, expr, type):
-        Operable.__init__(self)
-        self.expr = expr
-        self.type = type
-
-
-@compile.when(Cast)
-def compile_cast(compile, expr, state):
-    state.sql.append(expr.sql)
-    state.sql.append('(')
-    compile(expr.expr, state)
-    state.sql.append(' AS ')
-    state.sql.append(expr.type)
-    state.sql.append(')')
-
-
-class ArrayItem(Expr):
-
-    __slots__ = ('array', 'key')
-
-    def __init__(self, array, key):
-        Operable.__init__(self)
-        self.array = array
-        assert isinstance(key, slice)
-        self.key = key
-
-
-@compile.when(ArrayItem)
-def compile_arrayitem(compile, expr, state):
-    compile(expr.array)
-    state.sql.append("[")
-    state.sql.append("{0:d}".format(expr.key.start))
-    if expr.key.stop is not None:
-        state.sql.append(", ")
-        state.sql.append("{0:d}".format(expr.key.stop))
-    state.sql.append("]")
 
 
 def qn(name, compile):
