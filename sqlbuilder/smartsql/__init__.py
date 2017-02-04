@@ -9,8 +9,6 @@ import copy
 import operator
 import sys
 import types
-import warnings
-import weakref
 from functools import reduce
 
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
@@ -19,7 +17,7 @@ from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFou
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
-from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same
+from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same, warn
 
 SPACE = " "
 
@@ -50,253 +48,6 @@ def compile_slice(compile, expr, state):
         state.sql.append(", ")
         state.sql.append("{0:d}".format(expr.stop))
     state.sql.append("]")
-
-
-# TODO: Datatype should be aware about its scheme/operator_registry. Pass operator_registry to constructor?
-class AbstractType(object):
-    __slots__ = ('_expr',)
-
-    def __init__(self, expr):
-        self._expr = expr  # weakref.ref(expr)
-
-    def _op(self, operator, operands, *args, **kwargs):
-        expression_factory = operator_registry.get(operator, tuple(map(datatypeof, operands)))[1]
-        return expression_factory(*(operands + args), **kwargs)
-
-
-class BaseType(AbstractType):
-
-    def __add__(self, other):
-        return self._op(OPERATORS.ADD, (self._expr, other))
-
-    def __radd__(self, other):
-        return self._op(OPERATORS.ADD, (other, self._expr))
-
-    def __sub__(self, other):
-        return self._op(OPERATORS.SUB, (self._expr, other))
-
-    def __rsub__(self, other):
-        return self._op(OPERATORS.SUB, (other, self._expr))
-
-    def __mul__(self, other):
-        return self._op(OPERATORS.MUL, (self._expr, other))
-
-    def __rmul__(self, other):
-        return self._op(OPERATORS.MUL, (other, self._expr))
-
-    def __div__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
-
-    def __rdiv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
-
-    def __truediv__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
-
-    def __rtruediv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
-
-    def __floordiv__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
-
-    def __rfloordiv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
-
-    def __and__(self, other):
-        return self._op(OPERATORS.AND, (self._expr, other))
-
-    def __rand__(self, other):
-        return self._op(OPERATORS.AND, (other, self._expr))
-
-    def __or__(self, other):
-        return self._op(OPERATORS.OR, (self._expr, other))
-
-    def __ror__(self, other):
-        return self._op(OPERATORS.OR, (other, self._expr))
-
-    def __gt__(self, other):
-        return self._op(OPERATORS.GT, (self._expr, other))
-
-    def __lt__(self, other):
-        return self._op(OPERATORS.LT, (self._expr, other))
-
-    def __ge__(self, other):
-        return self._op(OPERATORS.GE, (self._expr, other))
-
-    def __le__(self, other):
-        return self._op(OPERATORS.LE, (self._expr, other))
-
-    def __eq__(self, other):
-        if other is None:
-            return self.is_(None)
-        if is_list(other):
-            return self.in_(other)
-        return self._op(OPERATORS.EQ, (self._expr, other))
-
-    def __ne__(self, other):
-        if other is None:
-            return self.is_not(None)
-        if is_list(other):
-            return self.not_in(other)
-        return self._op(OPERATORS.NE, (self._expr, other))
-
-    def __rshift__(self, other):
-        return self._op(OPERATORS.RSHIFT, (self._expr, other))
-
-    def __rrshift__(self, other):
-        return self._op(OPERATORS.RSHIFT, (other, self._expr))
-
-    def __lshift__(self, other):
-        return self._op(OPERATORS.LSHIFT, (self._expr, other))
-
-    def __rlshift__(self, other):
-        return self._op(OPERATORS.LSHIFT, (other, self._expr))
-
-    def is_(self, other):
-        return self._op(OPERATORS.IS, (self._expr, other))
-
-    def is_not(self, other):
-        return self._op(OPERATORS.IS_NOT, (self._expr, other))
-
-    def in_(self, other):
-        return self._op(OPERATORS.IN, (self._expr, other))
-
-    def not_in(self, other):
-        return self._op(OPERATORS.NOT_IN, (self._expr, other))
-
-    def like(self, other, escape=Undef):
-        return self._op(OPERATORS.LIKE, (self._expr, other), escape=escape)
-
-    def ilike(self, other, escape=Undef):
-        return ILike(self._expr, other, escape=escape)
-
-    def rlike(self, other, escape=Undef):
-        return Like(other, self._expr, escape=escape)
-
-    def rilike(self, other, escape=Undef):
-        return ILike(other, self._expr, escape=escape)
-
-    def startswith(self, other):
-        pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(pattern, Value('%')), escape=pattern.escape)
-
-    def istartswith(self, other):
-        pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(pattern, Value('%')), escape=pattern.escape)
-
-    def contains(self, other):  # TODO: ambiguous with "@>" operator of postgresql.
-        pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
-
-    def icontains(self, other):
-        pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
-
-    def endswith(self, other):
-        pattern = EscapeForLike(other)
-        return Like(self._expr, Concat(Value('%'), pattern), escape=pattern.escape)
-
-    def iendswith(self, other):
-        pattern = EscapeForLike(other)
-        return ILike(self._expr, Concat(Value('%'), pattern), escape=pattern.escape)
-
-    def rstartswith(self, other):
-        pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(pattern, Value('%')), escape=pattern.escape)
-
-    def ristartswith(self, other):
-        pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(pattern, Value('%')), escape=pattern.escape)
-
-    def rcontains(self, other):
-        pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
-
-    def ricontains(self, other):
-        pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(Value('%'), pattern, Value('%')), escape=pattern.escape)
-
-    def rendswith(self, other):
-        pattern = EscapeForLike(self._expr)
-        return Like(other, Concat(Value('%'), pattern), escape=pattern.escape)
-
-    def riendswith(self, other):
-        pattern = EscapeForLike(self._expr)
-        return ILike(other, Concat(Value('%'), pattern), escape=pattern.escape)
-
-    def __pos__(self):
-        return Pos(self._expr)
-
-    def __neg__(self):
-        return Neg(self._expr)
-
-    def __invert__(self):
-        return Not(self._expr)
-
-    def all(self):
-        return All(self._expr)
-
-    def distinct(self):
-        return Distinct(self._expr)
-
-    def __pow__(self, other):
-        return func.Power(self._expr, other)
-
-    def __rpow__(self, other):
-        return func.Power(other, self._expr)
-
-    def __mod__(self, other):
-        return func.Mod(self._expr, other)
-
-    def __rmod__(self, other):
-        return func.Mod(other, self._expr)
-
-    def __abs__(self):
-        return func.Abs(self._expr)
-
-    def count(self):
-        return func.Count(self._expr)
-
-    def as_(self, alias):
-        return Alias(alias, self._expr)
-
-    def between(self, start, end):
-        return Between(self._expr, start, end)
-
-    def concat(self, *args):
-        return Concat(self._expr, *args)
-
-    def concat_ws(self, sep, *args):
-        return Concat(self._expr, *args).ws(sep)
-
-    def op(self, op):
-        return lambda other: Binary(self._expr, op, other)
-
-    def rop(self, op):  # useless, can be P('lookingfor').op('=')(expr)
-        return lambda other: Binary(other, op, self._expr)
-
-    def asc(self):
-        return Asc(self._expr)
-
-    def desc(self):
-        return Desc(self._expr)
-
-    def __getitem__(self, key):
-        """Returns self.between()"""
-        # Is it should return ArrayItem(key) or Subfield(self._expr, key)?
-        # Ambiguity with Query and ExprList!!!
-        # Name conflict with Query.__getitem__(). Query can returns a single array.
-        # We also may want to apply Between() or Eq() to subquery.
-        if isinstance(key, slice):
-            warn('__getitem__(slice(...))', 'between(start, end)')
-            start = key.start or 0
-            end = key.stop or sys.maxsize
-            return Between(self._expr, start, end)
-        else:
-            warn('__getitem__(key)', '__eq__(key)')
-            return self.__eq__(key)
-
-    __hash__ = object.__hash__
 
 
 class Operable(object):
@@ -2288,13 +2039,11 @@ def qn(name, compile):
     return compile(Name(name))[0]
 
 
-def warn(old, new, stacklevel=3):
-    warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
-
-
 def _repr(expr):
     return "<{0}: {1}, {2!r}>".format(type(expr).__name__, *compile(expr))
 
+A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
+func = const = ConstantSpace()
 
 compile.set_precedence(270, '.')
 compile.set_precedence(260, '::')
@@ -2325,6 +2074,8 @@ compile.set_precedence(20, Select, Query, SelectCount, Raw, Insert, Update, Dele
 compile.set_precedence(10, Expr)
 compile.set_precedence(None, All, Distinct)
 
+
+from sqlbuilder.smartsql.datatypes import AbstractType, BaseType
 operator_registry.register(OPERATORS.ADD, (BaseType, BaseType), BaseType, Add)
 operator_registry.register(OPERATORS.SUB, (BaseType, BaseType), BaseType, Sub)
 operator_registry.register(OPERATORS.MUL, (BaseType, BaseType), BaseType, Mul)
@@ -2345,6 +2096,3 @@ operator_registry.register(OPERATORS.RSHIFT, (BaseType, BaseType), BaseType, RSh
 operator_registry.register(OPERATORS.LSHIFT, (BaseType, BaseType), BaseType, LShift)
 operator_registry.register(OPERATORS.LIKE, (BaseType, BaseType), BaseType, Like)
 operator_registry.register(OPERATORS.ILIKE, (BaseType, BaseType), BaseType, ILike)
-
-A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
-func = const = ConstantSpace()

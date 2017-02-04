@@ -1,7 +1,8 @@
 from __future__ import absolute_import
+import warnings
 from functools import wraps
 
-__all__ = ('Undef', 'UndefType', 'is_list', 'opt_checker', 'same')
+__all__ = ('Undef', 'UndefType', 'is_list', 'opt_checker', 'same', 'warn', )
 
 
 class UndefType(object):
@@ -35,3 +36,7 @@ def opt_checker(k_list):
             return f(self, *args, **opt)
         return new_func
     return new_deco
+
+
+def warn(old, new, stacklevel=3):
+    warnings.warn("{0} is deprecated. Use {1} instead".format(old, new), PendingDeprecationWarning, stacklevel=stacklevel)
