@@ -578,6 +578,13 @@ class Array(ExprList):  # TODO: use composition instead of inheritance, to solve
         self.sql, self.data = ", ", list(args)
 
 
+@compile.when(Array)
+def compile_array(compile, expr, state):
+    if not expr.data:
+        state.sql.append("'{}'")
+    state.sql.append("ARRAY[{0}]".format(compile_exprlist(compile, expr, state)))
+
+
 class ArrayItem(Expr):
 
     __slots__ = ('array', 'key')

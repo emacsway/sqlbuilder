@@ -61,13 +61,6 @@ def compile_concat(compile, expr, state):
     state.sql.append(')')
 
 
-@compile.when(Array)
-def compile_array(compile, expr, state):
-    if not expr.data:
-        state.sql.append("'{}'")
-    state.sql.append("ARRAY[{0}]".format(compile_exprlist(compile, expr, state)))
-
-
 class Prefix(Expr):
 
     __slots__ = ('expr', )
