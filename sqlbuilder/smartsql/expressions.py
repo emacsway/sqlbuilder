@@ -11,7 +11,7 @@ __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
     'Callable', 'NamedCallable', 'Constant', 'ConstantSpace',
     'Name', 'NameCompiler', 'Value', 'ValueCompiler',
-    'expr_repr', 'datatypeof',
+    'expr_repr', 'datatypeof', 'const', 'func'
 )
 
 
@@ -503,3 +503,5 @@ def datatypeof(obj):
 
 def expr_repr(expr):
     return "<{0}: {1}, {2!r}>".format(type(expr).__name__, *compile(expr))
+
+func = const = ConstantSpace()

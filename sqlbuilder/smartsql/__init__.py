@@ -16,7 +16,7 @@ from sqlbuilder.smartsql.expressions import (
     Operable, Expr, ExprList, CompositeExpr, Param, Parentheses, OmitParentheses,
     Callable, NamedCallable, Constant, ConstantSpace,
     Name, NameCompiler, Value, ValueCompiler,
-    expr_repr, datatypeof, compile_exprlist
+    expr_repr, datatypeof, const, func, compile_exprlist
 )
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
@@ -1379,7 +1379,6 @@ def qn(name, compile):
     return compile(Name(name))[0]
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
-func = const = ConstantSpace()
 
 compile.set_precedence(270, '.')
 compile.set_precedence(260, '::')
