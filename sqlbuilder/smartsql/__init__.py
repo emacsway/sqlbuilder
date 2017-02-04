@@ -14,6 +14,7 @@ from functools import reduce
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
+from sqlbuilder.smartsql.expressions import expr_repr
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
@@ -21,33 +22,10 @@ from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, sa
 
 SPACE = " "
 
-
-@compile.when(object)
-def compile_object(compile, expr, state):
-    state.sql.append(PLACEHOLDER)
-    state.params.append(expr)
-
-
-@compile.when(type(None))
-def compile_none(compile, expr, state):
-    state.sql.append('NULL')
-
-
 @compile.when(list)
 @compile.when(tuple)
 def compile_list(compile, expr, state):
     compile(Parentheses(ExprList(*expr).join(", ")), state)
-
-
-@compile.when(slice)
-def compile_slice(compile, expr, state):
-    # FIXME: Should be here numrange()? Looks like not, see http://initd.org/psycopg/docs/extras.html#adapt-range
-    state.sql.append("[")
-    state.sql.append("{0:d}".format(expr.start))
-    if expr.stop is not None:
-        state.sql.append(", ")
-        state.sql.append("{0:d}".format(expr.stop))
-    state.sql.append("]")
 
 
 class Operable(object):
@@ -194,7 +172,7 @@ class Expr(Operable):
         self.sql, self.params = sql, params
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
 
 @compile.when(Expr)
@@ -236,7 +214,7 @@ class CompositeExpr(object):
         return iter(self.data)
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
 
 @compile.when(CompositeExpr)
@@ -1146,7 +1124,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
         return self.get_field(key)
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
     __and__ = same('inner_join')
     __add__ = same('left_join')
@@ -1273,7 +1251,7 @@ class TableJoin(object):
         return dup
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
     as_nested = same('__call__')
     group = same('__call__')
@@ -1719,7 +1697,7 @@ def compile_raw(compile, expr, state):
 class Modify(object):
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
 
 @factory.register
@@ -1942,7 +1920,7 @@ class Name(object):
         self.name = name
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
 
 class NameCompiler(object):
@@ -1991,7 +1969,7 @@ class Value(object):
         self.value = value
 
     def __repr__(self):
-        return _repr(self)
+        return expr_repr(self)
 
 
 class ValueCompiler(object):
@@ -2037,10 +2015,6 @@ def is_allowed_attr(instance, key):
 
 def qn(name, compile):
     return compile(Name(name))[0]
-
-
-def _repr(expr):
-    return "<{0}: {1}, {2!r}>".format(type(expr).__name__, *compile(expr))
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 func = const = ConstantSpace()
