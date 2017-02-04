@@ -40,7 +40,7 @@ Quick start
 Django integration
 ==================
 
-Simple add "sqlbuilder.django_sqlbuilder" to your INSTALLED_APPS.
+Simple add "django_sqlbuilder" to your INSTALLED_APPS.
 
 ::
 

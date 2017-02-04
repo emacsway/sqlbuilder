@@ -6,10 +6,10 @@ from django.conf import settings
 from django.db import connections
 from django.db.models import Model
 
-from .. import smartsql
-from ..smartsql.dialects import mysql
-from .dialects import sqlite
-from .signals import field_conversion
+from sqlbuilder import smartsql
+from sqlbuilder.smartsql.dialects import mysql
+from django_sqlbuilder.dialects import sqlite
+from django_sqlbuilder.signals import field_conversion
 
 try:
     str = unicode  # Python 2.* compatible

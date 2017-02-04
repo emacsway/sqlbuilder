@@ -1,4 +1,4 @@
-from ...smartsql.dialects.sqlite import compile as parent_compile
+from sqlbuilder.smartsql.dialects.sqlite import compile as parent_compile
 
 compile = parent_compile.create_child()
 

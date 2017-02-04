@@ -14,7 +14,7 @@ def main():
             }
         },
         INSTALLED_APPS = [
-            'sqlbuilder.django_sqlbuilder',
+            'django_sqlbuilder',
         ],
         MIDDLEWARE_CLASSES = [
         ],
@@ -41,7 +41,7 @@ def main():
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
     failures = test_runner.run_tests([
-        'sqlbuilder.django_sqlbuilder',
+        'django_sqlbuilder',
         'sqlbuilder.smartsql',
         'sqlbuilder.mini',
     ])
