@@ -60,7 +60,7 @@ class Field(MetaField("NewBase", (Expr,), {})):
                 name = Name(name)
         self._name = name
         if isinstance(prefix, string_types):
-            from sqlbuilder.smartsql import Table
+            from sqlbuilder.smartsql.tables import Table
             prefix = Table(prefix)
         self._prefix = prefix
         self.__cached__ = {}
