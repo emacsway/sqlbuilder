@@ -10,6 +10,9 @@ __all__ = (
     'Binary', 'NamedBinary', 'NamedCompound', 'Add', 'Sub', 'Mul', 'Div', 'Gt', 'Lt', 'Ge', 'Le', 'And', 'Or',
     'Eq', 'Ne', 'Is', 'IsNot', 'In', 'NotIn', 'RShift', 'LShift', 'EscapeForLike', 'Like', 'ILike',
     'Ternary', 'NamedTernary', 'Between', 'NotBetween',
+    'Prefix', 'NamedPrefix', 'Not', 'All', 'Distinct', 'Exists',
+    'Unary', 'NamedUnary', 'Pos', 'Neg',
+    'Postfix', 'NamedPostfix', 'OrderDirection', 'Asc', 'Desc'
 )
 
 SPACE = " "
@@ -243,3 +246,123 @@ class Between(NamedTernary):
 class NotBetween(Between):
     __slots__ = ()
     sql = 'NOT BETWEEN'
+
+
+# Prefix
+
+class Prefix(Expr):
+
+    __slots__ = ('expr', )
+
+    def __init__(self, prefix, expr):
+        Expr.__init__(self, prefix)
+        self.expr = expr
+
+
+@compile.when(Prefix)
+def compile_prefix(compile, expr, state):
+    state.sql.append(expr.sql)
+    state.sql.append(SPACE)
+    compile(expr.expr, state)
+
+
+class NamedPrefix(Prefix):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        Operable.__init__(self)
+        self.expr = expr
+
+
+class Not(NamedPrefix):
+    __slots__ = ()
+    sql = 'NOT'
+
+
+class All(NamedPrefix):
+    __slots__ = ()
+    sql = 'ALL'
+
+
+class Distinct(NamedPrefix):
+    __slots__ = ()
+    sql = 'DISTINCT'
+
+
+class Exists(NamedPrefix):
+    __slots__ = ()
+    sql = 'EXISTS'
+
+
+# Unary
+
+class Unary(Prefix):
+    __slots__ = ()
+
+
+@compile.when(Unary)
+def compile_unary(compile, expr, state):
+    state.sql.append(expr.sql)
+    compile(expr.expr, state)
+
+
+class NamedUnary(Unary):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        self.expr = expr
+
+
+class Pos(NamedUnary):
+    __slots__ = ()
+    sql = '+'
+
+
+class Neg(NamedUnary):
+    __slots__ = ()
+    sql = '-'
+
+
+# Postfix
+
+class Postfix(Expr):
+    __slots__ = ('expr', )
+
+    def __init__(self, expr, postfix):
+        Expr.__init__(self, postfix)
+        self.expr = expr
+
+
+@compile.when(Postfix)
+def compile_postfix(compile, expr, state):
+    compile(expr.expr, state)
+    state.sql.append(SPACE)
+    state.sql.append(expr.sql)
+
+
+class NamedPostfix(Postfix):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        Operable.__init__(self)
+        self.expr = expr
+
+
+class OrderDirection(NamedPostfix):
+    __slots__ = ()
+
+    def __init__(self, expr):
+        Operable.__init__(self)
+        if isinstance(expr, OrderDirection):
+            expr = expr.expr
+        self.expr = expr
+
+
+class Asc(OrderDirection):
+    __slots__ = ()
+    sql = 'ASC'
+
+
+class Desc(OrderDirection):
+    __slots__ = ()
+    sql = 'DESC'

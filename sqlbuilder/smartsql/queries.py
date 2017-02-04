@@ -2,12 +2,12 @@ from __future__ import absolute_import
 import copy
 import types
 import operator
-from sqlbuilder.smartsql import Asc, Desc
 from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.exceptions import Error
 from sqlbuilder.smartsql.expressions import Operable, Expr, ExprList, Constant, Parentheses, OmitParentheses, func, expr_repr
 from sqlbuilder.smartsql.factory import factory
 from sqlbuilder.smartsql.fields import Field, FieldList
+from sqlbuilder.smartsql.operators import Asc, Desc
 from sqlbuilder.smartsql.pycompat import string_types
 from sqlbuilder.smartsql.tables import TableJoin
 from sqlbuilder.smartsql.utils import is_list, opt_checker, same, warn

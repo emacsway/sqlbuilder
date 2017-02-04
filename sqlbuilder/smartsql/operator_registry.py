@@ -29,7 +29,8 @@ class OperatorRegistry(object):
             return self._registry[(operator, operands)]
         except KeyError:
             # raise OperatorNotFound(operator, operands)
-            from sqlbuilder.smartsql import BaseType, Binary
+            from sqlbuilder.smartsql.datatypes import BaseType
+            from sqlbuilder.smartsql.operators import Binary
             return (BaseType, lambda l, r: Binary(l, operator, r))
 
     def _update_cache(self):
