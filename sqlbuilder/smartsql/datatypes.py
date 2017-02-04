@@ -1,11 +1,11 @@
 import sys
 from sqlbuilder.smartsql import (
     func, All, Alias, Asc, Desc, Between, Concat, Distinct, EscapeForLike,
-    Like, ILike, Neg, Not, Pos, Value
+    Like, ILike, Neg, Not, Pos
 )
 
 from sqlbuilder.smartsql.constants import OPERATORS
-from sqlbuilder.smartsql.expressions import datatypeof
+from sqlbuilder.smartsql.expressions import Value, datatypeof
 from sqlbuilder.smartsql.operator_registry import operator_registry
 from sqlbuilder.smartsql.operators import Binary
 from sqlbuilder.smartsql.utils import Undef, is_list, warn

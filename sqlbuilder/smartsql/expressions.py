@@ -9,6 +9,7 @@ from sqlbuilder.smartsql.utils import is_list
 
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
+    'Callable', 'NamedCallable', 'Constant', 'ConstantSpace',
     'Name', 'NameCompiler', 'Value', 'ValueCompiler',
     'expr_repr', 'datatypeof',
 )
@@ -340,6 +341,64 @@ class OmitParentheses(Parentheses):
 def compile_omitparentheses(compile, expr, state):
     state.precedence = 0
     compile(expr.expr, state)
+
+
+class Callable(Expr):
+
+    __slots__ = ('expr', 'args')
+
+    def __init__(self, expr, *args):
+        Operable.__init__(self)
+        self.expr = expr
+        self.args = ExprList(*args).join(", ")
+
+
+@compile.when(Callable)
+def compile_callable(compile, expr, state):
+    compile(expr.expr, state)
+    state.sql.append('(')
+    compile(expr.args, state)
+    state.sql.append(')')
+
+
+class NamedCallable(Callable):
+    __slots__ = ()
+
+    def __init__(self, *args):
+        Operable.__init__(self)
+        self.args = ExprList(*args).join(", ")
+
+
+@compile.when(NamedCallable)
+def compile_namedcallable(compile, expr, state):
+    state.sql.append(expr.sql)
+    state.sql.append('(')
+    compile(expr.args, state)
+    state.sql.append(')')
+
+
+class Constant(Expr):
+
+    __slots__ = ()
+
+    def __init__(self, const):
+        Expr.__init__(self, const.upper())
+
+    def __call__(self, *args):
+        return Callable(self, *args)
+
+
+@compile.when(Constant)
+def compile_constant(compile, expr, state):
+    state.sql.append(expr.sql)
+
+
+class ConstantSpace(object):
+
+    __slots__ = ()
+
+    def __getattr__(self, attr):
+        return Constant(attr)
 
 
 class Name(object):
