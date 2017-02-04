@@ -7,14 +7,13 @@ from __future__ import absolute_import
 import collections
 import copy
 import operator
-import sys
 import types
 from functools import reduce
 
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
-from sqlbuilder.smartsql.expressions import Operable, Expr, expr_repr, datatypeof
+from sqlbuilder.smartsql.expressions import Operable, Expr, ExprList, CompositeExpr, expr_repr, datatypeof, compile_exprlist
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
@@ -22,54 +21,11 @@ from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, sa
 
 SPACE = " "
 
+
 @compile.when(list)
 @compile.when(tuple)
 def compile_list(compile, expr, state):
     compile(Parentheses(ExprList(*expr).join(", ")), state)
-
-
-class CompositeExpr(object):
-
-    __slots__ = ('data', 'sql')
-
-    def __init__(self, *args):
-        self.data = args
-        self.sql = ", "
-
-    def as_(self, aliases):
-        return self.__class__(*(expr.as_(alias) for expr, alias in zip(self.data, aliases)))
-
-    def in_(self, composite_others):
-        return self._op_list(Eq, composite_others)
-
-    def not_in(self, composite_others):
-        return ~self._op_list(Eq, composite_others)
-
-    def _op_list(self, op, composite_others):
-        return reduce(operator.or_, (self._op(op, composite_other) for composite_other in composite_others))
-
-    def _op(self, op, composite_other):
-        return reduce(operator.and_, (op(expr, val) for (expr, val) in zip(self.data, composite_other)))
-
-    def __eq__(self, composite_other):
-        return self._op(Eq, composite_other)
-
-    def __ne__(self, composite_other):
-        return self._op(Ne, composite_other)
-
-    def __iter__(self):
-        return iter(self.data)
-
-    def __repr__(self):
-        return expr_repr(self)
-
-
-@compile.when(CompositeExpr)
-def compile_compositeexpr(compile, expr, state):
-    state.push('callers')
-    state.callers.pop(0)  # pop CompositeExpr from caller's stack to correct render of aliases.
-    compile_exprlist(compile, expr, state)
-    state.pop()
 
 
 class Binary(Expr):
@@ -257,73 +213,6 @@ def compile_like(compile, expr, state):
     if expr.escape is not Undef:
         state.sql.append(' ESCAPE ')
         compile(Value(expr.escape) if isinstance(expr.escape, string_types) else expr.escape, state)
-
-
-class ExprList(Expr):
-
-    __slots__ = ('data', )
-
-    def __init__(self, *args):
-        # if args and is_list(args[0]):
-        #     self.__init__(*args[0])
-        #     return
-        Expr.__init__(self, ' ')
-        self.data = list(args)
-
-    def join(self, sep):
-        self.sql = sep
-        return self
-
-    def __len__(self):
-        return len(self.data)
-
-    def __setitem__(self, key, value):
-        self.data[key] = value
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            start = key.start or 0
-            end = key.stop or sys.maxsize
-            return ExprList(*self.data[start:end])
-        return self.data[key]
-
-    def __iter__(self):
-        return iter(self.data)
-
-    def append(self, x):
-        return self.data.append(x)
-
-    def insert(self, i, x):
-        return self.data.insert(i, x)
-
-    def extend(self, l):
-        return self.data.extend(l)
-
-    def pop(self, i):
-        return self.data.pop(i)
-
-    def remove(self, x):
-        return self.data.remove(x)
-
-    def reset(self):
-        del self.data[:]
-        return self
-
-    def __copy__(self):
-        dup = copy.copy(super(ExprList, self))
-        dup.data = dup.data[:]
-        return dup
-
-
-@compile.when(ExprList)
-def compile_exprlist(compile, expr, state):
-    first = True
-    for a in expr:
-        if first:
-            first = False
-        else:
-            state.sql.append(expr.sql)
-        compile(a, state)
 
 
 class FieldList(ExprList):
