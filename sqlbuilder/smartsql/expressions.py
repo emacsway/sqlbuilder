@@ -11,7 +11,7 @@ from sqlbuilder.smartsql.utils import Undef, is_list
 
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
-    'Callable', 'NamedCallable', 'Constant', 'ConstantSpace', 'Case', 'Cast',
+    'Callable', 'NamedCallable', 'Constant', 'ConstantSpace', 'Case', 'Cast', 'Concat',
     'Alias', 'Name', 'NameCompiler', 'Value', 'ValueCompiler', 'Array', 'ArrayItem',
     'expr_repr', 'datatypeof', 'const', 'func'
 )
@@ -449,6 +449,35 @@ def compile_cast(compile, expr, state):
     compile(expr.expr, state)
     state.sql.append(' AS ')
     state.sql.append(expr.type)
+    state.sql.append(')')
+
+
+class Concat(ExprList):
+
+    __slots__ = ('_ws', )
+
+    def __init__(self, *args):
+        super(Concat, self).__init__(*args)
+        self.sql = ' || '
+        self._ws = None
+
+    def ws(self, sep=None):
+        if sep is None:
+            return self._ws
+        self._ws = sep
+        self.sql = ', '
+        return self
+
+
+@compile.when(Concat)
+def compile_concat(compile, expr, state):
+    if not expr.ws():
+        return compile_exprlist(compile, expr, state)
+    state.sql.append('concat_ws(')
+    compile(expr.ws(), state)
+    for a in expr:
+        state.sql.append(expr.sql)
+        compile(a, state)
     state.sql.append(')')
 
 
