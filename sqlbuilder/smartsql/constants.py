@@ -8,13 +8,13 @@ PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 
 
 class CONTEXT:
-    QUERY = 1
-    FIELD = 2
-    FIELD_PREFIX = 3
-    FIELD_NAME = 4
-    TABLE = 5
-    EXPR = 6
-    SELECT = 7
+    QUERY = 'QUERY'
+    FIELD = 'FIELD'
+    FIELD_PREFIX = 'FIELD_PREFIX'
+    FIELD_NAME = 'FIELD_NAME'
+    TABLE = 'TABLE'
+    EXPR = 'EXPR'
+    SELECT = 'SELECT'
 
 class OPERATORS:
     ADD = '+'
