@@ -6,12 +6,13 @@ from functools import reduce
 from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.constants import PLACEHOLDER, MAX_PRECEDENCE
 from sqlbuilder.smartsql.exceptions import MaxLengthError
+from sqlbuilder.smartsql.pycompat import string_types
 from sqlbuilder.smartsql.utils import is_list
 
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
     'Callable', 'NamedCallable', 'Constant', 'ConstantSpace',
-    'Name', 'NameCompiler', 'Value', 'ValueCompiler',
+    'Alias', 'Name', 'NameCompiler', 'Value', 'ValueCompiler',
     'expr_repr', 'datatypeof', 'const', 'func'
 )
 
@@ -400,6 +401,32 @@ class ConstantSpace(object):
 
     def __getattr__(self, attr):
         return Constant(attr)
+
+
+class Alias(Expr):
+
+    __slots__ = ('expr', 'sql')
+
+    def __init__(self, alias, expr=None):
+        self.expr = expr
+        if isinstance(alias, string_types):
+            alias = Name(alias)
+        super(Alias, self).__init__(alias)
+
+
+@compile.when(Alias)
+def compile_alias(compile, expr, state):
+    from sqlbuilder.smartsql.fields import FieldList
+    try:
+        render_column = issubclass(state.callers[1], FieldList)
+        # render_column = state.context == CONTEXT.COLUMN
+    except IndexError:
+        pass
+    else:
+        if render_column:
+            compile(expr.expr, state)
+            state.sql.append(' AS ')
+    compile(expr.sql, state)
 
 
 class Name(object):

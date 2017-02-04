@@ -15,11 +15,11 @@ from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFou
 from sqlbuilder.smartsql.expressions import (
     Operable, Expr, ExprList, CompositeExpr, Param, Parentheses, OmitParentheses,
     Callable, NamedCallable, Constant, ConstantSpace,
-    Name, NameCompiler, Value, ValueCompiler,
+    Alias, Name, NameCompiler, Value, ValueCompiler,
     expr_repr, datatypeof, const, func, compile_exprlist
 )
 from sqlbuilder.smartsql.factory import factory, Factory
-from sqlbuilder.smartsql.fields import FieldList
+from sqlbuilder.smartsql.fields import MetaFieldSpace, F, MetaField, Field, Subfield, FieldList
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.operators import (
     Binary, NamedBinary, NamedCompound, Add, Sub, Mul, Div, Gt, Lt, Ge, Le, And, Or,
@@ -241,96 +241,6 @@ def compile_cast(compile, expr, state):
     state.sql.append(')')
 
 
-class MetaFieldSpace(type):
-
-    def __instancecheck__(cls, instance):
-        return isinstance(instance, Field)
-
-    def __subclasscheck__(cls, subclass):
-        return issubclass(subclass, Field)
-
-    def __getattr__(cls, key):
-        if key[:2] == '__':
-            raise AttributeError
-        parts = key.split(LOOKUP_SEP, 2)
-        prefix, name, alias = parts + [None] * (3 - len(parts))
-        if name is None:
-            prefix, name = name, prefix
-        f = cls(name, prefix)
-        return f.as_(alias) if alias else f
-
-    def __call__(cls, *a, **kw):
-        return Field(*a, **kw)
-
-
-class F(MetaFieldSpace("NewBase", (object, ), {})):
-    pass
-
-
-class MetaField(type):
-
-    def __getattr__(cls, key):
-        if key[:2] == '__':
-            raise AttributeError
-        parts = key.split(LOOKUP_SEP, 2)
-        prefix, name, alias = parts + [None] * (3 - len(parts))
-        if name is None:
-            prefix, name = name, prefix
-        f = cls(name, prefix)
-        return f.as_(alias) if alias else f
-
-
-class Field(MetaField("NewBase", (Expr,), {})):
-    # It's a field, not column, because prefix can be alias of subquery.
-    # It also can be a field of composite column.
-    __slots__ = ('_name', '_prefix', '__cached__')  # TODO: m_* prefix instead of _* prefix?
-
-    def __init__(self, name, prefix=None, datatype=None):
-        Operable.__init__(self, datatype)
-        if isinstance(name, string_types):
-            if name == '*':
-                name = Constant(name)
-            else:
-                name = Name(name)
-        self._name = name
-        if isinstance(prefix, string_types):
-            prefix = Table(prefix)
-        self._prefix = prefix
-        self.__cached__ = {}
-
-
-@compile.when(Field)
-@cached_compile
-def compile_field(compile, expr, state):
-    if expr._prefix is not None:
-        state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
-        compile(expr._prefix, state)
-        state.sql.append('.')
-    compile(expr._name, state)
-
-
-class Subfield(Expr):
-
-    __slots__ = ('parent', 'name')
-
-    def __init__(self, parent, name):
-        Operable.__init__(self)
-        self.parent = parent
-        if isinstance(name, string_types):
-            name = Name(name)
-        self.name = name
-
-
-@compile.when(Subfield)
-def compile_subfield(compile, expr, state):
-    parent = expr.parent
-    if True:  # get me from context
-        parent = Parentheses(parent)
-    compile(parent)
-    state.sql.append('.')
-    compile(expr.name, state)
-
-
 class ArrayItem(Expr):
 
     __slots__ = ('array', 'key')
@@ -351,31 +261,6 @@ def compile_arrayitem(compile, expr, state):
         state.sql.append(", ")
         state.sql.append("{0:d}".format(expr.key.stop))
     state.sql.append("]")
-
-
-class Alias(Expr):
-
-    __slots__ = ('expr', 'sql')
-
-    def __init__(self, alias, expr=None):
-        self.expr = expr
-        if isinstance(alias, string_types):
-            alias = Name(alias)
-        super(Alias, self).__init__(alias)
-
-
-@compile.when(Alias)
-def compile_alias(compile, expr, state):
-    try:
-        render_column = issubclass(state.callers[1], FieldList)
-        # render_column = state.context == CONTEXT.COLUMN
-    except IndexError:
-        pass
-    else:
-        if render_column:
-            compile(expr.expr, state)
-            state.sql.append(' AS ')
-    compile(expr.sql, state)
 
 
 @factory.register
