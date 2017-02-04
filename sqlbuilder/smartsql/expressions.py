@@ -4,9 +4,14 @@ import operator
 from functools import reduce
 from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.constants import PLACEHOLDER, MAX_PRECEDENCE
+from sqlbuilder.smartsql.exceptions import MaxLengthError
 from sqlbuilder.smartsql.utils import is_list
 
-__all__ = ('Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses', 'expr_repr', 'datatypeof', )
+__all__ = (
+    'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
+    'Name', 'NameCompiler', 'Value', 'ValueCompiler',
+    'expr_repr', 'datatypeof',
+)
 
 
 @compile.when(object)
@@ -335,6 +340,98 @@ class OmitParentheses(Parentheses):
 def compile_omitparentheses(compile, expr, state):
     state.precedence = 0
     compile(expr.expr, state)
+
+
+class Name(object):
+
+    __slots__ = ('name', )
+
+    def __init__(self, name=None):
+        self.name = name
+
+    def __repr__(self):
+        return expr_repr(self)
+
+
+class NameCompiler(object):
+
+    _translation_map = (
+        ("\\", "\\\\"),
+        ("\000", "\\0"),
+        ('\b', '\\b'),
+        ('\n', '\\n'),
+        ('\r', '\\r'),
+        ('\t', '\\t'),
+        ("%", "%%")
+    )
+    _delimiter = '"'
+    _escape_delimiter = '"'
+    _max_length = 63
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, '_{}'.format(k), v)
+
+    def __call__(self, compile, expr, state):
+        state.sql.append(self._delimiter)
+        name = expr.name
+        name = name.replace(self._delimiter, self._escape_delimiter + self._delimiter)
+        for k, v in self._translation_map:
+            name = name.replace(k, v)
+        if len(name) > self._get_max_length(state):
+            raise MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
+        state.sql.append(name)
+        state.sql.append(self._delimiter)
+
+    def _get_max_length(self, state):
+        # Max length can depend on context.
+        return self._max_length
+
+compile_name = NameCompiler()
+compile.when(Name)(compile_name)
+
+
+class Value(object):
+
+    __slots__ = ('value', )
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return expr_repr(self)
+
+
+class ValueCompiler(object):
+
+    _translation_map = (
+        ("\\", "\\\\"),
+        ("\000", "\\0"),
+        ('\b', '\\b'),
+        ('\n', '\\n'),
+        ('\r', '\\r'),
+        ('\t', '\\t'),
+        ("%", "%%")
+    )
+    _delimiter = "'"
+    _escape_delimiter = "'"
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, '_{}'.format(k), v)
+
+    def __call__(self, compile, expr, state):
+        state.sql.append(self._delimiter)
+        value = str(expr.value)
+        value = value.replace(self._delimiter, self._escape_delimiter + self._delimiter)
+        for k, v in self._translation_map:
+            value = value.replace(k, v)
+        state.sql.append(value)
+        state.sql.append(self._delimiter)
+
+
+compile_value = ValueCompiler()
+compile.when(Value)(compile_value)
 
 
 def datatypeof(obj):
