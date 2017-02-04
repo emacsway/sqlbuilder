@@ -1,12 +1,14 @@
 from __future__ import absolute_import
 from functools import reduce
 from sqlbuilder.smartsql.compiler import compile
-from sqlbuilder.smartsql.expressions import Expr, Operable, datatypeof
+from sqlbuilder.smartsql.expressions import Expr, Operable, Value, datatypeof, func
 from sqlbuilder.smartsql.operator_registry import operator_registry
+from sqlbuilder.smartsql.pycompat import string_types
+from sqlbuilder.smartsql.utils import Undef
 
 __all__ = (
     'Binary', 'NamedBinary', 'NamedCompound', 'Add', 'Sub', 'Mul', 'Div', 'Gt', 'Lt', 'Ge', 'Le', 'And', 'Or',
-    'Eq', 'Ne', 'Is', 'IsNot', 'In', 'NotIn', 'RShift', 'LShift',
+    'Eq', 'Ne', 'Is', 'IsNot', 'In', 'NotIn', 'RShift', 'LShift', 'EscapeForLike', 'Like', 'ILike',
     'Ternary', 'NamedTernary', 'Between', 'NotBetween',
 )
 
@@ -143,6 +145,60 @@ class LShift(NamedBinary):
     __slots__ = ()
     sql = "<<"
 
+
+class EscapeForLike(Expr):
+
+    __slots__ = ('expr',)
+
+    escape = "!"
+    escape_map = tuple(  # Ordering is important!
+        (i, "!{0}".format(i)) for i in ('!', '_', '%')
+    )
+
+    def __init__(self, expr):
+        Operable.__init__(self)
+        self.expr = expr
+
+
+@compile.when(EscapeForLike)
+def compile_escapeforlike(compile, expr, state):
+    escaped = expr.expr
+    for k, v in expr.escape_map:
+        escaped = func.Replace(escaped, Value(k), Value(v))
+    compile(escaped, state)
+
+
+class Like(NamedBinary):
+    __slots__ = ('escape',)
+    sql = 'LIKE'
+
+    def __init__(self, left, right, escape=Undef):
+        """
+        :type escape: str | Undef
+        """
+        Operable.__init__(self)
+        self.left = left
+        self.right = right
+        if isinstance(right, EscapeForLike):
+            self.escape = right.escape
+        else:
+            self.escape = escape
+
+
+class ILike(Like):
+    __slots__ = ()
+    sql = 'ILIKE'
+
+
+@compile.when(Like)
+def compile_like(compile, expr, state):
+    compile_binary(compile, expr, state)
+    if expr.escape is not Undef:
+        state.sql.append(' ESCAPE ')
+        compile(Value(expr.escape) if isinstance(expr.escape, string_types) else expr.escape, state)
+
+
+# Ternary
 
 class Ternary(Expr):
     __slots__ = ('second_sql', 'first', 'second', 'third')
