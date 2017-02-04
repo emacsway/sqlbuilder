@@ -21,7 +21,9 @@ from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.operators import (
     Binary, NamedBinary, NamedCompound, Add, Sub, Mul, Div, Gt, Lt, Ge, Le, And, Or,
-    Eq, Ne, Is, IsNot, In, NotIn, RShift, LShift, compile_binary
+    Eq, Ne, Is, IsNot, In, NotIn, RShift, LShift,
+    Ternary, NamedTernary, Between, NotBetween,
+    compile_binary
 )
 from sqlbuilder.smartsql.pycompat import str, string_types
 from sqlbuilder.smartsql.utils import Undef, UndefType, is_allowed_attr, is_list, opt_checker, same, warn
@@ -257,51 +259,6 @@ class Asc(OrderDirection):
 class Desc(OrderDirection):
     __slots__ = ()
     sql = 'DESC'
-
-
-class Ternary(Expr):
-    __slots__ = ('second_sql', 'first', 'second', 'third')
-
-    def __init__(self, first, sql, second, second_sql, third):
-        Expr.__init__(self, sql)
-        self.first = first
-        self.second = second
-        self.second_sql = second_sql
-        self.third = third
-
-
-@compile.when(Ternary)
-def compile_ternary(compile, expr, state):
-    compile(expr.first, state)
-    state.sql.append(SPACE)
-    state.sql.append(expr.sql)
-    state.sql.append(SPACE)
-    compile(expr.second, state)
-    state.sql.append(SPACE)
-    state.sql.append(expr.second_sql)
-    state.sql.append(SPACE)
-    compile(expr.third, state)
-
-
-class NamedTernary(Ternary):
-    __slots__ = ()
-
-    def __init__(self, first, second, third):
-        Operable.__init__(self)
-        self.first = first
-        self.second = second
-        self.third = third
-
-
-class Between(NamedTernary):
-    __slots__ = ()
-    sql = 'BETWEEN'
-    second_sql = 'AND'
-
-
-class NotBetween(Between):
-    __slots__ = ()
-    sql = 'NOT BETWEEN'
 
 
 class Case(Expr):
