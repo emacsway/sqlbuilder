@@ -2,7 +2,7 @@ from __future__ import absolute_import
 import warnings
 from functools import wraps
 
-__all__ = ('Undef', 'UndefType', 'is_list', 'opt_checker', 'same', 'warn', )
+__all__ = ('Undef', 'UndefType', 'is_list', 'is_allowed_attr', 'opt_checker', 'same', 'warn', )
 
 
 class UndefType(object):
@@ -14,6 +14,15 @@ class UndefType(object):
         return "Undef"
 
 Undef = UndefType()
+
+
+def is_allowed_attr(instance, key):
+    if key.startswith('__'):
+        return False
+    if key in dir(instance.__class__):  # type(instance)?
+        # It's a descriptor, like 'sql' defined in slots
+        return False
+    return True
 
 
 def is_list(value):

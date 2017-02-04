@@ -22,7 +22,7 @@ from sqlbuilder.smartsql.operators import (
     Eq, Ne, Is, IsNot, In, NotIn, RShift, LShift, compile_binary
 )
 from sqlbuilder.smartsql.pycompat import str, string_types
-from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same, warn
+from sqlbuilder.smartsql.utils import Undef, UndefType, is_allowed_attr, is_list, opt_checker, same, warn
 
 SPACE = " "
 Placeholder = Param
@@ -1563,15 +1563,6 @@ class ValueCompiler(object):
 
 compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
-
-
-def is_allowed_attr(instance, key):
-    if key.startswith('__'):
-        return False
-    if key in dir(instance.__class__):  # type(instance)?
-        # It's a descriptor, like 'sql' defined in slots
-        return False
-    return True
 
 
 def qn(name, compile):
