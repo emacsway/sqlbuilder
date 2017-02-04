@@ -13,19 +13,16 @@ from functools import reduce
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
 from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
-from sqlbuilder.smartsql.expressions import Operable, Expr, ExprList, CompositeExpr, expr_repr, datatypeof, compile_exprlist
+from sqlbuilder.smartsql.expressions import (
+    Operable, Expr, ExprList, CompositeExpr, Param, Parentheses, OmitParentheses, expr_repr, datatypeof, compile_exprlist
+)
 from sqlbuilder.smartsql.factory import factory, Factory
 from sqlbuilder.smartsql.operator_registry import OperatorRegistry, operator_registry
 from sqlbuilder.smartsql.pycompat import str, string_types
 from sqlbuilder.smartsql.utils import Undef, UndefType, is_list, opt_checker, same, warn
 
 SPACE = " "
-
-
-@compile.when(list)
-@compile.when(tuple)
-def compile_list(compile, expr, state):
-    compile(Parentheses(ExprList(*expr).join(", ")), state)
+Placeholder = Param
 
 
 class Binary(Expr):
@@ -274,48 +271,6 @@ def compile_concat(compile, expr, state):
         state.sql.append(expr.sql)
         compile(a, state)
     state.sql.append(')')
-
-
-class Param(Expr):
-
-    __slots__ = ()
-
-    def __init__(self, params):
-        Operable.__init__(self)
-        self.params = params
-
-
-@compile.when(Param)
-def compile_param(compile, expr, state):
-    compile(expr.params, state)
-
-
-Placeholder = Param
-
-
-class Parentheses(Expr):
-
-    __slots__ = ('expr', )
-
-    def __init__(self, expr):
-        Operable.__init__(self)
-        self.expr = expr
-
-
-@compile.when(Parentheses)
-def compile_parentheses(compile, expr, state):
-    state.precedence += MAX_PRECEDENCE
-    compile(expr.expr, state)
-
-
-class OmitParentheses(Parentheses):
-    pass
-
-
-@compile.when(OmitParentheses)
-def compile_omitparentheses(compile, expr, state):
-    state.precedence = 0
-    compile(expr.expr, state)
 
 
 class Prefix(Expr):

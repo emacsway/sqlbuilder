@@ -3,10 +3,10 @@ import copy
 import operator
 from functools import reduce
 from sqlbuilder.smartsql.compiler import compile
-from sqlbuilder.smartsql.constants import PLACEHOLDER
+from sqlbuilder.smartsql.constants import PLACEHOLDER, MAX_PRECEDENCE
 from sqlbuilder.smartsql.utils import is_list
 
-__all__ = ('Operable', 'Expr', 'ExprList', 'CompositeExpr', 'expr_repr', 'datatypeof', )
+__all__ = ('Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses', 'expr_repr', 'datatypeof', )
 
 
 @compile.when(object)
@@ -29,6 +29,12 @@ def compile_slice(compile, expr, state):
         state.sql.append(", ")
         state.sql.append("{0:d}".format(expr.stop))
     state.sql.append("]")
+
+
+@compile.when(list)
+@compile.when(tuple)
+def compile_list(compile, expr, state):
+    compile(Parentheses(ExprList(*expr).join(", ")), state)
 
 
 class Operable(object):
@@ -290,6 +296,45 @@ def compile_compositeexpr(compile, expr, state):
     state.callers.pop(0)  # pop CompositeExpr from caller's stack to correct render of aliases.
     compile_exprlist(compile, expr, state)
     state.pop()
+
+
+class Param(Expr):
+
+    __slots__ = ()
+
+    def __init__(self, params):
+        Operable.__init__(self)
+        self.params = params
+
+
+@compile.when(Param)
+def compile_param(compile, expr, state):
+    compile(expr.params, state)
+
+
+class Parentheses(Expr):
+
+    __slots__ = ('expr', )
+
+    def __init__(self, expr):
+        Operable.__init__(self)
+        self.expr = expr
+
+
+@compile.when(Parentheses)
+def compile_parentheses(compile, expr, state):
+    state.precedence += MAX_PRECEDENCE
+    compile(expr.expr, state)
+
+
+class OmitParentheses(Parentheses):
+    pass
+
+
+@compile.when(OmitParentheses)
+def compile_omitparentheses(compile, expr, state):
+    state.precedence = 0
+    compile(expr.expr, state)
 
 
 def datatypeof(obj):
