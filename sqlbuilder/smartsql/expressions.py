@@ -12,7 +12,7 @@ from sqlbuilder.smartsql.utils import Undef, is_list
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
     'Callable', 'NamedCallable', 'Constant', 'ConstantSpace', 'Case', 'Cast',
-    'Alias', 'Name', 'NameCompiler', 'Value', 'ValueCompiler',
+    'Alias', 'Name', 'NameCompiler', 'Value', 'ValueCompiler', 'Array', 'ArrayItem',
     'expr_repr', 'datatypeof', 'const', 'func'
 )
 
@@ -568,6 +568,28 @@ class ValueCompiler(object):
 
 compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
+
+
+class ArrayItem(Expr):
+
+    __slots__ = ('array', 'key')
+
+    def __init__(self, array, key):
+        Operable.__init__(self)
+        self.array = array
+        assert isinstance(key, slice)
+        self.key = key
+
+
+@compile.when(ArrayItem)
+def compile_arrayitem(compile, expr, state):
+    compile(expr.array)
+    state.sql.append("[")
+    state.sql.append("{0:d}".format(expr.key.start))
+    if expr.key.stop is not None:
+        state.sql.append(", ")
+        state.sql.append("{0:d}".format(expr.key.stop))
+    state.sql.append("]")
 
 
 def datatypeof(obj):
