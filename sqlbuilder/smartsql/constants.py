@@ -9,9 +9,9 @@ PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 
 class CONTEXT:
     QUERY = 1
-    COLUMN = 2
-    COLUMN_PREFIX = 3
-    COLUMN_NAME = 4
+    FIELD = 2
+    FIELD_PREFIX = 3
+    FIELD_NAME = 4
     TABLE = 5
     EXPR = 6
     SELECT = 7

@@ -271,7 +271,7 @@ class Select(Expr):
 @compile.when(Select)
 def compile_query(compile, expr, state):
     state.push("auto_tables", [])  # this expr can be a subquery
-    state.push("context", CONTEXT.COLUMN)
+    state.push("context", CONTEXT.FIELD)
     state.sql.append("SELECT ")
     if expr.distinct():
         state.sql.append("DISTINCT ")
@@ -458,7 +458,7 @@ def compile_insert(compile, expr, state):
     compile(expr.table, state)
     state.sql.append(SPACE)
 
-    state.context = CONTEXT.COLUMN_NAME
+    state.context = CONTEXT.FIELD_NAME
     compile(Parentheses(expr.fields), state)
     state.context = CONTEXT.EXPR
     if isinstance(expr.values, Query):
@@ -510,7 +510,7 @@ def compile_update(compile, expr, state):
             first = False
         else:
             state.sql.append(", ")
-        state.context = CONTEXT.COLUMN_NAME
+        state.context = CONTEXT.FIELD_NAME
         compile(field, state)
         state.sql.append(" = ")
         state.context = CONTEXT.EXPR
@@ -650,7 +650,7 @@ def compile_set(compile, expr, state):
     compile(expr._exprs.join(op), state)
     state.precedence -= 0.5
     if expr._order_by:
-        # state.context = CONTEXT.COLUMN_NAME
+        # state.context = CONTEXT.FIELD_NAME
         state.context = CONTEXT.EXPR
         state.sql.append(" ORDER BY ")
         compile(expr._order_by, state)

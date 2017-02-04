@@ -71,7 +71,7 @@ class Field(MetaField("NewBase", (Expr,), {})):
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
         state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
-        state.push("context", CONTEXT.COLUMN_PREFIX)
+        state.push("context", CONTEXT.FIELD_PREFIX)
         compile(expr._prefix, state)
         state.pop()
         state.sql.append('.')
@@ -112,6 +112,6 @@ class FieldList(ExprList):
 
 @compile.when(FieldList)
 def compile_fieldlist(compile, expr, state):
-    state.push('context', CONTEXT.COLUMN)
+    state.push('context', CONTEXT.FIELD)
     compile_exprlist(compile, expr, state)
     state.pop()

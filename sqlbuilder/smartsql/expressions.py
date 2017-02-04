@@ -497,7 +497,7 @@ def compile_alias(compile, expr, state):
     from sqlbuilder.smartsql.fields import FieldList
     try:
         render_column = issubclass(state.callers[1], FieldList)
-        # render_column = state.context == CONTEXT.COLUMN
+        # render_column = state.context == CONTEXT.FIELD
     except IndexError:
         pass
     else:
