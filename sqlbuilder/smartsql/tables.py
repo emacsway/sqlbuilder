@@ -310,7 +310,9 @@ def compile_tablejoin(compile, expr, state):
     state.pop()
     if expr._on is not None:
         state.sql.append(' ON ')
+        state.push("context", CONTEXT.EXPR)
         compile(expr._on, state)
+        state.pop()
     elif expr._using is not None:
         state.sql.append(' USING ')
         compile(expr._using, state)

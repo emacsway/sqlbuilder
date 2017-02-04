@@ -3,6 +3,7 @@ import copy
 import types
 import operator
 from sqlbuilder.smartsql.compiler import compile
+from sqlbuilder.smartsql.constants import CONTEXT
 from sqlbuilder.smartsql.exceptions import Error
 from sqlbuilder.smartsql.expressions import Operable, Expr, ExprList, Constant, Parentheses, OmitParentheses, func, expr_repr
 from sqlbuilder.smartsql.factory import factory
@@ -270,6 +271,7 @@ class Select(Expr):
 @compile.when(Select)
 def compile_query(compile, expr, state):
     state.push("auto_tables", [])  # this expr can be a subquery
+    state.push("context", CONTEXT.COLUMN)
     state.sql.append("SELECT ")
     if expr.distinct():
         state.sql.append("DISTINCT ")
@@ -282,6 +284,7 @@ def compile_query(compile, expr, state):
     tables_sql_pos = len(state.sql)
     tables_params_pos = len(state.params)
 
+    state.context = CONTEXT.EXPR
     if expr.where():
         state.sql.append(" WHERE ")
         compile(expr.where(), state)
@@ -306,6 +309,7 @@ def compile_query(compile, expr, state):
     state.push('join_tables', [])
     state.push('sql', [])
     state.push('params', [])
+    state.context = CONTEXT.TABLE
     state.sql.append(" FROM ")
     compile(expr.tables(), state)
     tables_sql = state.sql
@@ -315,6 +319,7 @@ def compile_query(compile, expr, state):
     state.pop()
     state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
     state.params[tables_params_pos:tables_params_pos] = tables_params
+    state.pop()
     state.pop()
 
 
@@ -447,11 +452,15 @@ class Insert(Modify):
 
 @compile.when(Insert)
 def compile_insert(compile, expr, state):
+    state.push("context", CONTEXT.TABLE)
     state.sql.append("INSERT ")
     state.sql.append("INTO ")
     compile(expr.table, state)
     state.sql.append(SPACE)
+
+    state.context = CONTEXT.COLUMN_NAME
     compile(Parentheses(expr.fields), state)
+    state.context = CONTEXT.EXPR
     if isinstance(expr.values, Query):
         state.sql.append(SPACE)
         compile(expr.values, state)
@@ -471,6 +480,7 @@ def compile_insert(compile, expr, state):
             compile(f, state)
             state.sql.append(" = ")
             compile(v, state)
+    state.pop()
 
 
 @factory.register
@@ -488,20 +498,24 @@ class Update(Modify):
 
 @compile.when(Update)
 def compile_update(compile, expr, state):
+    state.push("context", CONTEXT.TABLE)
     state.sql.append("UPDATE ")
     if expr.ignore:
         state.sql.append("IGNORE ")
     compile(expr.table, state)
     state.sql.append(" SET ")
     first = True
-    for f, v in zip(expr.fields, expr.values):
+    for field, value in zip(expr.fields, expr.values):
         if first:
             first = False
         else:
             state.sql.append(", ")
-        compile(f, state)
+        state.context = CONTEXT.COLUMN_NAME
+        compile(field, state)
         state.sql.append(" = ")
-        compile(v, state)
+        state.context = CONTEXT.EXPR
+        compile(value, state)
+    state.context = CONTEXT.EXPR
     if expr.where:
         state.sql.append(" WHERE ")
         compile(expr.where, state)
@@ -511,6 +525,7 @@ def compile_update(compile, expr, state):
     if expr.limit is not None:
         state.sql.append(" LIMIT ")
         compile(expr.limit, state)
+    state.pop()
 
 
 @factory.register
@@ -526,7 +541,9 @@ class Delete(Modify):
 @compile.when(Delete)
 def compile_delete(compile, expr, state):
     state.sql.append("DELETE FROM ")
+    state.push("context", CONTEXT.TABLE)
     compile(expr.table, state)
+    state.context = CONTEXT.EXPR
     if expr.where:
         state.sql.append(" WHERE ")
         compile(expr.where, state)
@@ -536,6 +553,7 @@ def compile_delete(compile, expr, state):
     if expr.limit is not None:
         state.sql.append(" LIMIT ")
         compile(expr.limit, state)
+    state.pop()
 
 
 @factory.register
@@ -622,6 +640,7 @@ class Except(Set):
 
 @compile.when(Set)
 def compile_set(compile, expr, state):
+    state.push("context", CONTEXT.SELECT)
     if expr._all:
         op = ' {0} ALL '.format(expr.sql)
     else:
@@ -631,6 +650,8 @@ def compile_set(compile, expr, state):
     compile(expr._exprs.join(op), state)
     state.precedence -= 0.5
     if expr._order_by:
+        # state.context = CONTEXT.COLUMN_NAME
+        state.context = CONTEXT.EXPR
         state.sql.append(" ORDER BY ")
         compile(expr._order_by, state)
     if expr._limit is not None:
@@ -641,3 +662,4 @@ def compile_set(compile, expr, state):
         compile(expr._offset, state)
     if expr._for_update:
         state.sql.append(" FOR UPDATE")
+    state.pop()

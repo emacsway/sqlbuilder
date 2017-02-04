@@ -8,10 +8,13 @@ PLACEHOLDER = "%s"  # Can be re-defined by registered dialect.
 
 
 class CONTEXT:
-    QUERY = 0
-    COLUMN = 1
-    TABLE = 2
-
+    QUERY = 1
+    COLUMN = 2
+    COLUMN_PREFIX = 3
+    COLUMN_NAME = 4
+    TABLE = 5
+    EXPR = 6
+    SELECT = 7
 
 class OPERATORS:
     ADD = '+'

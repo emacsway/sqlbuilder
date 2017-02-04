@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 from sqlbuilder.smartsql.compiler import compile, cached_compile
-from sqlbuilder.smartsql.constants import LOOKUP_SEP
+from sqlbuilder.smartsql.constants import LOOKUP_SEP, CONTEXT
 from sqlbuilder.smartsql.expressions import Operable, Expr, Constant, ExprList, Parentheses, Name, compile_exprlist
 from sqlbuilder.smartsql.pycompat import string_types
 
@@ -71,7 +71,9 @@ class Field(MetaField("NewBase", (Expr,), {})):
 def compile_field(compile, expr, state):
     if expr._prefix is not None:
         state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
+        state.push("context", CONTEXT.COLUMN_PREFIX)
         compile(expr._prefix, state)
+        state.pop()
         state.sql.append('.')
     compile(expr._name, state)
 
@@ -110,6 +112,6 @@ class FieldList(ExprList):
 
 @compile.when(FieldList)
 def compile_fieldlist(compile, expr, state):
-    # state.push('context', CONTEXT.COLUMN)
+    state.push('context', CONTEXT.COLUMN)
     compile_exprlist(compile, expr, state)
-    # state.pop()
+    state.pop()
