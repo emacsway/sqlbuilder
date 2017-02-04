@@ -61,14 +61,6 @@ def compile_concat(compile, expr, state):
     state.sql.append(')')
 
 
-class Array(ExprList):  # TODO: use composition instead of inheritance, to solve ambiguous of __getitem__()???
-    __slots__ = ()
-
-    def __init__(self, *args):
-        Operable.__init__(self)
-        self.sql, self.data = ", ", list(args)
-
-
 @compile.when(Array)
 def compile_array(compile, expr, state):
     if not expr.data:

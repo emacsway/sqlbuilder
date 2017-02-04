@@ -570,6 +570,14 @@ compile_value = ValueCompiler()
 compile.when(Value)(compile_value)
 
 
+class Array(ExprList):  # TODO: use composition instead of inheritance, to solve ambiguous of __getitem__()???
+    __slots__ = ()
+
+    def __init__(self, *args):
+        Operable.__init__(self)
+        self.sql, self.data = ", ", list(args)
+
+
 class ArrayItem(Expr):
 
     __slots__ = ('array', 'key')
