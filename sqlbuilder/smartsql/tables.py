@@ -316,6 +316,8 @@ def compile_tablejoin(compile, expr, state):
         state.sql.append(')')
 
 
+# Model based table
+
 class NamedJoin(TableJoin):
     __slots__ = ()
 
@@ -359,7 +361,20 @@ class CrossJoin(NamedJoin):
     _join_type = "CROSS JOIN"
 
 
+class ModelRegistry(dict):
+    def __setattr__(self, key, value):
+        super(ModelRegistry, self).__setattr__(key, Name(value))
+
+    def register(self, table_name):
+        def _inner(cls):
+            self[cls] = table_name
+            return cls
+
+
 @compile.when(type)
-def compile_type(compile, expr, state):
+def compile_type(compile, model, state):
     """ Any class can be used as Table """
-    compile(expr.__table__, state)
+    compile(model_registry[model], state)
+
+
+model_registry = ModelRegistry()
