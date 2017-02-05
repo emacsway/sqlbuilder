@@ -314,3 +314,52 @@ def compile_tablejoin(compile, expr, state):
         compile(expr._hint, state)
     if expr._nested:
         state.sql.append(')')
+
+
+class NamedJoin(TableJoin):
+    __slots__ = ()
+
+    def __init__(self, left, right, on=None):
+        self._table = right
+        self._on = on
+        self._left = left
+        self._hint = None
+        self._nested = False
+        self._natural = False
+        self._using = None
+
+
+class Join(NamedJoin):
+    __slots__ = ()
+    _join_type = "JOIN"
+
+
+class InnerJoin(NamedJoin):
+    __slots__ = ()
+    _join_type = "INNER JOIN"
+
+
+class LeftJoin(NamedJoin):
+    __slots__ = ()
+    _join_type = "LEFT OUTER JOIN"
+
+
+class RightJoin(NamedJoin):
+    __slots__ = ()
+    _join_type = "RIGHT OUTER JOIN"
+
+
+class FullJoin(NamedJoin):
+    __slots__ = ()
+    _join_type = "FULL OUTER JOIN"
+
+
+class CrossJoin(NamedJoin):
+    __slots__ = ()
+    _join_type = "CROSS JOIN"
+
+
+@compile.when(type)
+def compile_type(compile, expr, state):
+    """ Any class can be used as Table """
+    compile(expr.__table__, state)
