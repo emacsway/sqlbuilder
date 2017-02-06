@@ -1,8 +1,12 @@
 from sqlbuilder.smartsql.tests.base import TestCase
-from sqlbuilder.smartsql import Q, T, Table, TA, E, compile
+from sqlbuilder.smartsql import (
+    Q, T, Table, TA, E, Field,
+    Join, InnerJoin, LeftJoin, RightJoin, FullJoin, CrossJoin,
+    model_registry, compile
+)
 from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
 
-__all__ = ('TestTable', )
+__all__ = ('TestTable', 'TestModelBasedTable', )
 
 
 class TestTable(TestCase):
@@ -136,4 +140,78 @@ class TestTable(TestCase):
         self.assertEqual(
             q.select(t2.id),
             ('SELECT `al2`.`id` FROM `tb1` INNER JOIN `tb1` AS `al2` ON (`al2`.`parent_id` = `tb1`.`id`) USE INDEX (`index1`, `index2`)', [], )
+        )
+
+
+class PropertyDescriptor(object):
+    _field = None
+    _value = None
+
+    def _get_name(self, owner):
+        for k, v in owner.__dict__.items():
+            if v is self:
+                return k
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            if self._field is None:
+                self._field = Field(self._get_name(owner), owner)
+            return self._field
+        else:
+            return self._value
+
+    def __set__(self, instance, value):
+        self._value = value
+
+
+@model_registry.register('author')
+class Author(object):
+    id = PropertyDescriptor()
+    first_name = PropertyDescriptor()
+    last_name = PropertyDescriptor()
+
+
+@model_registry.register('post')
+class Post(object):
+    id = PropertyDescriptor()
+    title = PropertyDescriptor()
+    text = PropertyDescriptor()
+    author_id = PropertyDescriptor()
+
+
+class TestModelBasedTable(TestCase):
+
+    def test_model(self):
+        self.assertIsInstance(Author.first_name, Field)
+        self.assertEqual(
+            compile(Author),
+            ('"author"', [])
+        )
+        self.assertEqual(
+            compile(Author.first_name),
+            ('"author"."first_name"', [])
+        )
+        self.assertEqual(
+            compile(Join(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(InnerJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" INNER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(LeftJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" LEFT OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(RightJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" RIGHT OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(FullJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" FULL OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(CrossJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" CROSS JOIN "post" ON ("post"."author_id" = "author"."id")', [])
         )

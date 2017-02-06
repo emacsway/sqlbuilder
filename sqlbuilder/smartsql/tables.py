@@ -9,7 +9,10 @@ from sqlbuilder.smartsql.fields import Field
 from sqlbuilder.smartsql.pycompat import string_types
 from sqlbuilder.smartsql.utils import same
 
-__all__ = ('MetaTableSpace', 'T', 'MetaTable', 'FieldProxy', 'Table', 'TableAlias', 'TableJoin', )
+__all__ = (
+    'MetaTableSpace', 'T', 'MetaTable', 'FieldProxy', 'Table', 'TableAlias', 'TableJoin',
+    'Join', 'InnerJoin', 'LeftJoin', 'RightJoin', 'FullJoin', 'CrossJoin', 'ModelRegistry', 'model_registry',
+)
 
 SPACE = " "
 
@@ -362,13 +365,14 @@ class CrossJoin(NamedJoin):
 
 
 class ModelRegistry(dict):
-    def __setattr__(self, key, value):
-        super(ModelRegistry, self).__setattr__(key, Name(value))
+    def __setitem__(self, key, value):
+        super(ModelRegistry, self).__setitem__(key, Name(value))
 
     def register(self, table_name):
         def _inner(cls):
             self[cls] = table_name
             return cls
+        return _inner
 
 
 @compile.when(type)

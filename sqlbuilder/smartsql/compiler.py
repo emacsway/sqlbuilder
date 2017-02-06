@@ -69,7 +69,7 @@ class Compiler(object):
         if parentheses:
             state.sql.append('(')
 
-        for c in cls.mro():
+        for c in cls.__mro__:
             if c in self._registry:
                 self._registry[c](self, expr, state)
                 break

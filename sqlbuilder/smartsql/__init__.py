@@ -26,7 +26,10 @@ from sqlbuilder.smartsql.operators import (
     compile_binary
 )
 from sqlbuilder.smartsql.pycompat import str, string_types
-from sqlbuilder.smartsql.tables import MetaTableSpace, T, MetaTable, FieldProxy, Table, TableAlias, TableJoin
+from sqlbuilder.smartsql.tables import (
+    MetaTableSpace, T, MetaTable, FieldProxy, Table, TableAlias, TableJoin,
+    Join, InnerJoin, LeftJoin, RightJoin, FullJoin, CrossJoin, ModelRegistry, model_registry
+)
 from sqlbuilder.smartsql.utils import Undef, UndefType, is_allowed_attr, is_list, opt_checker, same, warn
 
 from sqlbuilder.smartsql.queries import (
