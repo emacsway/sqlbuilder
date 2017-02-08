@@ -1,6 +1,6 @@
 from sqlbuilder.smartsql.tests.base import TestCase
 from sqlbuilder.smartsql import (
-    Q, T, Table, TA, E, Field,
+    Q, T, Table, TableJoin, TA, E, Field,
     Join, InnerJoin, LeftJoin, RightJoin, FullJoin, CrossJoin,
     model_registry, compile
 )
@@ -192,6 +192,10 @@ class TestModelBasedTable(TestCase):
             ('"author"."first_name"', [])
         )
         self.assertEqual(
+            compile((TableJoin(Author) & Post).on(Post.author_id == Author.id)),
+            ('"author" INNER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
             compile(Join(Author, Post, on=(Post.author_id == Author.id))),
             ('"author" JOIN "post" ON ("post"."author_id" = "author"."id")', [])
         )
@@ -231,6 +235,10 @@ class TestFieldProxy(TestCase):
         self.assertEqual(
             compile(author.first_name),
             ('"author"."first_name"', [])
+        )
+        self.assertEqual(
+            compile((TableJoin(author) & post).on(post.author_id == author.id)),
+            ('"author" INNER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
         )
         self.assertEqual(
             compile(Join(author, post, on=(post.author_id == author.id))),
