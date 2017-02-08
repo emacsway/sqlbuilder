@@ -67,6 +67,15 @@ class FieldProxy(object):
     __call__ = __getattr__
     __getitem__ = __getattr__
 
+    def __repr__(self):
+        return "<{0}: {1}>".format(type(self).__name__, expr_repr(self.id.prefix))
+
+
+@compile.when(FieldProxy)
+def compile_table(compile, expr, state):
+    compile(expr.id.prefix, state)
+
+
 # TODO: Schema support. Not only for table.
 # A database contains one or more named schemas, which in turn contain tables.
 # Schemas also contain other kinds of named objects, including data types, functions, and operators.

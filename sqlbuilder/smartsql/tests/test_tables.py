@@ -6,7 +6,7 @@ from sqlbuilder.smartsql import (
 )
 from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
 
-__all__ = ('TestTable', 'TestModelBasedTable', )
+__all__ = ('TestTable', 'TestModelBasedTable', 'TestFieldProxy', )
 
 
 class TestTable(TestCase):
@@ -213,5 +213,46 @@ class TestModelBasedTable(TestCase):
         )
         self.assertEqual(
             compile(CrossJoin(Author, Post, on=(Post.author_id == Author.id))),
+            ('"author" CROSS JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+
+
+class TestFieldProxy(TestCase):
+
+    def test_model(self):
+        author = T.author
+        post = T.post
+
+        self.assertIsInstance(author.first_name, Field)
+        self.assertEqual(
+            compile(author),
+            ('"author"', [])
+        )
+        self.assertEqual(
+            compile(author.first_name),
+            ('"author"."first_name"', [])
+        )
+        self.assertEqual(
+            compile(Join(author, post, on=(post.author_id == author.id))),
+            ('"author" JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(InnerJoin(author, post, on=(post.author_id == author.id))),
+            ('"author" INNER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(LeftJoin(author, post, on=(post.author_id == author.id))),
+            ('"author" LEFT OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(RightJoin(author, post, on=(post.author_id == author.id))),
+            ('"author" RIGHT OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(FullJoin(author, post, on=(post.author_id == author.id))),
+            ('"author" FULL OUTER JOIN "post" ON ("post"."author_id" = "author"."id")', [])
+        )
+        self.assertEqual(
+            compile(CrossJoin(author, post, on=(post.author_id == author.id))),
             ('"author" CROSS JOIN "post" ON ("post"."author_id" = "author"."id")', [])
         )
