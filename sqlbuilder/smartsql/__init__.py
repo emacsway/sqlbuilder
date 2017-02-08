@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 
 from sqlbuilder.smartsql.compiler import Compiler, State, cached_compile, compile
-from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATORS, PLACEHOLDER
+from sqlbuilder.smartsql.constants import CONTEXT, DEFAULT_DIALECT, LOOKUP_SEP, MAX_PRECEDENCE, OPERATOR, PLACEHOLDER
 from sqlbuilder.smartsql.exceptions import Error, MaxLengthError, OperatorNotFound
 from sqlbuilder.smartsql.expressions import (
     Operable, Expr, ExprList, CompositeExpr, Param, Parentheses, OmitParentheses,
@@ -80,23 +80,23 @@ compile.set_precedence(None, All, Distinct)
 
 
 from sqlbuilder.smartsql.datatypes import AbstractType, BaseType
-operator_registry.register(OPERATORS.ADD, (BaseType, BaseType), BaseType, Add)
-operator_registry.register(OPERATORS.SUB, (BaseType, BaseType), BaseType, Sub)
-operator_registry.register(OPERATORS.MUL, (BaseType, BaseType), BaseType, Mul)
-operator_registry.register(OPERATORS.DIV, (BaseType, BaseType), BaseType, Div)
-operator_registry.register(OPERATORS.GT, (BaseType, BaseType), BaseType, Gt)
-operator_registry.register(OPERATORS.LT, (BaseType, BaseType), BaseType, Lt)
-operator_registry.register(OPERATORS.GE, (BaseType, BaseType), BaseType, Ge)
-operator_registry.register(OPERATORS.LE, (BaseType, BaseType), BaseType, Le)
-operator_registry.register(OPERATORS.AND, (BaseType, BaseType), BaseType, And)
-operator_registry.register(OPERATORS.OR, (BaseType, BaseType), BaseType, Or)
-operator_registry.register(OPERATORS.EQ, (BaseType, BaseType), BaseType, Eq)
-operator_registry.register(OPERATORS.NE, (BaseType, BaseType), BaseType, Ne)
-operator_registry.register(OPERATORS.IS, (BaseType, BaseType), BaseType, Is)
-operator_registry.register(OPERATORS.IS_NOT, (BaseType, BaseType), BaseType, IsNot)
-operator_registry.register(OPERATORS.IN, (BaseType, BaseType), BaseType, In)
-operator_registry.register(OPERATORS.NOT_IN, (BaseType, BaseType), BaseType, NotIn)
-operator_registry.register(OPERATORS.RSHIFT, (BaseType, BaseType), BaseType, RShift)
-operator_registry.register(OPERATORS.LSHIFT, (BaseType, BaseType), BaseType, LShift)
-operator_registry.register(OPERATORS.LIKE, (BaseType, BaseType), BaseType, Like)
-operator_registry.register(OPERATORS.ILIKE, (BaseType, BaseType), BaseType, ILike)
+operator_registry.register(OPERATOR.ADD, (BaseType, BaseType), BaseType, Add)
+operator_registry.register(OPERATOR.SUB, (BaseType, BaseType), BaseType, Sub)
+operator_registry.register(OPERATOR.MUL, (BaseType, BaseType), BaseType, Mul)
+operator_registry.register(OPERATOR.DIV, (BaseType, BaseType), BaseType, Div)
+operator_registry.register(OPERATOR.GT, (BaseType, BaseType), BaseType, Gt)
+operator_registry.register(OPERATOR.LT, (BaseType, BaseType), BaseType, Lt)
+operator_registry.register(OPERATOR.GE, (BaseType, BaseType), BaseType, Ge)
+operator_registry.register(OPERATOR.LE, (BaseType, BaseType), BaseType, Le)
+operator_registry.register(OPERATOR.AND, (BaseType, BaseType), BaseType, And)
+operator_registry.register(OPERATOR.OR, (BaseType, BaseType), BaseType, Or)
+operator_registry.register(OPERATOR.EQ, (BaseType, BaseType), BaseType, Eq)
+operator_registry.register(OPERATOR.NE, (BaseType, BaseType), BaseType, Ne)
+operator_registry.register(OPERATOR.IS, (BaseType, BaseType), BaseType, Is)
+operator_registry.register(OPERATOR.IS_NOT, (BaseType, BaseType), BaseType, IsNot)
+operator_registry.register(OPERATOR.IN, (BaseType, BaseType), BaseType, In)
+operator_registry.register(OPERATOR.NOT_IN, (BaseType, BaseType), BaseType, NotIn)
+operator_registry.register(OPERATOR.RSHIFT, (BaseType, BaseType), BaseType, RShift)
+operator_registry.register(OPERATOR.LSHIFT, (BaseType, BaseType), BaseType, LShift)
+operator_registry.register(OPERATOR.LIKE, (BaseType, BaseType), BaseType, Like)
+operator_registry.register(OPERATOR.ILIKE, (BaseType, BaseType), BaseType, ILike)

@@ -1,5 +1,5 @@
 import sys
-from sqlbuilder.smartsql.constants import OPERATORS
+from sqlbuilder.smartsql.constants import OPERATOR
 from sqlbuilder.smartsql.expressions import Alias, Concat, Value, datatypeof, func
 from sqlbuilder.smartsql.operator_registry import operator_registry
 from sqlbuilder.smartsql.operators import (
@@ -25,105 +25,105 @@ class AbstractType(object):
 class BaseType(AbstractType):
 
     def __add__(self, other):
-        return self._op(OPERATORS.ADD, (self._expr, other))
+        return self._op(OPERATOR.ADD, (self._expr, other))
 
     def __radd__(self, other):
-        return self._op(OPERATORS.ADD, (other, self._expr))
+        return self._op(OPERATOR.ADD, (other, self._expr))
 
     def __sub__(self, other):
-        return self._op(OPERATORS.SUB, (self._expr, other))
+        return self._op(OPERATOR.SUB, (self._expr, other))
 
     def __rsub__(self, other):
-        return self._op(OPERATORS.SUB, (other, self._expr))
+        return self._op(OPERATOR.SUB, (other, self._expr))
 
     def __mul__(self, other):
-        return self._op(OPERATORS.MUL, (self._expr, other))
+        return self._op(OPERATOR.MUL, (self._expr, other))
 
     def __rmul__(self, other):
-        return self._op(OPERATORS.MUL, (other, self._expr))
+        return self._op(OPERATOR.MUL, (other, self._expr))
 
     def __div__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
+        return self._op(OPERATOR.DIV, (self._expr, other))
 
     def __rdiv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
+        return self._op(OPERATOR.DIV, (other, self._expr))
 
     def __truediv__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
+        return self._op(OPERATOR.DIV, (self._expr, other))
 
     def __rtruediv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
+        return self._op(OPERATOR.DIV, (other, self._expr))
 
     def __floordiv__(self, other):
-        return self._op(OPERATORS.DIV, (self._expr, other))
+        return self._op(OPERATOR.DIV, (self._expr, other))
 
     def __rfloordiv__(self, other):
-        return self._op(OPERATORS.DIV, (other, self._expr))
+        return self._op(OPERATOR.DIV, (other, self._expr))
 
     def __and__(self, other):
-        return self._op(OPERATORS.AND, (self._expr, other))
+        return self._op(OPERATOR.AND, (self._expr, other))
 
     def __rand__(self, other):
-        return self._op(OPERATORS.AND, (other, self._expr))
+        return self._op(OPERATOR.AND, (other, self._expr))
 
     def __or__(self, other):
-        return self._op(OPERATORS.OR, (self._expr, other))
+        return self._op(OPERATOR.OR, (self._expr, other))
 
     def __ror__(self, other):
-        return self._op(OPERATORS.OR, (other, self._expr))
+        return self._op(OPERATOR.OR, (other, self._expr))
 
     def __gt__(self, other):
-        return self._op(OPERATORS.GT, (self._expr, other))
+        return self._op(OPERATOR.GT, (self._expr, other))
 
     def __lt__(self, other):
-        return self._op(OPERATORS.LT, (self._expr, other))
+        return self._op(OPERATOR.LT, (self._expr, other))
 
     def __ge__(self, other):
-        return self._op(OPERATORS.GE, (self._expr, other))
+        return self._op(OPERATOR.GE, (self._expr, other))
 
     def __le__(self, other):
-        return self._op(OPERATORS.LE, (self._expr, other))
+        return self._op(OPERATOR.LE, (self._expr, other))
 
     def __eq__(self, other):
         if other is None:
             return self.is_(None)
         if is_list(other):
             return self.in_(other)
-        return self._op(OPERATORS.EQ, (self._expr, other))
+        return self._op(OPERATOR.EQ, (self._expr, other))
 
     def __ne__(self, other):
         if other is None:
             return self.is_not(None)
         if is_list(other):
             return self.not_in(other)
-        return self._op(OPERATORS.NE, (self._expr, other))
+        return self._op(OPERATOR.NE, (self._expr, other))
 
     def __rshift__(self, other):
-        return self._op(OPERATORS.RSHIFT, (self._expr, other))
+        return self._op(OPERATOR.RSHIFT, (self._expr, other))
 
     def __rrshift__(self, other):
-        return self._op(OPERATORS.RSHIFT, (other, self._expr))
+        return self._op(OPERATOR.RSHIFT, (other, self._expr))
 
     def __lshift__(self, other):
-        return self._op(OPERATORS.LSHIFT, (self._expr, other))
+        return self._op(OPERATOR.LSHIFT, (self._expr, other))
 
     def __rlshift__(self, other):
-        return self._op(OPERATORS.LSHIFT, (other, self._expr))
+        return self._op(OPERATOR.LSHIFT, (other, self._expr))
 
     def is_(self, other):
-        return self._op(OPERATORS.IS, (self._expr, other))
+        return self._op(OPERATOR.IS, (self._expr, other))
 
     def is_not(self, other):
-        return self._op(OPERATORS.IS_NOT, (self._expr, other))
+        return self._op(OPERATOR.IS_NOT, (self._expr, other))
 
     def in_(self, other):
-        return self._op(OPERATORS.IN, (self._expr, other))
+        return self._op(OPERATOR.IN, (self._expr, other))
 
     def not_in(self, other):
-        return self._op(OPERATORS.NOT_IN, (self._expr, other))
+        return self._op(OPERATOR.NOT_IN, (self._expr, other))
 
     def like(self, other, escape=Undef):
-        return self._op(OPERATORS.LIKE, (self._expr, other), escape=escape)
+        return self._op(OPERATOR.LIKE, (self._expr, other), escape=escape)
 
     def ilike(self, other, escape=Undef):
         return ILike(self._expr, other, escape=escape)

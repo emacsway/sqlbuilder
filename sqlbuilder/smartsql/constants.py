@@ -1,4 +1,4 @@
-__all__ = ('CONTEXT', 'DEFAULT_DIALECT', 'LOOKUP_SEP', 'MAX_PRECEDENCE', 'OPERATORS', 'PLACEHOLDER', )
+__all__ = ('CONTEXT', 'DEFAULT_DIALECT', 'LOOKUP_SEP', 'MAX_PRECEDENCE', 'OPERATOR', 'PLACEHOLDER',)
 
 
 LOOKUP_SEP = '__'
@@ -16,7 +16,7 @@ class CONTEXT:
     EXPR = 'EXPR'
     SELECT = 'SELECT'
 
-class OPERATORS:
+class OPERATOR:
     ADD = '+'
     SUB = '-'
     MUL = '*'
