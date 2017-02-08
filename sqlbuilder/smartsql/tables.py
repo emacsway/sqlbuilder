@@ -68,12 +68,12 @@ class FieldProxy(object):
     __getitem__ = __getattr__
 
     def __repr__(self):
-        return "<{0}: {1}>".format(type(self).__name__, expr_repr(self.id.prefix))
+        return "<{0}: {1}>".format(type(self).__name__, expr_repr(self.id._prefix))
 
 
 @compile.when(FieldProxy)
 def compile_table(compile, expr, state):
-    compile(expr.id.prefix, state)
+    compile(expr.id._prefix, state)
 
 
 # TODO: Schema support. Not only for table.

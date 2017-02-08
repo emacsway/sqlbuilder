@@ -220,8 +220,8 @@ class TestModelBasedTable(TestCase):
 class TestFieldProxy(TestCase):
 
     def test_model(self):
-        author = T.author
-        post = T.post
+        author = T.author.f
+        post = T.post.f
 
         self.assertIsInstance(author.first_name, Field)
         self.assertEqual(
