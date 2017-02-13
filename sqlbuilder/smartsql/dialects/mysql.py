@@ -59,22 +59,22 @@ def compile_concat(compile, expr, state):
 @compile.when(Insert)
 def compile_insert(compile, expr, state):
     state.sql.append("INSERT ")
-    if expr._ignore:
+    if expr.ignore:
         state.sql.append("IGNORE ")
     state.sql.append("INTO ")
-    compile(expr._table, state)
+    compile(expr.table, state)
     state.sql.append(SPACE)
-    compile(Parentheses(expr._fields), state)
-    if isinstance(expr._values, Query):
+    compile(Parentheses(expr.fields), state)
+    if isinstance(expr.values, Query):
         state.sql.append(SPACE)
-        compile(expr._values, state)
+        compile(expr.values, state)
     else:
         state.sql.append(" VALUES ")
-        compile(ExprList(*expr._values).join(', '), state)
-    if expr._on_duplicate_key_update:
+        compile(ExprList(*expr.values).join(', '), state)
+    if expr.on_duplicate_key_update:
         state.sql.append(" ON DUPLICATE KEY UPDATE ")
         first = True
-        for f, v in expr._on_duplicate_key_update:
+        for f, v in expr.on_duplicate_key_update:
             if first:
                 first = False
             else:
