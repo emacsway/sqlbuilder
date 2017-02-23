@@ -74,15 +74,15 @@ class TestSmartSQLLegacy(TestCase):
 
     def test_alias(self):
         self.assertEqual(
-            Q(T.tb).where(A('al') == 5).select(F.tb__cl__al),
+            Q(T.tb).where(F.tb__cl__al == 5).select(F.tb__cl__al),
             ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
         self.assertEqual(
-            Q(T.tb).where(A('al') == 5).select(T.tb.cl__al),
+            Q(T.tb).where(T.tb.cl__al == 5).select(T.tb.cl__al),
             ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
         self.assertEqual(
-            Q(T.tb).where(A('al') == 5).select(T.tb.cl.as_('al')),
+            Q(T.tb).where(T.tb.cl.as_('al') == 5).select(T.tb.cl.as_('al')),
             ('SELECT "tb"."cl" AS "al" FROM "tb" WHERE "al" = %s', [5, ], )
         )
 

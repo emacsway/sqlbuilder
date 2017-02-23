@@ -7,7 +7,7 @@ from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.constants import CONTEXT, PLACEHOLDER, MAX_PRECEDENCE
 from sqlbuilder.smartsql.exceptions import MaxLengthError
 from sqlbuilder.smartsql.pycompat import string_types
-from sqlbuilder.smartsql.utils import Undef, is_list
+from sqlbuilder.smartsql.utils import Undef, is_list, warn
 
 __all__ = (
     'Operable', 'Expr', 'ExprList', 'CompositeExpr', 'Param', 'Parentheses', 'OmitParentheses',
@@ -485,11 +485,14 @@ class Alias(Expr):
 
     __slots__ = ('expr', 'sql')
 
-    def __init__(self, alias, expr=None):
+    def __init__(self, expr=Undef, name=Undef):
+        if isinstance(expr, string_types):
+            warn('Alias(alias, expr)', 'Alias(name, expr)')
+            expr, name = name, expr
         self.expr = expr
-        if isinstance(alias, string_types):
-            alias = Name(alias)
-        super(Alias, self).__init__(alias)
+        if isinstance(name, string_types):
+            name = Name(name)
+        super(Alias, self).__init__(name)
 
 
 @compile.when(Alias)

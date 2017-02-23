@@ -254,7 +254,7 @@ class Select(Expr):
         return c
 
     def as_table(self, alias):
-        return factory.get(self).TableAlias(alias, self)
+        return factory.get(self).TableAlias(self, alias)
 
     def clone(self, *attrs):
         c = copy.copy(super(Select, self))

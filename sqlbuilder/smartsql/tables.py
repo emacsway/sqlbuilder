@@ -7,7 +7,7 @@ from sqlbuilder.smartsql.expressions import Expr, ExprList, OmitParentheses, Nam
 from sqlbuilder.smartsql.factory import factory
 from sqlbuilder.smartsql.fields import Field
 from sqlbuilder.smartsql.pycompat import string_types
-from sqlbuilder.smartsql.utils import same
+from sqlbuilder.smartsql.utils import same, warn
 
 __all__ = (
     'MetaTableSpace', 'T', 'MetaTable', 'FieldProxy', 'Table', 'TableAlias', 'TableJoin',
@@ -72,7 +72,7 @@ class FieldProxy(object):
 
 
 @compile.when(FieldProxy)
-def compile_table(compile, expr, state):
+def compile_fieldproxy(compile, expr, state):
     compile(expr.id._prefix, state)
 
 
@@ -104,7 +104,7 @@ class Table(MetaTable("NewBase", (object, ), {})):
             self._append_field(f)
 
     def as_(self, alias):
-        return factory.get(self).TableAlias(alias, self)
+        return factory.get(self).TableAlias(self, alias)
 
     def inner_join(self, right):
         return factory.get(self).TableJoin(self).inner_join(right)
@@ -186,7 +186,10 @@ class TableAlias(Table):
 
     __slots__ = ('_table',)
 
-    def __init__(self, name, table=None, *fields):
+    def __init__(self, table, name, *fields):
+        if isinstance(table, string_types):
+            warn('TableAlias(name, table, *fields)', 'TableAlias(table, name, *fields)')
+            table, name = name, table
         Table.__init__(self, name, *fields)
         self._table = table
         if not fields and isinstance(table, Table):

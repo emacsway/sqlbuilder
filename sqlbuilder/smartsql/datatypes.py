@@ -216,7 +216,7 @@ class BaseType(AbstractType):
         return func.Count(self._expr)
 
     def as_(self, alias):
-        return Alias(alias, self._expr)
+        return Alias(self._expr, alias)
 
     def between(self, start, end):
         return Between(self._expr, start, end)
