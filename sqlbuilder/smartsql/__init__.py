@@ -49,9 +49,9 @@ def qn(name, compile):
 
 A, C, E, P, TA, Q, QS = Alias, Condition, Expr, Placeholder, TableAlias, Query, Query
 
-compile.set_precedence(270, '.')
-compile.set_precedence(260, '::')
-compile.set_precedence(250, '[', ']')  # array element selection
+# compile.set_precedence(270, '.')
+# compile.set_precedence(260, '::')
+# compile.set_precedence(250, '[', ']')  # array element selection
 compile.set_precedence(240, Pos, Neg, (Unary, '+'), (Unary, '-'), '~')  # unary minus
 compile.set_precedence(230, '^')
 compile.set_precedence(220, Mul, Div, (Binary, '*'), (Binary, '/'), (Binary, '%'))
