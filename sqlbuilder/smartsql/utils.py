@@ -13,7 +13,26 @@ class UndefType(object):
     def __reduce__(self):
         return "Undef"
 
+
 Undef = UndefType()
+
+
+class AutoName(object):
+    def __init__(self, prefix="_auto_"):
+        self.__counter = 0
+        self.prefix = prefix
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.__counter += 1
+        return "{0}{1}".format(self.prefix, self.__counter)
+
+    next = __next__
+
+
+auto_name = AutoName()
 
 
 def is_allowed_attr(instance, key):
