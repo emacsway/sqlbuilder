@@ -22,6 +22,37 @@ __all__ = (
 SPACE = " "
 
 
+class settable(object):
+    """
+    alternatives:
+    1. mutable keyword argument:
+        query = query.where(T.author.first_name == 'Ivan', mutable=True)
+    2. Select.mutable() method:
+        query = query.mutable(True)
+        query.where(T.author.first_name == 'Ivan')
+    """
+
+    def __init__(self, property_name):
+        self._property_name = property_name
+        self._method = None
+
+    def __call__(self, method):
+        self._method = method
+        return self
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self._method
+        return types.MethodType(self._method, instance)
+
+    def __set__(self, instance, value):
+        if is_list(self._property_name):
+            for attr, val in zip(self._property_name, value):
+                setattr(instance, attr, val)
+        else:
+            setattr(instance, self._property_name, value)
+
+
 class Result(object):
     """Default implementation of Query class.
 
@@ -181,6 +212,7 @@ class Select(Expr):
         c._tables = c._tables.on(cond)
         return c
 
+    @settable('_where')
     def where(self, cond=None, op=operator.and_):
         if cond is None:
             return self._where
