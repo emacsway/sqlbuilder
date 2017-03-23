@@ -3,7 +3,7 @@ import copy
 import collections
 from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.constants import LOOKUP_SEP, CONTEXT
-from sqlbuilder.smartsql.expressions import Expr, ExprList, OmitParentheses, Name, expr_repr
+from sqlbuilder.smartsql.expressions import CompositeExpr, Expr, ExprList, OmitParentheses, Name, expr_repr
 from sqlbuilder.smartsql.factory import factory
 from sqlbuilder.smartsql.fields import Field
 from sqlbuilder.smartsql.pycompat import string_types
@@ -143,6 +143,10 @@ class Table(MetaTable("NewBase", (object, ), {})):
     def get_field(self, key):
         cache = self.f.__dict__
         if key in cache:
+            return cache[key]
+
+        if type(key) == tuple:
+            cache[key] = CompositeExpr(*(self.get_field(k) for k in key))
             return cache[key]
 
         parts = key.split(LOOKUP_SEP, 1)

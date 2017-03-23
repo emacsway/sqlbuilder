@@ -21,6 +21,14 @@ class TestTable(TestCase):
             ('"book"', [])
         )
         self.assertEqual(
+            compile(T.author.get_field(('first_name', 'last_name')) == ('fn1', 'ln2')),
+            ('"author"."first_name" = %s AND "author"."last_name" = %s', ['fn1', 'ln2'])
+        )
+        self.assertEqual(
+            compile(T.author.get_field(('first_name__a', 'last_name__b')) == ('fn1', 'ln2')),
+            ('"a" = %s AND "b" = %s', ['fn1', 'ln2'])
+        )
+        self.assertEqual(
             type(T.book__a),
             TA
         )
