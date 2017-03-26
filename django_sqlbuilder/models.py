@@ -141,15 +141,15 @@ class Table(smartsql.Table):
     def get_field(self, name):
         opts = self._model._meta
         parts = name.split(smartsql.LOOKUP_SEP, 1)
-        parts[0] = self.__mangle_field_name(parts[0])
+        parts[0] = self.__mangle_field(parts[0])
         # model attributes support
         if parts[0] == 'pk':
             parts[0] = opts.pk.column
         elif parts[0] in get_all_field_names(opts):
-            parts[0] = opts.get_field(parts[0]).column
+            parts[0] = self.__mangle_column(opts.get_field(parts[0]).column)
         return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
-    def __mangle_field_name(self, name):
+    def __mangle_field(self, name):
         model = self._model
         results = field_mangling.send(sender=self, field_name=name, model=model)
         results = [i[1] for i in results if i[1]]
