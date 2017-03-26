@@ -134,11 +134,7 @@ class Table(smartsql.Table):
             prefix = self
         elif isinstance(prefix, string_types):
             prefix = smartsql.Table(prefix)
-        result = []
-        for f in self._model._meta.local_fields:
-            if f.column:
-                result.append(prefix.get_field(f.name))
-        return result
+        return [prefix.get_field(f.name) for f in self._model._meta.local_fields if f.column]
 
     def get_field(self, name):
         opts = self._model._meta
