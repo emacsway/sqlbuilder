@@ -9,7 +9,7 @@ from django.db.models import Model
 from sqlbuilder import smartsql
 from sqlbuilder.smartsql.dialects import mysql
 from django_sqlbuilder.dialects import sqlite
-from django_sqlbuilder.signals import field_conversion
+from django_sqlbuilder.signals import field_conversion, field_mangling, column_mangling
 
 try:
     str = unicode  # Python 2.* compatible
@@ -118,9 +118,10 @@ class Table(smartsql.Table):
     def _get_q(self):
         if isinstance(self._q, collections.Callable):
             self._q = self._q(self)
-        elif self._q is None:
-            self._q = smartsql.factory.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
-        return self._q.clone()
+        elif self._q is not None:
+            return self._q.clone()
+        else:
+            return smartsql.factory.get(self).Query(self, result=Result(self._model)).fields(self.get_fields())
 
     def _set_q(self, val):
         self._q = val
@@ -138,15 +139,31 @@ class Table(smartsql.Table):
         return result
 
     def get_field(self, name):
-        m = self._model
+        opts = self._model._meta
         parts = name.split(smartsql.LOOKUP_SEP, 1)
+        parts[0] = self.__mangle_field_name(parts[0])
+        # model attributes support
+        if parts[0] == 'pk':
+            parts[0] = opts.pk.column
+        elif parts[0] in get_all_field_names(opts):
+            parts[0] = opts.get_field(parts[0]).column
+        return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
-        # Why do not to use responses, what returned by Signal.send()?
-        # In current way we can attach additional information to result
-        # mutable variable and pass it between signal's handlers.
-        result = {'field': parts[0], }
-        field_conversion.send(sender=self, result=result, field=parts[0], model=m)
-        parts[0] = result['field']
+    def __mangle_field_name(self, name):
+        model = self._model
+        results = field_mangling.send(sender=self, field_name=name, model=model)
+        results = [i[1] for i in results if i[1]]
+        if results:
+            # response in format tuple(priority: int, mangled_field_name: str)
+            results.sort(key=lambda x: x[0], reverse=True)  # Sort by priority
+            return results[0][1]
+
+        # Backward compatibility. Deprecated:
+        result = {'field': name, }
+        field_conversion.send(sender=self, result=result, field=name, model=model)
+        mangled_field_name = result['field']
+        if mangled_field_name != name:
+            return mangled_field_name
 
         # django-multilingual-ext support
         if 'modeltranslation' in settings.INSTALLED_APPS:
@@ -156,21 +173,26 @@ class Table(smartsql.Table):
             translator = None
         if translator:
             try:
-                trans_opts = translator.get_options_for_model(m)
-                if parts[0] in trans_opts.fields:
-                    parts[0] = build_localized_fieldname(parts[0], get_language())
+                trans_opts = translator.get_options_for_model(model)
+                if name in trans_opts.fields:
+                    return build_localized_fieldname(name, get_language())
             except NotRegistered:
                 pass
-        if hasattr(m.objects, 'localize_fieldname'):
-            parts[0] = m.objects.localize_fieldname(parts[0])
 
-        # model attributes support
-        if parts[0] == 'pk':
-            parts[0] = m._meta.pk.column
-        elif parts[0] in get_all_field_names(m._meta):
-            parts[0] = m._meta.get_field(parts[0]).column
+        if hasattr(model.objects, 'localize_fieldname'):
+            return model.objects.localize_fieldname(name)
 
-        return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
+        return name
+
+    def __mangle_column(self, column):
+        model = self._model
+        results = column_mangling.send(sender=self, column=column, model=model)
+        results = [i[1] for i in results if i[1]]
+        if results:
+            # response in format tuple(priority: int, mangled_column_name: str)
+            results.sort(key=lambda x: x[0], reverse=True)  # Sort by priority
+            return results[0][1]
+        return column
 
 
 @factory.register
