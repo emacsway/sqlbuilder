@@ -151,7 +151,7 @@ class Table(smartsql.Table):
 
     def __mangle_field(self, name):
         model = self._model
-        results = field_mangling.send(sender=self, field_name=name, model=model)
+        results = field_mangling.send(sender=self, field=name, model=model)
         results = [i[1] for i in results if i[1]]
         if results:
             # response in format tuple(priority: int, mangled_field_name: str)
@@ -185,8 +185,7 @@ class Table(smartsql.Table):
         return name
 
     def __mangle_column(self, column):
-        model = self._model
-        results = column_mangling.send(sender=self, column=column, model=model)
+        results = column_mangling.send(sender=self, column=column, model=self._model)
         results = [i[1] for i in results if i[1]]
         if results:
             # response in format tuple(priority: int, mangled_column_name: str)
