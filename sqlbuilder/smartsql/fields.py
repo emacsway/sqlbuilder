@@ -67,9 +67,9 @@ class Field(MetaField("NewBase", (Expr,), {})):
 
 
 @compile.when(Field)
-@cached_compile
+@cached_compile  # The cache depends on state.context
 def compile_field(compile, expr, state):
-    if expr._prefix is not None:
+    if expr._prefix is not None and state.context != CONTEXT.FIELD_NAME:
         state.auto_tables.append(expr._prefix)  # it's important to know the concrete alias of table.
         state.push("context", CONTEXT.FIELD_PREFIX)
         compile(expr._prefix, state)
@@ -108,10 +108,3 @@ class FieldList(ExprList):
         #     return self.__init__(*args[0])
         Operable.__init__(self)
         self.sql, self.data = ", ", list(args)
-
-
-@compile.when(FieldList)
-def compile_fieldlist(compile, expr, state):
-    state.push('context', CONTEXT.FIELD)
-    compile_exprlist(compile, expr, state)
-    state.pop()

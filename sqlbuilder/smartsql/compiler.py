@@ -130,13 +130,14 @@ class State(object):
 def cached_compile(f):
     @wraps(f)
     def deco(compile, expr, state):
-        if compile not in expr.__cached__:
+        cache_key = (compile, state.context)
+        if cache_key not in expr.__cached__:
             state.push('sql', [])
             f(compile, expr, state)
             # TODO: also cache state.tables?
-            expr.__cached__[compile] = ''.join(state.sql)
+            expr.__cached__[cache_key] = ''.join(state.sql)
             state.pop()
-        state.sql.append(expr.__cached__[compile])
+        state.sql.append(expr.__cached__[cache_key])
     return deco
 
 compile = Compiler()

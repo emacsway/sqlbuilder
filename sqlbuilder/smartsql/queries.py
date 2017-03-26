@@ -147,9 +147,6 @@ class Select(Expr):
         Operable.__init__(self)
         self._distinct = ExprList().join(", ")
         self._fields = FieldList().join(", ")
-        if tables is not None:
-            if not isinstance(tables, TableJoin):
-                tables = factory.get(self).TableJoin(tables)
         self._tables = tables
         self._where = None
         self._having = None
@@ -163,7 +160,7 @@ class Select(Expr):
         if tables is None:
             return self._tables
         c = self.clone('_tables')
-        c._tables = tables if isinstance(tables, TableJoin) else factory.get(c).TableJoin(tables)
+        c._tables = tables
         return c
 
     @opt_checker(["reset", ])
@@ -473,7 +470,7 @@ class Insert(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self.table = table
-        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (map or fields)))
         self.values = (tuple(map.values()),) if map else values
         self.ignore = ignore
         self.on_duplicate_key_update = tuple(
@@ -509,7 +506,9 @@ def compile_insert(compile, expr, state):
                 first = False
             else:
                 state.sql.append(", ")
+            state.context = CONTEXT.FIELD_NAME
             compile(f, state)
+            state.context = CONTEXT.EXPR
             state.sql.append(" = ")
             compile(v, state)
     state.pop()
@@ -520,7 +519,7 @@ class Update(Modify):
 
     def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
         self.table = table
-        self.fields = FieldList(*(k if isinstance(k, Expr) else Field(k) for k in (map or fields)))
+        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (map or fields)))
         self.values = tuple(map.values()) if map else values
         self.ignore = ignore
         self.where = where
@@ -544,8 +543,8 @@ def compile_update(compile, expr, state):
             state.sql.append(", ")
         state.context = CONTEXT.FIELD_NAME
         compile(field, state)
-        state.sql.append(" = ")
         state.context = CONTEXT.EXPR
+        state.sql.append(" = ")
         compile(value, state)
     state.context = CONTEXT.EXPR
     if expr.where:

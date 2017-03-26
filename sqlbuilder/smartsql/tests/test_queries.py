@@ -2,7 +2,7 @@ import operator
 from collections import OrderedDict
 from sqlbuilder.smartsql.tests.base import TestCase
 
-from sqlbuilder.smartsql import Q, T, func, FieldList, ExprList, Result, TableJoin, compile
+from sqlbuilder.smartsql import Q, T, func, FieldList, ExprList, Result, TableAlias, TableJoin, compile
 from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
 
 __all__ = ('TestQuery', 'TestResult', )
@@ -127,10 +127,10 @@ class TestQuery(TestCase):
         )
         self.assertEqual(
             type(q.tables()),
-            TableJoin
+            TableAlias
         )
         self.assertEqual(
-            compile(q.tables()),
+            compile(TableJoin(q.tables())),
             ('"author" AS "author_alias"', [])
         )
         self.assertEqual(
@@ -301,7 +301,7 @@ class TestQuery(TestCase):
             )), on_duplicate_key_update=OrderedDict((
                 (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
             ))),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q(T.stats).insert(OrderedDict((
@@ -322,7 +322,7 @@ class TestQuery(TestCase):
                     (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
                 ))
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES %s, %s, %s ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -336,7 +336,7 @@ class TestQuery(TestCase):
                     (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
                 ))
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES (%s, %s, %s), (%s, %s, %s) ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s), (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -345,7 +345,7 @@ class TestQuery(TestCase):
                 values=('author', 15, 1),
                 ignore=True
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") VALUES %s, %s, %s ON CONFLICT DO NOTHING', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES %s, %s, %s ON CONFLICT DO NOTHING', ['author', 15, 1])
         )
 
     def test_insert_select(self):
@@ -360,7 +360,7 @@ class TestQuery(TestCase):
                     (T.stats.counter, T.stats.counter + T.old_stats.counter),
                 ))
             ),
-            ('INSERT INTO "stats" ("stats"."object_type", "stats"."object_id", "stats"."counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON CONFLICT DO UPDATE SET "stats"."counter" = "stats"."counter" + "old_stats"."counter"', [])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + "old_stats"."counter"', [])
         )
 
     def test_update(self):
@@ -369,7 +369,7 @@ class TestQuery(TestCase):
                 (T.author.first_name, 'John'),
                 (T.author.last_login, func.NOW()),
             ))),
-            ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
+            ('UPDATE "author" SET "first_name" = %s, "last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
         )
         self.assertEqual(
             Q(T.author).where(T.author.id == 10).update(OrderedDict((
@@ -384,7 +384,7 @@ class TestQuery(TestCase):
             ).where(T.author.id == 10).update(
                 values=('John', func.NOW())
             ),
-            ('UPDATE "author" SET "author"."first_name" = %s, "author"."last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
+            ('UPDATE "author" SET "first_name" = %s, "last_login" = NOW() WHERE "author"."id" = %s', ['John', 10])
         )
 
     def test_delete(self):

@@ -132,21 +132,24 @@ class Table(smartsql.Table):
     def get_fields(self, prefix=None):
         if prefix is None:
             prefix = self
+        elif isinstance(prefix, string_types):
+            prefix = smartsql.Table(prefix)
         result = []
         for f in self._model._meta.local_fields:
             if f.column:
-                result.append(smartsql.Field(f.column, prefix))
+                result.append(prefix.get_field(f.name))
         return result
 
     def get_field(self, name):
         opts = self._model._meta
         parts = name.split(smartsql.LOOKUP_SEP, 1)
-        parts[0] = self.__mangle_field(parts[0])
+        name = self.__mangle_field(parts[0])
         # model attributes support
-        if parts[0] == 'pk':
-            parts[0] = opts.pk.column
-        elif parts[0] in get_all_field_names(opts):
-            parts[0] = self.__mangle_column(opts.get_field(parts[0]).column)
+        if name == 'pk':
+            name = opts.pk.column
+        elif name in get_all_field_names(opts):
+            name = opts.get_field(name).column
+        parts[0] = self.__mangle_column(name)
         return super(Table, self).get_field(smartsql.LOOKUP_SEP.join(parts))
 
     def __mangle_field(self, name):
