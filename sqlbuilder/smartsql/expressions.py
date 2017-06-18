@@ -516,7 +516,7 @@ class Name(object):
 
 class NameCompiler(object):
 
-    _translation_map = (
+    _translation_mapping = (
         ("\\", "\\\\"),
         ("\000", "\\0"),
         ('\b', '\\b'),
@@ -537,7 +537,7 @@ class NameCompiler(object):
         state.sql.append(self._delimiter)
         name = expr.name
         name = name.replace(self._delimiter, self._escape_delimiter + self._delimiter)
-        for k, v in self._translation_map:
+        for k, v in self._translation_mapping:
             name = name.replace(k, v)
         if len(name) > self._get_max_length(state):
             raise MaxLengthError("The length of name {0!r} is more than {1}".format(name, self._max_length))
@@ -565,7 +565,7 @@ class Value(object):
 
 class ValueCompiler(object):
 
-    _translation_map = (
+    _translation_mapping = (
         ("\\", "\\\\"),
         ("\000", "\\0"),
         ('\b', '\\b'),
@@ -585,7 +585,7 @@ class ValueCompiler(object):
         state.sql.append(self._delimiter)
         value = str(expr.value)
         value = value.replace(self._delimiter, self._escape_delimiter + self._delimiter)
-        for k, v in self._translation_map:
+        for k, v in self._translation_mapping:
             value = value.replace(k, v)
         state.sql.append(value)
         state.sql.append(self._delimiter)
