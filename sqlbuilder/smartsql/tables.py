@@ -247,6 +247,8 @@ class TableJoin(object):
     def join(self, join_type, right):
         if not isinstance(right, TableJoin) or right.left():
             right = type(self)(right, left=self)
+        else:
+            right = copy.copy(right)
         right = right.left(self).join_type(join_type)
         return right
 

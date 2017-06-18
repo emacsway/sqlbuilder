@@ -150,6 +150,22 @@ class TestTable(TestCase):
             ('SELECT `al2`.`id` FROM `tb1` INNER JOIN `tb1` AS `al2` ON (`al2`.`parent_id` = `tb1`.`id`) USE INDEX (`index1`, `index2`)', [], )
         )
 
+    def test_issue_20(self):
+        t1, t2 = T.tb1, T.tb2
+        tj = t2.on(t1.id == t2.id)
+        self.assertEqual(
+            compile(tj),
+            ('"tb2" ON ("tb1"."id" = "tb2"."id")', [])
+        )
+        self.assertEqual(
+            compile(t1 + tj),
+            ('"tb1" LEFT OUTER JOIN "tb2" ON ("tb1"."id" = "tb2"."id")', [])
+        )
+        self.assertEqual(
+            compile(t1 + tj),
+            ('"tb1" LEFT OUTER JOIN "tb2" ON ("tb1"."id" = "tb2"."id")', [])
+        )
+
 
 class PropertyDescriptor(object):
     _field = None
