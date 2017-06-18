@@ -388,7 +388,7 @@ class Query(Executable, Select):
     def insert(self, key_values=None, **kw):
         kw.setdefault('table', self._tables)
         kw.setdefault('fields', self._fields)
-        return self.result(factory.get(self).Insert(map=key_values, **kw)).insert()
+        return self.result(factory.get(self).Insert(mapping=key_values, **kw)).insert()
 
     def insert_many(self, fields, values, **kw):
         # Deprecated
@@ -400,7 +400,7 @@ class Query(Executable, Select):
         kw.setdefault('where', self._where)
         kw.setdefault('order_by', self._order_by)
         kw.setdefault('limit', self._limit)
-        return self.result(factory.get(self).Update(map=key_values, **kw)).update()
+        return self.result(factory.get(self).Update(mapping=key_values, **kw)).update()
 
     def delete(self, **kw):
         kw.setdefault('table', self._tables)
@@ -468,10 +468,10 @@ class Modify(object):
 @factory.register
 class Insert(Modify):
 
-    def __init__(self, table, map=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
+    def __init__(self, table, mapping=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
         self.table = table
-        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (map or fields)))
-        self.values = (tuple(map.values()),) if map else values
+        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (mapping or fields)))
+        self.values = (tuple(mapping.values()),) if mapping else values
         self.ignore = ignore
         self.on_duplicate_key_update = tuple(
             (k if isinstance(k, Expr) else Field(k), v)
@@ -517,10 +517,10 @@ def compile_insert(compile, expr, state):
 @factory.register
 class Update(Modify):
 
-    def __init__(self, table, map=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
+    def __init__(self, table, mapping=None, fields=None, values=None, ignore=False, where=None, order_by=None, limit=None):
         self.table = table
-        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (map or fields)))
-        self.values = tuple(map.values()) if map else values
+        self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (mapping or fields)))
+        self.values = tuple(mapping.values()) if mapping else values
         self.ignore = ignore
         self.where = where
         self.order_by = order_by
