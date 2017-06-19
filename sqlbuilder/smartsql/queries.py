@@ -468,15 +468,21 @@ class Modify(object):
 @factory.register
 class Insert(Modify):
 
-    def __init__(self, table, mapping=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None):
+    def __init__(self, table, mapping=None, fields=None, values=None, ignore=False, on_duplicate_key_update=None, duplicate_key=None):
         self.table = table
         self.fields = FieldList(*(k if isinstance(k, Expr) else table.get_field(k) for k in (mapping or fields)))
         self.values = (tuple(mapping.values()),) if mapping else values
         self.ignore = ignore
         self.on_duplicate_key_update = tuple(
-            (k if isinstance(k, Expr) else Field(k), v)
+            (k if isinstance(k, Expr) else table.get_field(k), v)
             for k, v in on_duplicate_key_update.items()
         ) if on_duplicate_key_update else None
+        if duplicate_key:
+            if not is_list(duplicate_key):
+                duplicate_key = (duplicate_key,)
+            self.duplicate_key = FieldList(*(i if isinstance(i, Expr) else table.get_field(i) for i in duplicate_key))
+        else:
+            self.duplicate_key = None
 
 
 @compile.when(Insert)
@@ -499,7 +505,13 @@ def compile_insert(compile, expr, state):
     if expr.ignore:
         state.sql.append(" ON CONFLICT DO NOTHING")
     elif expr.on_duplicate_key_update:
-        state.sql.append(" ON CONFLICT DO UPDATE SET ")
+        state.sql.append(" ON CONFLICT")
+        if expr.duplicate_key:
+            state.sql.append(SPACE)
+            state.context = CONTEXT.FIELD_NAME
+            compile(Parentheses(expr.duplicate_key), state)
+            state.context = CONTEXT.EXPR
+        state.sql.append(" DO UPDATE SET ")
         first = True
         for f, v in expr.on_duplicate_key_update:
             if first:

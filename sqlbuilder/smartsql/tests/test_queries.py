@@ -300,8 +300,8 @@ class TestQuery(TestCase):
                 (T.stats.counter, 1),
             )), on_duplicate_key_update=OrderedDict((
                 (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
-            ))),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            )), duplicate_key=(T.stats.object_type, T.stats.object_id)),
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT ("object_type", "object_id") DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q(T.stats).insert(OrderedDict((
@@ -310,8 +310,8 @@ class TestQuery(TestCase):
                 ('counter', 1),
             )), on_duplicate_key_update=OrderedDict((
                 ('counter', T.stats.counter + func.VALUES(T.stats.counter)),
-            ))),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            )), duplicate_key=('object_type', 'object_id')),
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s) ON CONFLICT ("object_type", "object_id") DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -320,9 +320,10 @@ class TestQuery(TestCase):
                 values=('author', 15, 1),
                 on_duplicate_key_update=OrderedDict((
                     (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
-                ))
+                )),
+                duplicate_key=(T.stats.object_type, T.stats.object_id)
             ),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES %s, %s, %s ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES %s, %s, %s ON CONFLICT ("object_type", "object_id") DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -334,9 +335,10 @@ class TestQuery(TestCase):
                 ),
                 on_duplicate_key_update=OrderedDict((
                     (T.stats.counter, T.stats.counter + func.VALUES(T.stats.counter)),
-                ))
+                )),
+                duplicate_key=(T.stats.object_type, T.stats.object_id)
             ),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s), (%s, %s, %s) ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") VALUES (%s, %s, %s), (%s, %s, %s) ON CONFLICT ("object_type", "object_id") DO UPDATE SET "counter" = "stats"."counter" + VALUES("stats"."counter")', ['author', 15, 1, 'author', 16, 1])
         )
         self.assertEqual(
             Q().fields(
@@ -358,9 +360,10 @@ class TestQuery(TestCase):
                 ).tables(T.old_stats),
                 on_duplicate_key_update=OrderedDict((
                     (T.stats.counter, T.stats.counter + T.old_stats.counter),
-                ))
+                )),
+                duplicate_key=(T.stats.object_type, T.stats.object_id)
             ),
-            ('INSERT INTO "stats" ("object_type", "object_id", "counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON CONFLICT DO UPDATE SET "counter" = "stats"."counter" + "old_stats"."counter"', [])
+            ('INSERT INTO "stats" ("object_type", "object_id", "counter") SELECT "old_stats"."object_type", "old_stats"."object_id", "old_stats"."counter" FROM "old_stats" ON CONFLICT ("object_type", "object_id") DO UPDATE SET "counter" = "stats"."counter" + "old_stats"."counter"', [])
         )
 
     def test_update(self):
