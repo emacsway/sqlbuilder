@@ -8,8 +8,10 @@ You can use SmartSQL separatelly, or with Django, or with super-lightweight `Asc
 
 * Home Page: https://bitbucket.org/emacsway/sqlbuilder
 * Docs: http://sqlbuilder.readthedocs.io/
-* Browse source code: https://bitbucket.org/emacsway/sqlbuilder/src
-* Get source code: ``hg clone https://bitbucket.org/emacsway/sqlbuilder``
+* Browse source code (canonical repo): https://bitbucket.org/emacsway/sqlbuilder/src
+* GitHub mirror: https://github.com/emacsway/sqlbuilder
+* Get source code (canonical repo): ``hg clone https://bitbucket.org/emacsway/sqlbuilder``
+* Get source code (mirror): ``git clone https://github.com/emacsway/sqlbuilder.git``
 * PyPI: https://pypi.python.org/pypi/sqlbuilder
 
 LICENSE:
