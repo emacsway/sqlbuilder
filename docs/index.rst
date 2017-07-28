@@ -1236,7 +1236,7 @@ Intersect results matched by all rules: ['FROM', 'INNER JOIN', Intersect(Exact('
 
 The difference between Filter and Union in that, Filter handles only collection of matched elements by previous rules, and Union - a full collection.
 
-P.S.: See also `article about SQLBuilder in English <https://emacsway.bitbucket.io/en/storm-orm/#do-you-really-need-query-object>`__ and `in Russian <https://emacsway.bitbucket.io/ru/storm-orm/#query-object>`__.
+P.S.: See also `article about SQLBuilder in English <https://emacsway.github.io/en/storm-orm/#do-you-really-need-query-object>`__ and `in Russian <https://emacsway.github.io/ru/storm-orm/#query-object>`__.
 
 
 Indices and tables
