@@ -11,7 +11,7 @@ SmartSQL - lightweight Python sql builder, follows the `KISS principle <http://e
 You can use SmartSQL separatelly, or with Django, or with super-lightweight `Ascetic ORM <https://bitbucket.org/emacsway/ascetic>`_, or with super-lightweight datamapper `Openorm <http://code.google.com/p/openorm/source/browse/python/>`_ (`miror <https://bitbucket.org/emacsway/openorm/src/default/python/>`__) etc.
 
 * Home Page: https://bitbucket.org/emacsway/sqlbuilder
-* Docs: http://sqlbuilder.readthedocs.io/
+* Docs: https://sqlbuilder.readthedocs.io/
 * Browse source code (canonical repo): https://bitbucket.org/emacsway/sqlbuilder/src
 * GitHub mirror: https://github.com/emacsway/sqlbuilder
 * Get source code (canonical repo): ``hg clone https://bitbucket.org/emacsway/sqlbuilder``
