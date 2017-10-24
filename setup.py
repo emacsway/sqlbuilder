@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2011-2013 Ivan Zakrevsky and contributors.
 import os.path
+from io import open
 from setuptools import setup, find_packages
 
 app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
@@ -16,7 +17,7 @@ setup(
     author = "Ivan Zakrevsky and contributors",
     author_email = "ivzak@yandex.ru",
     description = "SmartSQL - lightweight sql builder.",
-    long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
+    long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst'), encoding='utf-8').read(),
     license = "BSD License",
     keywords = "SQL database",
     classifiers = [
