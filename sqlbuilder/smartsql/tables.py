@@ -93,10 +93,11 @@ class Table(MetaTable("NewBase", (object, ), {})):
 
     __slots__ = ('_name', '__cached__', 'f', '_fields', '__factory__')
 
-    def __init__(self, name, *fields):
+    def __init__(self, name, *fields, **kwargs):
         if isinstance(name, string_types):
             name = Name(name)
         self._name = name
+        # self._parent = kwargs.get('parent')
         self.__cached__ = {}
         self.f = FieldProxy(self)
         self._fields = collections.OrderedDict()
