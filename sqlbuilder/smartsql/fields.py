@@ -82,8 +82,8 @@ class Subfield(Expr):
 
     __slots__ = ('name', 'parent')
 
-    def __init__(self, name, parent):
-        Operable.__init__(self)
+    def __init__(self, name, parent, datatype=None):
+        Operable.__init__(self, datatype)
         self.parent = parent
         if isinstance(name, string_types):
             name = Name(name)
