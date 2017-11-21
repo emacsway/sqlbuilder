@@ -80,9 +80,9 @@ def compile_field(compile, expr, state):
 
 class Subfield(Expr):
 
-    __slots__ = ('parent', 'name')
+    __slots__ = ('name', 'parent')
 
-    def __init__(self, parent, name):
+    def __init__(self, name, parent):
         Operable.__init__(self)
         self.parent = parent
         if isinstance(name, string_types):
