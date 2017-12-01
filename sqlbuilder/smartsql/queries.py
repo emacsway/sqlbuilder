@@ -335,19 +335,21 @@ def compile_query(compile, expr, state):
     if expr._for_update:
         state.sql.append(" FOR UPDATE")
 
-    state.push('join_tables', [])
-    state.push('sql', [])
-    state.push('params', [])
-    state.context = CONTEXT.TABLE
-    state.sql.append(" FROM ")
-    compile(expr.tables(), state)
-    tables_sql = state.sql
-    tables_params = state.params
-    state.pop()
-    state.pop()
-    state.pop()
-    state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
-    state.params[tables_params_pos:tables_params_pos] = tables_params
+    if expr.tables():
+        state.push('join_tables', [])
+        state.push('sql', [])
+        state.push('params', [])
+        state.context = CONTEXT.TABLE
+        state.sql.append(" FROM ")
+        compile(expr.tables(), state)
+        tables_sql = state.sql
+        tables_params = state.params
+        state.pop()
+        state.pop()
+        state.pop()
+        state.sql[tables_sql_pos:tables_sql_pos] = tables_sql
+        state.params[tables_params_pos:tables_params_pos] = tables_params
+
     state.pop()
     state.pop()
 

@@ -292,6 +292,15 @@ class TestQuery(TestCase):
             ('SELECT COUNT(1) AS "count_value" FROM (SELECT * FROM "author") AS "count_list"', [])
         )
 
+    def test_t25(self):
+        self.assertEqual(
+            compile(Q().fields(
+                Q().tables(T.a).fields('*').as_table('tot'),
+                Q().tables(T.a).fields('*').as_table('another_tot')
+            )),
+            ('SELECT (SELECT * FROM "a") AS "tot", (SELECT * FROM "a") AS "another_tot"', [])
+        )
+
     def test_insert(self):
         self.assertEqual(
             Q(T.stats).insert(OrderedDict((

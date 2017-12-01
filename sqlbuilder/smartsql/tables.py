@@ -207,7 +207,7 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
-    if expr._table is not None and state.context == CONTEXT.TABLE:
+    if expr._table is not None and state.context in (CONTEXT.TABLE, CONTEXT.FIELD):
         compile(expr._table, state)
         state.sql.append(' AS ')
     compile(expr._name, state)

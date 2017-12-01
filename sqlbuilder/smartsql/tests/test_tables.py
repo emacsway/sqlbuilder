@@ -1,7 +1,7 @@
 from sqlbuilder.smartsql.tests.base import TestCase
 from sqlbuilder.smartsql import (
     Q, T, Table, TableJoin, TA, E, Field,
-    Join, InnerJoin, LeftJoin, RightJoin, FullJoin, CrossJoin,
+    Join, InnerJoin, LeftJoin, RightJoin, FullJoin, CrossJoin, State, CONTEXT,
     model_registry, compile
 )
 from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
@@ -32,16 +32,22 @@ class TestTable(TestCase):
             type(T.book__a),
             TA
         )
+        state = State()
+        state.push("context", CONTEXT.FIELD_PREFIX)
+        compile(T.book__a, state)
         self.assertEqual(
-            compile(T.book__a),
+            (''.join(state.sql), state.params),
             ('"a"', [])
         )
         self.assertEqual(
             type(T.book.as_('a')),
             TA
         )
+        state = State()
+        state.push("context", CONTEXT.FIELD_PREFIX)
+        compile(T.book.as_('a'), state)
         self.assertEqual(
-            compile(T.book.as_('a')),
+            (''.join(state.sql), state.params),
             ('"a"', [])
         )
         ta = T.book.as_('a')
