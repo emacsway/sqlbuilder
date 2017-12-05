@@ -1,4 +1,5 @@
 import operator
+import datetime
 from collections import OrderedDict
 from sqlbuilder.smartsql.tests.base import TestCase
 
@@ -292,14 +293,7 @@ class TestQuery(TestCase):
             ('SELECT COUNT(1) AS "count_value" FROM (SELECT * FROM "author") AS "count_list"', [])
         )
 
-    def test_t25(self):
-        self.assertEqual(
-            compile(Q().fields(
-                Q().tables(T.a).fields(F('*').count()).as_table('tot'),
-                Q().tables(T.a).fields(F('*').count()).as_table('another_tot')
-            )),
-            ('SELECT (SELECT COUNT(*) FROM "a") AS "tot", (SELECT COUNT(*) FROM "a") AS "another_tot"', [])
-        )
+    def test_t25_1(self):
         self.assertEqual(
             compile(Q().fields(
                 Q().tables(T.a).fields(F('*').count()).as_('tot'),
@@ -307,6 +301,54 @@ class TestQuery(TestCase):
             )),
             ('SELECT (SELECT COUNT(*) FROM "a") AS "tot", (SELECT COUNT(*) FROM "a") AS "another_tot"', [])
         )
+
+    def test_t25_2(self):
+        product = T.sales_product
+        sales = T.sales_sale
+        category = T.sales_category
+        categoryassignment = T.sales_categoryassignment
+        company_id = 1
+        start_date = datetime.datetime(2017, 12, 1, 0, 0, 0)
+        end_date = datetime.datetime(2017, 12, 23, 23, 59, 59)
+
+        joins = (sales & product).on(sales.product == product.pk)
+        where = (product.company_id == company_id) & (sales.created_at.between(func.date(start_date), func.date(end_date)))
+
+        inner_table = Q().tables(
+            (joins + categoryassignment).on(categoryassignment.product == product.pk)
+        ).fields(
+                categoryassignment.category_id.as_('category_id'),
+                func.date(sales.created_at).as_('date'),
+                func.coalesce(func.sum(sales.quantity)).as_('quantity')
+        ).where(
+            where
+        ).group_by(func.date(sales.created_at), categoryassignment.category_id)\
+            .as_table('g')
+
+        category_quantity_breakdown_q = Q().tables(
+            (inner_table + category).on(inner_table.category_id == category.pk)
+        ).fields(
+                category.id,
+                category.name,
+                func.json_agg(inner_table).as_('days')
+        ).group_by(
+            category.id, category.name
+        )
+        self.assertEqual(compile(category_quantity_breakdown_q), (
+            'SELECT "sales_category"."id", "sales_category"."name", JSON_AGG("g") AS "days" '
+            'FROM (SELECT "sales_categoryassignment"."category_id" AS '
+            '"category_id", DATE("sales_sale"."created_at") AS "date", '
+            'COALESCE(SUM("sales_sale"."quantity")) AS "quantity" FROM "sales_sale" INNER '
+            'JOIN "sales_product" ON ("sales_sale"."product" = "sales_product"."pk") LEFT '
+            'OUTER JOIN "sales_categoryassignment" ON '
+            '("sales_categoryassignment"."product" = "sales_product"."pk") WHERE '
+            '"sales_product"."company_id" = %s AND "sales_sale"."created_at" BETWEEN '
+            'DATE(%s) AND DATE(%s) GROUP BY DATE("sales_sale"."created_at"), '
+            '"sales_categoryassignment"."category_id") AS "g" LEFT OUTER JOIN '
+            '"sales_category" ON ("g"."category_id" = "sales_category"."pk") GROUP BY '
+            '"sales_category"."id", "sales_category"."name"',
+            [company_id, start_date, end_date]
+        ))
 
     def test_insert(self):
         self.assertEqual(

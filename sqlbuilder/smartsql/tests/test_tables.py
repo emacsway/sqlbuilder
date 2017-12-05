@@ -40,6 +40,10 @@ class TestTable(TestCase):
             ('"a"', [])
         )
         self.assertEqual(
+            compile(T.book__a),
+            ('"a"', [])
+        )
+        self.assertEqual(
             type(T.book.as_('a')),
             TA
         )
@@ -48,6 +52,10 @@ class TestTable(TestCase):
         compile(T.book.as_('a'), state)
         self.assertEqual(
             (''.join(state.sql), state.params),
+            ('"a"', [])
+        )
+        self.assertEqual(
+            compile(T.book.as_('a')),
             ('"a"', [])
         )
         ta = T.book.as_('a')
