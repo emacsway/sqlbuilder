@@ -2,7 +2,7 @@ import operator
 from collections import OrderedDict
 from sqlbuilder.smartsql.tests.base import TestCase
 
-from sqlbuilder.smartsql import Q, T, func, FieldList, ExprList, Result, TableAlias, TableJoin, compile
+from sqlbuilder.smartsql import Q, T, F, func, FieldList, ExprList, Result, TableAlias, TableJoin, compile
 from sqlbuilder.smartsql.dialects.mysql import compile as mysql_compile
 
 __all__ = ('TestQuery', 'TestResult', )
@@ -295,10 +295,17 @@ class TestQuery(TestCase):
     def test_t25(self):
         self.assertEqual(
             compile(Q().fields(
-                Q().tables(T.a).fields('*').as_table('tot'),
-                Q().tables(T.a).fields('*').as_table('another_tot')
+                Q().tables(T.a).fields(F('*').count()).as_table('tot'),
+                Q().tables(T.a).fields(F('*').count()).as_table('another_tot')
             )),
-            ('SELECT (SELECT * FROM "a") AS "tot", (SELECT * FROM "a") AS "another_tot"', [])
+            ('SELECT (SELECT COUNT(*) FROM "a") AS "tot", (SELECT COUNT(*) FROM "a") AS "another_tot"', [])
+        )
+        self.assertEqual(
+            compile(Q().fields(
+                Q().tables(T.a).fields(F('*').count()).as_('tot'),
+                Q().tables(T.a).fields(F('*').count()).as_('another_tot')
+            )),
+            ('SELECT (SELECT COUNT(*) FROM "a") AS "tot", (SELECT COUNT(*) FROM "a") AS "another_tot"', [])
         )
 
     def test_insert(self):

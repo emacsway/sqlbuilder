@@ -207,6 +207,8 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
+    # TODO: Do we really need CONTEXT.FIELD here?
+    # https://bitbucket.org/emacsway/sqlbuilder/issues/25/build-query-without-a-from-clause#comment-41708998
     if expr._table is not None and state.context in (CONTEXT.TABLE, CONTEXT.FIELD):
         compile(expr._table, state)
         state.sql.append(' AS ')
