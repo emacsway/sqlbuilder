@@ -317,20 +317,21 @@ class TestQuery(TestCase):
         inner_table = Q().tables(
             (joins + categoryassignment).on(categoryassignment.product == product.pk)
         ).fields(
-                categoryassignment.category_id.as_('category_id'),
-                func.date(sales.created_at).as_('date'),
-                func.coalesce(func.sum(sales.quantity)).as_('quantity')
+            categoryassignment.category_id.as_('category_id'),
+            func.date(sales.created_at).as_('date'),
+            func.coalesce(func.sum(sales.quantity)).as_('quantity')
         ).where(
             where
-        ).group_by(func.date(sales.created_at), categoryassignment.category_id)\
-            .as_table('g')
+        ).group_by(
+            func.date(sales.created_at), categoryassignment.category_id
+        ).as_table('g')
 
         category_quantity_breakdown_q = Q().tables(
             (inner_table + category).on(inner_table.category_id == category.pk)
         ).fields(
-                category.id,
-                category.name,
-                func.json_agg(inner_table).as_('days')
+            category.id,
+            category.name,
+            func.json_agg(inner_table).as_('days')
         ).group_by(
             category.id, category.name
         )
