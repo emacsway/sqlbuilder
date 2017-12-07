@@ -39,6 +39,9 @@ class Executor(object):
         for child in self._children:
             child._update_cache()
 
+    def get_data_key(self, field):
+        return self.compile(field)[0]
+
     def __call__(self, expr, state=None):
         cls = expr.__class__
         for c in cls.__mro__:
@@ -73,4 +76,4 @@ class State(object):
 
 @execute.when(Field)
 def execute_field(execute, expr, state):
-    return state.data[execute.compile(expr)[0]]
+    return state.data[execute.get_data_key(expr)]

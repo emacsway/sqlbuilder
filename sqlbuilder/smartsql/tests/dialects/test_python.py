@@ -56,7 +56,7 @@ class Mapper(object):
     def get_sql_values(self, obj):
         data = {}
         for field in self.fields.values():
-            key = smartsql.compile(self.sql_table.get_field(field.column))[0]
+            key = python.execute.get_data_key(self.sql_table.get_field(field.column))
             data[key] = field.get_value(obj)
         return data
 
