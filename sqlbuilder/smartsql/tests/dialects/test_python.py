@@ -54,11 +54,11 @@ class Mapper(object):
         return [prefix.get_field(f.name) for f in self.fields.values()]
 
     def get_sql_values(self, obj):
-        data = {}
+        row = {}
         for field in self.fields.values():
-            key = python.execute.get_data_key(self.sql_table.get_field(field.column))
-            data[key] = field.get_value(obj)
-        return data
+            key = python.execute.get_row_key(self.sql_table.get_field(field.column))
+            row[key] = field.get_value(obj)
+        return row
 
 
 author_mapper = Mapper(Author, 'author', (
@@ -78,7 +78,7 @@ class TestExecutor(TestCase):
     def test_field(self):
         obj = Author('Ivan', 'Zakrevsky')
         state = python.State()
-        state.data.update(author_mapper.get_sql_values(obj))
+        state.row.update(author_mapper.get_sql_values(obj))
         first_name = python.execute(author_mapper.sql_table.f.first_name, state)
         self.assertEqual(first_name, 'Ivan')
         last_name = python.execute(author_mapper.sql_table.f.last_name, state)

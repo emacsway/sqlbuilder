@@ -39,7 +39,7 @@ class Executor(object):
         for child in self._children:
             child._update_cache()
 
-    def get_data_key(self, field):
+    def get_row_key(self, field):
         return self.compile(field)[0]
 
     def __call__(self, expr, state=None):
@@ -56,7 +56,7 @@ execute = Executor()
 class State(object):
 
     def __init__(self):
-        self.data = {}
+        self.row = {}
         self._stack = []
         self.auto_tables = []
         self.join_tables = []
@@ -76,4 +76,4 @@ class State(object):
 
 @execute.when(Field)
 def execute_field(execute, expr, state):
-    return state.data[execute.get_data_key(expr)]
+    return state.row[execute.get_row_key(expr)]
