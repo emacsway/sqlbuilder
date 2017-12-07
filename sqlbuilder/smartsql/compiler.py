@@ -64,8 +64,6 @@ class Compiler(object):
         if inner_precedence < outer_precedence:
             parentheses = True
 
-        state.callers.insert(0, expr.__class__)
-
         if parentheses:
             state.sql.append('(')
 
@@ -78,7 +76,6 @@ class Compiler(object):
 
         if parentheses:
             state.sql.append(')')
-        state.callers.pop(0)
         state.precedence = outer_precedence
 
     def get_inner_precedence(self, cls_or_expr):
@@ -109,7 +106,6 @@ class State(object):
         self.sql = []
         self.params = []
         self._stack = []
-        self.callers = []
         self.auto_tables = []
         self.join_tables = []
         self.context = CONTEXT.QUERY

@@ -302,10 +302,7 @@ class CompositeExpr(object):
 
 @compile.when(CompositeExpr)
 def compile_compositeexpr(compile, expr, state):
-    state.push('callers')
-    state.callers.pop(0)  # pop CompositeExpr from caller's stack to correct render of aliases.
     compile_exprlist(compile, expr, state)
-    state.pop()
 
 
 class Param(Expr):
