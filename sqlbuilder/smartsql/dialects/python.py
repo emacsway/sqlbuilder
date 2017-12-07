@@ -48,7 +48,7 @@ class Executor(object):
             if c in self._registry:
                 return self._registry[c](self, expr, state)
         else:
-            raise Error("Unknown compiler for {0}".format(cls))
+            raise Error("Unknown executor for {0}".format(cls))
 
 execute = Executor()
 
