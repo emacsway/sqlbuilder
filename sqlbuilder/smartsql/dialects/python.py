@@ -1,9 +1,15 @@
 import copy
 import weakref
 from sqlbuilder.smartsql.constants import CONTEXT
+from sqlbuilder.smartsql.exceptions import Error
+from sqlbuilder.smartsql.compiler import compile
+from sqlbuilder.smartsql.fields import Field
+
+__all__ = ('Executor', 'State', )
 
 
 class Executor(object):
+    compile = compile
 
     def __init__(self, parent=None):
         self._children = weakref.WeakKeyDictionary()
@@ -33,14 +39,21 @@ class Executor(object):
         for child in self._children:
             child._update_cache()
 
-
     def __call__(self, expr, state=None):
-        pass
+        cls = expr.__class__
+        for c in cls.__mro__:
+            if c in self._registry:
+                return self._registry[c](self, expr, state)
+        else:
+            raise Error("Unknown compiler for {0}".format(cls))
+
+execute = Executor()
 
 
 class State(object):
 
     def __init__(self):
+        self.data = {}
         self._stack = []
         self.auto_tables = []
         self.join_tables = []
@@ -56,3 +69,8 @@ class State(object):
 
     def pop(self):
         setattr(self, *self._stack.pop(-1))
+
+
+@execute.when(Field)
+def execute_field(execute, expr, state):
+    return state.data[execute.compile(expr)[0]]
