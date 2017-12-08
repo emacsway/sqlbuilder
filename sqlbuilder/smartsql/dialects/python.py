@@ -1,11 +1,34 @@
 import copy
+import operator
 import weakref
-from sqlbuilder.smartsql.constants import CONTEXT
+from sqlbuilder.smartsql.constants import CONTEXT, OPERATOR
+from sqlbuilder.smartsql.expressions import Param
 from sqlbuilder.smartsql.exceptions import Error
 from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.fields import Field
+from sqlbuilder.smartsql.operators import Binary
 
 __all__ = ('Executor', 'State', )
+
+
+OPERATOR_MAPPING = {
+    OPERATOR.ADD: operator.add,
+    OPERATOR.SUB: operator.sub,
+    OPERATOR.MUL: operator.mul,
+    OPERATOR.DIV: operator.truediv,
+    OPERATOR.GT: operator.gt,
+    OPERATOR.LT: operator.lt,
+    OPERATOR.GE: operator.ge,
+    OPERATOR.LE: operator.le,
+    OPERATOR.AND: operator.and_,
+    OPERATOR.OR: operator.or_,
+    OPERATOR.EQ: operator.eq,
+    OPERATOR.NE: operator.ne,
+    OPERATOR.IS: operator.is_,
+    OPERATOR.IS_NOT: operator.is_not,
+    OPERATOR.RSHIFT: operator.rshift,
+    OPERATOR.LSHIFT: operator.lshift,
+}
 
 
 class Executor(object):
@@ -74,6 +97,21 @@ class State(object):
         setattr(self, *self._stack.pop(-1))
 
 
+@execute.when(object)
+def execute_python_builtin(execute, expr, state):
+    return expr
+
+
 @execute.when(Field)
 def execute_field(execute, expr, state):
     return state.row[execute.get_row_key(expr)]
+
+
+@execute.when(Param)
+def execute_field(execute, expr, state):
+    return expr.params
+
+
+@execute.when(Binary)
+def execute_field(execute, expr, state):
+    return OPERATOR_MAPPING[expr.sql](execute(expr.left), execute(expr.right))

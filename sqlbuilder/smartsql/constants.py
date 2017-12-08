@@ -16,6 +16,7 @@ class CONTEXT:
     EXPR = 'EXPR'
     SELECT = 'SELECT'
 
+
 class OPERATOR:
     ADD = '+'
     SUB = '-'

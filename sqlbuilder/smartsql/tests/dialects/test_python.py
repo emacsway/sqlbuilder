@@ -83,3 +83,55 @@ class TestExecutor(TestCase):
         self.assertEqual(first_name, 'Ivan')
         last_name = python.execute(author_mapper.sql_table.f.last_name, state)
         self.assertEqual(last_name, 'Zakrevsky')
+
+    def test_add(self):
+        self.assertEqual(python.execute(smartsql.Param(2) + 3, python.State()), 5)
+        self.assertNotEqual(python.execute(smartsql.Param(2) + 3, python.State()), 6)
+
+    def test_sub(self):
+        self.assertEqual(python.execute(smartsql.Param(5) - 2, python.State()), 3)
+        self.assertNotEqual(python.execute(smartsql.Param(5) - 2, python.State()), 4)
+
+    def test_mul(self):
+        self.assertEqual(python.execute(smartsql.Param(3) * 2, python.State()), 6)
+        self.assertNotEqual(python.execute(smartsql.Param(3) * 2, python.State()), 7)
+
+    def test_div(self):
+        self.assertAlmostEqual(python.execute(smartsql.Param(5.0) / 2, python.State()), 2.5)
+        self.assertNotAlmostEquals(python.execute(smartsql.Param(5.0) / 2, python.State()), 3)
+
+    def test_gt(self):
+        self.assertTrue(python.execute(smartsql.Param(3) > 2, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(2) > 3, python.State()))
+
+    def test_ge(self):
+        self.assertTrue(python.execute(smartsql.Param(3) >= 2, python.State()))
+        self.assertTrue(python.execute(smartsql.Param(3) >= 3, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(2) >= 3, python.State()))
+
+    def test_lt(self):
+        self.assertTrue(python.execute(smartsql.Param(2) < 3, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(3) < 2, python.State()))
+
+    def test_le(self):
+        self.assertTrue(python.execute(smartsql.Param(2) <= 3, python.State()))
+        self.assertTrue(python.execute(smartsql.Param(2) <= 3, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(3) <= 2, python.State()))
+
+    def test_eq(self):
+        self.assertTrue(python.execute(smartsql.Param(3) == 3, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(3) == 2, python.State()))
+
+    def test_ne(self):
+        self.assertTrue(python.execute(smartsql.Param(3) != 2, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(3) != 3, python.State()))
+
+    def test_and(self):
+        self.assertTrue(python.execute(smartsql.Param(True) & True, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(True) & False, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(False) & False, python.State()))
+
+    def test_or(self):
+        self.assertTrue(python.execute(smartsql.Param(True) | False, python.State()))
+        self.assertTrue(python.execute(smartsql.Param(True) | True, python.State()))
+        self.assertFalse(python.execute(smartsql.Param(False) | False, python.State()))
