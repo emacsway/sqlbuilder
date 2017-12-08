@@ -91,13 +91,15 @@ class Table(MetaTable("NewBase", (object, ), {})):
     # Add __call__() method to Field/Alias
     # Use sys._getframe(), compiler.visitor.ASTVisitor or tokenize.generate_tokens() to get context for Table.__getattr__()
 
-    __slots__ = ('_name', '__cached__', 'f', '_fields', '__factory__')
+    __slots__ = ('_name', '_parent', '__cached__', 'f', '_fields', '__factory__')
 
-    def __init__(self, name, *fields, **kwargs):
+    # "fields" should be the single argument,
+    # see the "q" argument of django_sqlbuilder.models.Table for more info.
+    def __init__(self, name, fields=(), parent=None):
         if isinstance(name, string_types):
             name = Name(name)
         self._name = name
-        # self._parent = kwargs.get('parent')
+        self._parent = parent
         self.__cached__ = {}
         self.f = FieldProxy(self)
         self._fields = collections.OrderedDict()
@@ -191,11 +193,11 @@ class TableAlias(Table):
 
     __slots__ = ('_table',)
 
-    def __init__(self, table, name, *fields):
+    def __init__(self, table, name, fields=()):
         if isinstance(table, string_types):
-            warn('TableAlias(name, table, *fields)', 'TableAlias(table, name, *fields)')
+            warn('TableAlias(name, table, fields)', 'TableAlias(table, name, fields)')
             table, name = name, table
-        Table.__init__(self, name, *fields)
+        Table.__init__(self, name, fields)
         self._table = table
         if not fields and isinstance(table, Table):
             for f in table._fields.values():

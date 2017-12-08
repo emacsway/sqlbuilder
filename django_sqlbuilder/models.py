@@ -197,7 +197,7 @@ class Table(smartsql.Table):
 class TableAlias(smartsql.TableAlias, Table):
     @property
     def _model(self):
-        return getattr(self._table, '_model', None)  # Can be subquery
+        return getattr(self._table, '_model', None)  # self._table can be a subquery
 
 
 def get_all_field_names(opts):

@@ -80,9 +80,11 @@ def compile_field(compile, expr, state):
 
 class Subfield(Expr):
 
-    __slots__ = ('name', 'parent')
+    __slots__ = ('parent', 'name', )
 
-    def __init__(self, name, parent, datatype=None):
+    # TODO: Should we have here the same order of arguments as Alias, TaleAlias or the same as Field?
+    # This variant Subfield(T.author.address, street) looks better than Subfield(street, T.author.address)
+    def __init__(self, parent, name, datatype=None):
         Operable.__init__(self, datatype)
         self.parent = parent
         if isinstance(name, string_types):
