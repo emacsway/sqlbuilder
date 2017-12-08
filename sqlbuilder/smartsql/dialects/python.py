@@ -81,6 +81,8 @@ class State(object):
     def __init__(self):
         # For join we simple add joined objects to the row
         self.row = {}
+        # for joins, yields single row per single object in the collection
+        self.rows_iterable = ()
         self._stack = []
         self.auto_tables = []
         self.join_tables = []
