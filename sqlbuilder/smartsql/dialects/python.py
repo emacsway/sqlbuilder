@@ -79,6 +79,7 @@ execute = Executor()
 class State(object):
 
     def __init__(self):
+        # For join we simple add joined objects to the row
         self.row = {}
         self._stack = []
         self.auto_tables = []
