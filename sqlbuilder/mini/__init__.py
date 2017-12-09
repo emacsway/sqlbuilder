@@ -531,7 +531,7 @@ compile.add_reserved_words(
     """.split() + ['order by', 'group by']
 )
 
-# TODO: Should "SET" to be list word?
+# TODO: Should "SET" to be list words?
 compile.add_list_words(
     """
     group insert order select values

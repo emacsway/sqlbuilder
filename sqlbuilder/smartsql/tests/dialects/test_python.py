@@ -67,13 +67,16 @@ author_mapper = Mapper(Author, 'author', (
 ))
 
 
-class TestExecutor(TestCase):
+class TestMapper(TestCase):
 
     def test_mapper(self):
         obj = Author('Ivan', 'Zakrevsky')
         data = author_mapper.get_sql_values(obj)
         self.assertEqual(data['"author"."first_name"'], 'Ivan')
         self.assertEqual(data['"author"."last_name"'], 'Zakrevsky')
+
+
+class TestField(TestCase):
 
     def test_field(self):
         obj = Author('Ivan', 'Zakrevsky')
@@ -83,6 +86,9 @@ class TestExecutor(TestCase):
         self.assertEqual(first_name, 'Ivan')
         last_name = python.execute(author_mapper.sql_table.f.last_name, state)
         self.assertEqual(last_name, 'Zakrevsky')
+
+
+class TestBinary(TestCase):
 
     def test_add(self):
         self.assertEqual(python.execute(smartsql.Param(2) + 3, python.State()), 5)
@@ -135,3 +141,23 @@ class TestExecutor(TestCase):
         self.assertTrue(python.execute(smartsql.Param(True) | False, python.State()))
         self.assertTrue(python.execute(smartsql.Param(True) | True, python.State()))
         self.assertFalse(python.execute(smartsql.Param(False) | False, python.State()))
+
+    def test_is(self):
+        obj1 = object()
+        obj2 = object()
+        self.assertTrue(python.execute(smartsql.Param(obj1).is_(obj1), python.State()))
+        self.assertFalse(python.execute(smartsql.Param(obj1).is_(obj2), python.State()))
+
+    def test_is_not(self):
+        obj1 = object()
+        obj2 = object()
+        self.assertTrue(python.execute(smartsql.Param(obj1).is_not(obj2), python.State()))
+        self.assertFalse(python.execute(smartsql.Param(obj1).is_not(obj1), python.State()))
+
+    def test_lshift(self):
+        self.assertEqual(python.execute(smartsql.Param(2) << 1, python.State()), 4)
+        self.assertNotEqual(python.execute(smartsql.Param(2) << 1, python.State()), 5)
+
+    def test_rshift(self):
+        self.assertEqual(python.execute(smartsql.Param(4) >> 1, python.State()), 2)
+        self.assertNotEqual(python.execute(smartsql.Param(4) >> 1, python.State()), 3)
