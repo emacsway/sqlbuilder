@@ -84,7 +84,8 @@ class State(object):
         self.rows_factory = lambda table: ()  # for joins
         self._stack = []
         self.auto_tables = []
-        self.join_tables = []
+        self.auto_join_tables = []
+        self.joined_table_statements = set()
         self.context = CONTEXT.QUERY
 
     def push(self, attr, new_value=None):

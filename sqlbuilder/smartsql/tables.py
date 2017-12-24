@@ -194,6 +194,7 @@ class TableAlias(Table):
     __slots__ = ('_table',)
 
     def __init__(self, table, name, fields=()):
+        # We neet to have possibility accept fields in constructor because the "table" arg can be a query.
         if isinstance(table, string_types):
             warn('TableAlias(name, table, fields)', 'TableAlias(table, name, fields)')
             table, name = name, table
@@ -209,8 +210,6 @@ class TableAlias(Table):
 
 @compile.when(TableAlias)
 def compile_tablealias(compile, expr, state):
-    # TODO: Do we really need CONTEXT.FIELD here?
-    # https://bitbucket.org/emacsway/sqlbuilder/issues/25/build-query-without-a-from-clause#comment-41708998
     if expr._table is not None and state.context == CONTEXT.TABLE:
         compile(expr._table, state)
         state.sql.append(' AS ')

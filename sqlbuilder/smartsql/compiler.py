@@ -107,7 +107,8 @@ class State(object):
         self.params = []
         self._stack = []
         self.auto_tables = []
-        self.join_tables = []
+        self.auto_join_tables = []
+        self.joined_table_statements = set()
         self.context = CONTEXT.QUERY
         self.precedence = 0
 

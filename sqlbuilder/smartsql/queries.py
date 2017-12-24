@@ -336,12 +336,15 @@ def compile_query(compile, expr, state):
         state.sql.append(" FOR UPDATE")
 
     if expr.tables():
-        state.push('join_tables', [])
+        state.push('joined_table_statements', set())
         state.push('sql', [])
         state.push('params', [])
         state.context = CONTEXT.TABLE
         state.sql.append(" FROM ")
-        compile(expr.tables(), state)
+        tables = expr.tables()
+        for join in state.auto_join_tables:
+            tables = join.left(tables)
+        compile(tables, state)
         tables_sql = state.sql
         tables_params = state.params
         state.pop()
