@@ -8,7 +8,7 @@ from sqlbuilder.smartsql.compiler import compile
 from sqlbuilder.smartsql.fields import Field
 from sqlbuilder.smartsql.operators import Binary
 
-__all__ = ('Executor', 'State', )
+__all__ = ('Executor', 'State', 'execute')
 
 
 OPERATOR_MAPPING = {
