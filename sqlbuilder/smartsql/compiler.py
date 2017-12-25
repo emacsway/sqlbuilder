@@ -137,4 +137,16 @@ def cached_compile(f):
         state.sql.append(expr.__cached__[cache_key])
     return deco
 
+
+def querify(compile, expr, state):
+    state.push('sql', [])
+    state.push('params', [])
+    compile(expr, state)
+    try:
+        return (state.sql, state.params)
+    finally:
+        state.pop()
+        state.pop()
+
+
 compile = Compiler()
