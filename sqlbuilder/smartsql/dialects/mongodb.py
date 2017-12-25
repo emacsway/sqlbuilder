@@ -165,4 +165,3 @@ def compile_field(compile, expr, state):
     result['$collectionName'] = state.collection_name
     state.pop()
     return result
-
