@@ -117,4 +117,4 @@ def execute_field(execute, expr, state):
 
 @execute.when(Binary)
 def execute_field(execute, expr, state):
-    return OPERATOR_MAPPING[expr.sql](execute(expr.left), execute(expr.right))
+    return OPERATOR_MAPPING[expr.sql](execute(expr.left, state), execute(expr.right, state))
