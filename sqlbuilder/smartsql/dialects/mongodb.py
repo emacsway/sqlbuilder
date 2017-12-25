@@ -115,7 +115,11 @@ def compile_field(compile, expr, state):
 @compile.when(Table)
 def compile_field(compile, expr, state):
     if not expr._parent:
-        state.collection_name = compile(expr._name, state)
+        collection_name = compile(expr._name, state)
+        if state.collection_name is not None:
+            assert state.collection_name == collection_name, "Different collections inside query"
+        else:
+            state.collection_name = collection_name
         return ''
     else:
         return compile(expr._name, state)
